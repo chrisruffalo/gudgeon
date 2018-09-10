@@ -1,0 +1,6 @@
+# go files
+go.sum
+
+# output
+target
+build
