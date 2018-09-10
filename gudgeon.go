@@ -15,16 +15,19 @@ func main() {
 	// load command options
 	opts, err := config.Options(LongVersion)
 	if err != nil {
-		fmt.Printf("Error parsing command options: %s", err)
+		fmt.Printf("%s\n", err)
 		os.Exit(1)
 	}
 
 	// load config
 	config, cErr := config.Load(string(opts.AppOptions.ConfigPath))
 	if cErr != nil {
-		fmt.Printf("Error loading configuration file: %s", cErr)
+		fmt.Printf("%s\n", cErr)
 		os.Exit(1)
 	}
+
+	// debug print config
+	fmt.Printf("Config:\n%s\n", config)
 
 	// start engine with config options
 }
