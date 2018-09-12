@@ -4,6 +4,7 @@ import (
     "fmt"
     "os"
     "github.com/chrisruffalo/gudgeon/config"
+    "github.com/chrisruffalo/gudgeon/engine"
 )
 
 // pick up version from build process
@@ -27,7 +28,14 @@ func main() {
 	}
 
 	// debug print config
-	fmt.Printf("Config:\n%s\n", config)
+	//fmt.Printf("Config:\n%s\n", config)
 
-	// start engine with config options
+	// prepare engine with config options
+	engine, enginePrepErr := engine.Prepare(config)
+	if enginePrepErr != nil {
+		fmt.Printf("%s\n", enginePrepErr)
+	}
+
+	// start engine
+	engine.Start()
 }

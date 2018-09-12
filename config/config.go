@@ -101,7 +101,7 @@ func Load(filename string) (GudgeonConfig, error) {
 	// if file is read then unmarshal from data
 	yErr := yaml.Unmarshal(bytes, &config)
 	if yErr != nil {
-		return config, errors.New(fmt.Sprintf("Error unmarshaling file '%s', error: ", filename, yErr))
+		return config, errors.New(fmt.Sprintf("Error unmarshaling file '%s', error: %s", filename, yErr))
 	}
 
 	// return configuration

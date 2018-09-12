@@ -1,6 +1,9 @@
 # go files
 go.sum
 
+# testing/sample directories
+.gudgeon
+
 # output
 target
 build
