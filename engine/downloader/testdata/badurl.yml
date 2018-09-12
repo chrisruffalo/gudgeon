@@ -1,0 +1,3 @@
+---
+- name: badurl
+  url: http://google.com/thisdoesnotexist

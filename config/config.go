@@ -21,9 +21,6 @@ type GudgeonNetwork struct {
 type GudgeonPaths struct {
 	// cache: path to the cache directory used by gudgeon as a temp/working store
 	Cache string `yaml:"cache"`
-	// database: path to the location of the database that is used as a storage/filter mechanism for 
-	// different types of list data
-	Database string `yaml:"database"`
 }
 
 // blocklists, blacklists, whitelists: different types of lists for domains that gudgeon will evaluate
@@ -32,6 +29,15 @@ type GudgeonList struct {
 	Name string `yaml:"name"`
 	// the path to the list, remote paths will be downloaded if possible
 	Path string `yaml:"path"`
+	// the tags that relate to the list for tag filtering/processing
+	Tags []string `yaml:"tags"`
+}
+
+type GudgeonRemoteList struct {
+	// the name of the list (also automatically used as a tag)
+	Name string `yaml:"name"`
+	// the path to the list, remote paths will be downloaded if possible
+	URL string `yaml:"url"`
 	// the tags that relate to the list for tag filtering/processing
 	Tags []string `yaml:"tags"`
 }
@@ -80,7 +86,7 @@ type GudgeonConfig struct {
 
 	Whitelists []GudgeonList `yaml:"whitelists"`
 
-	Blocklists []GudgeonList `yaml:"blocklists"`
+	Blocklists []GudgeonRemoteList `yaml:"blocklists"`
 
 	Groups []GudgeonGroup `yaml:"groups"`
 

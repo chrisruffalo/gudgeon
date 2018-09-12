@@ -2,7 +2,6 @@ module github.com/chrisruffalo/gudgeon
 
 require (
 	github.com/jessevdk/go-flags v1.4.0
-	github.com/mattn/go-sqlite3 v1.9.0
 	github.com/miekg/dns v1.0.8
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 // indirect
 	github.com/willf/bitset v1.1.9 // indirect

@@ -1,0 +1,4 @@
+---
+blocklists:
+- name: badfile
+  url: file:///tmp/doesnotexist

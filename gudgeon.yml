@@ -12,10 +12,6 @@ paths:
   # this is where gudgeon will write non-database data
   # this data is volatile and can (and will) be deleted often
   cache: ./.gudgeon/cache
-  # the path to the working gudgeon database. this data is
-  # overwritten when new lists are downloaded/compiled but
-  # should not be modified directly
-  database: ./.gudgeon/gudgeon.db
 
 # lists that contain explicitly allowed domains
 # either by name, with wildcards, or by regex
@@ -49,25 +45,25 @@ blacklists:
 # these are generally remotely or group-maintained
 blocklists:
 - name: stevenblack
-  path: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+  url: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
   tags:
   - ads
 - name: malwaredomains
-  path: https://mirror1.malwaredomains.com/files/justdomains
+  url: https://mirror1.malwaredomains.com/files/justdomains
   tags:
   - malware
 - name: cameleon
-  path: http://sysctl.org/cameleon/hosts
+  url: http://sysctl.org/cameleon/hosts
   tags:
   - ads
   - malware
 - name: malvertising
-  path: https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt
+  url: https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt
   tags:
   - malicious
 # the privacy list has no tags so can only be matched explicitly
 - name: privacy
-  path: https://v.firebog.net/hosts/Easyprivacy.txt
+  url: https://v.firebog.net/hosts/Easyprivacy.txt
 
 # these are groups that tie hosts to the specific set of blocklists
 # that they are supposed to use
