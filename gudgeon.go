@@ -21,9 +21,9 @@ func main() {
 	}
 
 	// load config
-	config, cErr := config.Load(string(opts.AppOptions.ConfigPath))
-	if cErr != nil {
-		fmt.Printf("%s\n", cErr)
+	config, err := config.Load(string(opts.AppOptions.ConfigPath))
+	if err != nil {
+		fmt.Printf("%s\n", err)
 		os.Exit(1)
 	}
 
@@ -31,9 +31,9 @@ func main() {
 	//fmt.Printf("Config:\n%s\n", config)
 
 	// prepare engine with config options
-	engine, enginePrepErr := engine.Prepare(config)
-	if enginePrepErr != nil {
-		fmt.Printf("%s\n", enginePrepErr)
+	engine, err := engine.New(config)
+	if err != nil {
+		fmt.Printf("%s\n", err)
 	}
 
 	// start engine

@@ -3,13 +3,29 @@ package downloader
 import (
 	"os"
 	"net/http"
-	"path"
 	"bufio"
 	"github.com/chrisruffalo/gudgeon/config"
 )
 
-func downloadFile(path string, url string) (uint64, error) {
-	lines := uint64(0)
+func downloadFile(path string, url string) (uint, error) {
+	lines := uint(0)
+
+	// if the file exists already then it might be used during the
+	// download process so we need to move it
+	if _, err := os.Stat(path); err == nil {
+		// download file to temp location
+		inactivePath := path + "_inactive"
+		lines, err := downloadFile(inactivePath, url)
+		if err != nil {
+			return 0, err
+		}
+
+		// move file over existing file when done
+		os.Rename(inactivePath, path)	
+
+		// complete action
+		return lines, nil
+	}
 
 	out, err := os.Create(path)
 	if err != nil {
@@ -33,28 +49,34 @@ func downloadFile(path string, url string) (uint64, error) {
     return lines, nil
 }
 
-func Download(cachePath string, lists []config.GudgeonRemoteList) (uint64, error) {
+func Download(config *config.GudgeonConfig, list config.GudgeonRemoteList) (uint, error) {
+	// create on-disk name of list
+	path := config.PathToList(list)
+
+	// get rul of list
+	url := list.URL
+
+	// get written lines
+	written, err := downloadFile(path, url)
+	if err != nil {
+		return 0, err
+	}
+
+	return written, nil
+}
+
+func DownloadAll(config *config.GudgeonConfig) (uint, error) {
 	// size of bytes copied
-	lines := uint64(0)
+	lines := uint(0)
 
 	// go through lists
-	for _, list := range lists {
-
-		// create on-disk name of list
-		name := list.Name
-		path := path.Join(cachePath, name + ".list")
-
-		// get rul of list
-		url := list.URL
-
-		// get written lines
-		written, err := downloadFile(path, url)
+	for _, list := range config.Blocklists {
+		written, err := Download(config, list)
 		if err != nil {
 			return lines, err
 		}
-		lines += written 
+		lines += written
 	}
-
 
 	return lines, nil
 }

@@ -4,6 +4,8 @@ import (
     "errors"
 	"fmt"
 	"io/ioutil"
+	"path"
+
 	"gopkg.in/yaml.v2"
 )
 
@@ -24,22 +26,26 @@ type GudgeonPaths struct {
 }
 
 // blocklists, blacklists, whitelists: different types of lists for domains that gudgeon will evaluate
-type GudgeonList struct {
+type GudgeonList interface {
+	path(cachePath string) string
+}
+
+type GudgeonLocalList struct {
 	// the name of the list (also automatically used as a tag)
 	Name string `yaml:"name"`
-	// the path to the list, remote paths will be downloaded if possible
-	Path string `yaml:"path"`
 	// the tags that relate to the list for tag filtering/processing
 	Tags []string `yaml:"tags"`
+	// the path to the list, remote paths will be downloaded if possible
+	Path string `yaml:"path"`
 }
 
 type GudgeonRemoteList struct {
 	// the name of the list (also automatically used as a tag)
 	Name string `yaml:"name"`
-	// the path to the list, remote paths will be downloaded if possible
-	URL string `yaml:"url"`
 	// the tags that relate to the list for tag filtering/processing
 	Tags []string `yaml:"tags"`
+	// the path to the list, remote paths will be downloaded if possible
+	URL string `yaml:"url"`
 }
 
 // groups: ties end-users (consumers) to various lists.
@@ -82,9 +88,9 @@ type GudgeonConfig struct {
 
 	Paths GudgeonPaths `yaml:"paths"`
 
-	Blacklists []GudgeonList `yaml:"blacklists"`
+	Blacklists []GudgeonLocalList `yaml:"blacklists"`
 
-	Whitelists []GudgeonList `yaml:"whitelists"`
+	Whitelists []GudgeonLocalList `yaml:"whitelists"`
 
 	Blocklists []GudgeonRemoteList `yaml:"blocklists"`
 
@@ -93,7 +99,20 @@ type GudgeonConfig struct {
 	Consumers []GundgeonConsumer `yaml:"consumers"`
 }
 
-func Load(filename string) (GudgeonConfig, error) {
+func (list GudgeonRemoteList) path(cachePath string) string {
+	name := list.Name
+	return path.Join(cachePath, name + ".list")
+}
+
+func (list GudgeonLocalList) path(cachePath string) string {
+	return list.Path
+}
+
+func (config *GudgeonConfig) PathToList(list GudgeonList) string {
+	return list.path(config.Paths.Cache)
+}
+
+func Load(filename string) (*GudgeonConfig, error) {
 	// config
 	var config GudgeonConfig
 	// load bytes from filename
@@ -101,15 +120,15 @@ func Load(filename string) (GudgeonConfig, error) {
 
 	// return nil config object without config file so that
 	if err != nil {
-		return config, errors.New(fmt.Sprintf("Could not load file '%s', error: %s", filename, err))
+		return &config, errors.New(fmt.Sprintf("Could not load file '%s', error: %s", filename, err))
 	}
 
 	// if file is read then unmarshal from data
 	yErr := yaml.Unmarshal(bytes, &config)
 	if yErr != nil {
-		return config, errors.New(fmt.Sprintf("Error unmarshaling file '%s', error: %s", filename, yErr))
+		return &config, errors.New(fmt.Sprintf("Error unmarshaling file '%s', error: %s", filename, yErr))
 	}
 
 	// return configuration
-	return config, nil
+	return &config, nil
 }
