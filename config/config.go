@@ -7,7 +7,12 @@ import (
 	"path"
 
 	"gopkg.in/yaml.v2"
+
+	"github.com/chrisruffalo/gudgeon/util"
 )
+
+var	remoteProtocols = []string{"http:", "https:"}
+
 
 // network: general dns network configuration
 type GudgeonNetwork struct {
@@ -26,26 +31,13 @@ type GudgeonPaths struct {
 }
 
 // blocklists, blacklists, whitelists: different types of lists for domains that gudgeon will evaluate
-type GudgeonList interface {
-	path(cachePath string) string
-}
-
-type GudgeonLocalList struct {
+type GudgeonList struct {
 	// the name of the list (also automatically used as a tag)
 	Name string `yaml:"name"`
 	// the tags that relate to the list for tag filtering/processing
 	Tags []string `yaml:"tags"`
 	// the path to the list, remote paths will be downloaded if possible
-	Path string `yaml:"path"`
-}
-
-type GudgeonRemoteList struct {
-	// the name of the list (also automatically used as a tag)
-	Name string `yaml:"name"`
-	// the tags that relate to the list for tag filtering/processing
-	Tags []string `yaml:"tags"`
-	// the path to the list, remote paths will be downloaded if possible
-	URL string `yaml:"url"`
+	Source string `yaml:"src"`
 }
 
 // groups: ties end-users (consumers) to various lists.
@@ -72,43 +64,46 @@ type GudgeonMatchRange struct {
 
 type GudgeonMatch struct {
 	IP string `yaml:"ip"`
-	Range GudgeonMatchRange `yaml:"range"`
+	Range *GudgeonMatchRange `yaml:"range"`
 	Net string `yaml:"net"`
 }
 
 type GundgeonConsumer struct {
 	Name string `yaml:"name"`
 	Groups []string `yaml:"groups"`
-	Matches []GudgeonMatch `yaml:"matches"`
+	Matches []*GudgeonMatch `yaml:"matches"`
 }
 
 type GudgeonConfig struct {
 
-	Network GudgeonNetwork `yaml:"network"`
+	Network *GudgeonNetwork `yaml:"network"`
 
-	Paths GudgeonPaths `yaml:"paths"`
+	Paths *GudgeonPaths `yaml:"paths"`
 
-	Blacklists []GudgeonLocalList `yaml:"blacklists"`
+	Blacklists []*GudgeonList `yaml:"blacklists"`
 
-	Whitelists []GudgeonLocalList `yaml:"whitelists"`
+	Whitelists []*GudgeonList `yaml:"whitelists"`
 
-	Blocklists []GudgeonRemoteList `yaml:"blocklists"`
+	Blocklists []*GudgeonList `yaml:"blocklists"`
 
-	Groups []GudgeonGroup `yaml:"groups"`
+	Groups []*GudgeonGroup `yaml:"groups"`
 
-	Consumers []GundgeonConsumer `yaml:"consumers"`
+	Consumers []*GundgeonConsumer `yaml:"consumers"`
 }
 
-func (list GudgeonRemoteList) path(cachePath string) string {
-	name := list.Name
-	return path.Join(cachePath, name + ".list")
+func (list * GudgeonList) IsRemote() bool {
+	return list != nil &&  "" != list.Source && util.StartsWithAny(list.Source, remoteProtocols)
 }
 
-func (list GudgeonLocalList) path(cachePath string) string {
-	return list.Path
+func (list *GudgeonList) path(cachePath string) string {
+	source := list.Source
+	if list.IsRemote() {
+		return path.Join(cachePath, list.Name + ".list")
+	}
+	return source
 }
 
-func (config *GudgeonConfig) PathToList(list GudgeonList) string {
+func (config *GudgeonConfig) PathToList(list *GudgeonList) string {
 	return list.path(config.Paths.Cache)
 }
 
