@@ -78,17 +78,14 @@ groups:
   - ads
   - malware
 # here we define an extra group for use by specific users/machines that provides
-# extra protection against malicious domains. note that first settings are 
-# inherited from the 'default' group. It also explicitly adds the 'privacy' list by name as
+# extra protection against malicious domains.  it explicitly adds the 'privacy' list by name as
 # well as the 'nouser' blacklist.
 - name: users
-  inherit: 
-  - default
   blacklists:
   - nouser
   blocklists:
   - privacy
-  tags: 
+  tags:
   - malicious
 # here we define an open group. this would be useful for machines that need
 # broader domain access or that have issues with false-positives.
@@ -99,8 +96,10 @@ groups:
 consumers:
 # the endusers group maps a few IPs (explicitly and by range) to the 
 # users group which blocks certain categories of DNS domains.
+# (and the default group)
 - name: endusers
   groups:
+  - default
   - users
   matches:
   # explicit ip match
@@ -109,10 +108,11 @@ consumers:
   - range: 
       from: 10.0.0.35
       to: 10.0.0.45
-# the openmachines group maps to the open group and does so for the
+# the openmachines group maps to the open (and default) group and does so for the
 # entire 10.0.2.0/24 subnet.
 - name: openmachines
   groups:
+  - default
   - open
   matches:
   # subnet match

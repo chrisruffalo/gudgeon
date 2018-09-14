@@ -1,6 +1,6 @@
 package engine
 
-func IsRuleSpecial(rule string) bool {
+func IsComplexRule(rule string) bool {
 	return false
 }
 

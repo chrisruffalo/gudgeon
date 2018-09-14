@@ -89,7 +89,11 @@ func createBloomFilter(config *config.GudgeonConfig, lists []*config.GudgeonList
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
-			filter.AddString(scanner.Text())
+			text := scanner.Text()
+			// only add to bloom filter if rule is not complex (ie: straight block)
+			if !IsComplexRule(text) {
+				filter.AddString(scanner.Text())	
+			}				
 		}
 	}
 
