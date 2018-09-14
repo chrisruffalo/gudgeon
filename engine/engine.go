@@ -22,6 +22,10 @@ type activeGroup struct {
 	blackFilter *bloom.BloomFilter
 	blockFilter *bloom.BloomFilter
 
+	specialWhitelistRules []string
+	specialBlacklistRules []string
+	specialBlocklistRules []string
+
 	whitelists []*config.GudgeonList
 	blacklists []*config.GudgeonList
 	blocklists []*config.GudgeonList
@@ -66,7 +70,7 @@ func shouldAssignList(listNames []string, listTags []string, lists []*config.Gud
 	return should
 }
 
-func createBloomFilter(config *config.GudgeonConfig, lists []*config.GudgeonList) *bloom.BloomFilter {
+func filterAndSeparateRules(config *config.GudgeonConfig, lists []*config.GudgeonList) (*bloom.BloomFilter, []string) {
 	// count lines
 	totalLines := uint(0)
 	for _, list := range lists {
@@ -80,6 +84,9 @@ func createBloomFilter(config *config.GudgeonConfig, lists []*config.GudgeonList
 	// create filter with acceptable error
 	filter := bloom.NewWithEstimates(totalLines, bloomFilterAcceptableError)
 
+	// special rules
+	special := []string{}
+
 	// load lines
 	for _, list := range lists {
 		reader, err := os.Open(config.PathToList(list))
@@ -89,15 +96,22 @@ func createBloomFilter(config *config.GudgeonConfig, lists []*config.GudgeonList
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
-			text := scanner.Text()
+			// parse out rule
+			text := ParseRule(scanner.Text())
+			if "" == text {
+				continue
+			}
+
 			// only add to bloom filter if rule is not complex (ie: straight block)
 			if !IsComplexRule(text) {
-				filter.AddString(scanner.Text())	
-			}				
+				filter.AddString(text)	
+			} else {
+				special = append(special, text)
+			}
 		}
 	}
 
-	return filter
+	return filter, special
 }
 
 func New(conf *config.GudgeonConfig) (Engine, error) {
@@ -174,9 +188,9 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		activeGroup.blocklists = shouldAssignList(group.Blocklists, group.Tags, conf.Blocklists)
 
 		// populate bloom filters as needed
-		activeGroup.whiteFilter = createBloomFilter(conf, activeGroup.whitelists)
-		activeGroup.blackFilter = createBloomFilter(conf, activeGroup.blacklists)
-		activeGroup.blockFilter = createBloomFilter(conf, activeGroup.blocklists)
+		activeGroup.whiteFilter, activeGroup.specialWhitelistRules = filterAndSeparateRules(conf, activeGroup.whitelists)
+		activeGroup.blackFilter, activeGroup.specialBlacklistRules = filterAndSeparateRules(conf, activeGroup.blacklists)
+		activeGroup.blockFilter, activeGroup.specialBlocklistRules = filterAndSeparateRules(conf, activeGroup.blocklists)
 
 		// set active group to list of active groups
 		activeGroups[index] = activeGroup
@@ -213,26 +227,65 @@ func (engine *engine) consumerGroups(consumer string) []*activeGroup {
 	return []*activeGroup{engine.defaultGroup}
 }
 
-func (engine *engine) IsDomainBlocked(consumer string, domain string) bool {
+func (engine *engine) domainInLists(domain string, filter *bloom.BloomFilter, lists []*config.GudgeonList) bool {
+	// if it is in the bloom filter confirm that it is in the file which covers
+	// the case of false positivies
+	if filter.TestString(domain) {
+		// go through each list
+		for _, list := range lists {
+			reader, err := os.Open(engine.config.PathToList(list))
+			if err != nil {
+				continue
+			}
 
+			scanner := bufio.NewScanner(reader)
+			for scanner.Scan() {
+				text := ParseRule(scanner.Text())
+				if "" == text {
+					continue
+				}
+
+				// if one rule is matched, return true
+				if MatchesRule(domain, text) {
+					return true
+				}
+			}
+		}
+	} 
+
+	// if nothing is found return false
+	return false
+}
+
+func (engine *engine) IsDomainBlocked(consumer string, domain string) bool {
 	// get group from conumer string, most likely by converting it to
 	// an IP address and then comparing against the items in the consumers list
 	// possibly caching the result for later
+	groups := engine.consumerGroups(consumer)
 
-	// process all group WHITElists
+	// for each group
+	for _, group := range groups {
+		// process all WHITElists
+		if engine.domainInLists(domain, group.whiteFilter, group.whitelists) {
+			return false // not blocked if found in whitelists
+		}
 
-	// process all group BLACKlists
+		// process all BLACKlists
+		if engine.domainInLists(domain, group.blackFilter, group.blacklists) {
+			return true
+		}
 
-	// query all group bloom filters
-
-	// if in a bloom filter verify against blocklists
-
-	// if nothing blocking the domain is found then 
-	// confirm the domain is not blocked
+		// process all BLOCKlists
+		if engine.domainInLists(domain, group.blockFilter, group.blocklists) {
+			return true
+		}
+	}
 	return false
 }
 
 func (engine *engine) Start() error {
-	fmt.Printf("Serving %d consumers with a total of %d explicit groups and %d lists", len(engine.consumers), len(engine.config.Groups), len(engine.config.Blacklists) + len(engine.config.Whitelists) + len(engine.config.Blocklists))
+	fmt.Printf("Serving %d consumers with a total of %d explicit groups and %d list\n", len(engine.consumers), len(engine.config.Groups), len(engine.config.Blacklists) + len(engine.config.Whitelists) + len(engine.config.Blocklists))
+	fmt.Printf("domain 'ya-googl.ws' blocked, %s\n", engine.IsDomainBlocked("", "ya-googl.ws"))
+	fmt.Printf("domain 'google.com' blocked, %s\n", engine.IsDomainBlocked("", "google.com"))
 	return nil
 }

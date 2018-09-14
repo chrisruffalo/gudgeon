@@ -60,6 +60,7 @@ blocklists:
 - name: malvertising
   src: https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt
   tags:
+  - default
   - malicious
 # the privacy list has no tags so can only be matched explicitly
 - name: privacy
