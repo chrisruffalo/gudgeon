@@ -17,3 +17,7 @@ The first is always the reason that comes up with Open Source Software: I wanted
 The other reason is that neither of those solutions will have the right feature set for me without a significant amount of tweaking. They also provide a lot more *DNS* features than Gudgeon ever will. Gudgeon aims to focus on the classification of consumers and what to allow, block, or redirect based on that classification. It does not aim to provide a completely comprehensive DNS proxy.
 
 Finally I want something that is a little more self-contained and easier to deploy. In the end I expect Gudgeon to be a small container-based solution or a single deployable binary with minimal configuration required.
+
+## Building
+
+All you need to do to build Gudgeon is `[user@host]$ make` and the output binary will be `build/gudgeon` statically compiled for the platform you built it on. The binary is statically compiled to make it easily portable to platforms and other systems that have Golang compilers.

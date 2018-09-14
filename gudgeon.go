@@ -12,7 +12,7 @@ import (
 // pick up version from build process
 var	Version = "1.0.0"
 var GitHash = ""
-var LongVersion = Version
+var LongVersion = Version + "@git" + GitHash
 
 func main() {
 	// load command options
