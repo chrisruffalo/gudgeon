@@ -20,6 +20,8 @@ const (
 )
 
 type activeGroup struct {
+	engine *engine
+
 	configGroup *config.GudgeonGroup
 	whiteFilter *bloom.BloomFilter
 	blackFilter *bloom.BloomFilter
@@ -35,6 +37,7 @@ type activeGroup struct {
 }
 
 type activeConsumer struct {
+	engine *engine
 	consumer *config.GundgeonConsumer
 	groups []*activeGroup
 }
@@ -45,6 +48,14 @@ type engine struct {
 	config *config.GudgeonConfig
 	consumers []*activeConsumer
 	defaultGroup *activeGroup
+}
+
+func (engine *engine) Root() string {
+	return path.Join(engine.config.SessionRoot(), engine.session)
+}
+
+func (engine *engine) ListPath(listType string) string {
+	return path.Join(engine.Root(), listType + ".list")
 }
 
 type Engine interface {
@@ -75,7 +86,10 @@ func shouldAssignList(listNames []string, listTags []string, lists []*config.Gud
 	return should
 }
 
-func filterAndSeparateRules(config *config.GudgeonConfig, lists []*config.GudgeonList) (*bloom.BloomFilter, []string) {
+func filterAndSeparateRules(activeGroup *activeGroup, lists []*config.GudgeonList) (*bloom.BloomFilter, []string) {
+	// get configuration from engine through group
+	config := activeGroup.engine.config
+
 	// count lines
 	totalLines := uint(0)
 	for _, list := range lists {
@@ -117,10 +131,6 @@ func filterAndSeparateRules(config *config.GudgeonConfig, lists []*config.Gudgeo
 	}
 
 	return filter, special
-}
-
-func (engine *engine) Root() string {
-	return path.Join(engine.config.SessionRoot(), engine.session)
 }
 
 func New(conf *config.GudgeonConfig) (Engine, error) {
@@ -194,6 +204,7 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	for index, group := range conf.Groups {
 		// create active group
 		activeGroup := new(activeGroup)
+		activeGroup.engine = engine
 		activeGroup.configGroup = group
 
 		// walk through lists and assign to group as needed
@@ -202,9 +213,9 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		activeGroup.blocklists = shouldAssignList(group.Blocklists, group.Tags, conf.Blocklists)
 
 		// populate bloom filters as needed
-		activeGroup.whiteFilter, activeGroup.specialWhitelistRules = filterAndSeparateRules(conf, activeGroup.whitelists)
-		activeGroup.blackFilter, activeGroup.specialBlacklistRules = filterAndSeparateRules(conf, activeGroup.blacklists)
-		activeGroup.blockFilter, activeGroup.specialBlocklistRules = filterAndSeparateRules(conf, activeGroup.blocklists)
+		activeGroup.whiteFilter, activeGroup.specialWhitelistRules = filterAndSeparateRules(activeGroup, activeGroup.whitelists)
+		activeGroup.blackFilter, activeGroup.specialBlacklistRules = filterAndSeparateRules(activeGroup, activeGroup.blacklists)
+		activeGroup.blockFilter, activeGroup.specialBlocklistRules = filterAndSeparateRules(activeGroup, activeGroup.blocklists)
 
 		// set active group to list of active groups
 		activeGroups[index] = activeGroup
@@ -220,6 +231,7 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	for index, consumer := range conf.Consumers {
 		// create an active consumer
 		activeConsumer := new(activeConsumer)
+		activeConsumer.engine = engine
 
 		// link consumer to group when the consumer's group elements contains the group name
 		for _, activeGroup := range activeGroups {
