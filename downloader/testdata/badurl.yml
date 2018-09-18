@@ -1,3 +1,4 @@
----
-- name: badurl
-  url: http://google.com/thisdoesnotexist
+gudgeon:
+  blocklists:
+  - name: badurl
+    url: http://google.com/thisdoesnotexist

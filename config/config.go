@@ -24,12 +24,6 @@ type GudgeonNetwork struct {
 	Endpoints []string `yaml:"string"`
 }
 
-// paths: gudgeon paths for filesystem stuff
-type GudgeonPaths struct {
-	// cache: path to the cache directory used by gudgeon as a temp/working store
-	Cache string `yaml:"cache"`
-}
-
 // blocklists, blacklists, whitelists: different types of lists for domains that gudgeon will evaluate
 type GudgeonList struct {
 	// the name of the list (also automatically used as a tag)
@@ -75,10 +69,9 @@ type GundgeonConsumer struct {
 }
 
 type GudgeonConfig struct {
+	Home string `yaml:"home"`
 
 	Network *GudgeonNetwork `yaml:"network"`
-
-	Paths *GudgeonPaths `yaml:"paths"`
 
 	Blacklists []*GudgeonList `yaml:"blacklists"`
 
@@ -89,6 +82,10 @@ type GudgeonConfig struct {
 	Groups []*GudgeonGroup `yaml:"groups"`
 
 	Consumers []*GundgeonConsumer `yaml:"consumers"`
+}
+
+type GudgeonRoot struct {
+	Config *GudgeonConfig `yaml:"gudgeon"`
 }
 
 func (list * GudgeonList) IsRemote() bool {
@@ -104,26 +101,35 @@ func (list *GudgeonList) path(cachePath string) string {
 }
 
 func (config *GudgeonConfig) PathToList(list *GudgeonList) string {
-	return list.path(config.Paths.Cache)
+	return list.path(config.CacheRoot())
+}
+
+func (config *GudgeonConfig) SessionRoot() string {
+	return path.Join(config.Home, "sessions")
+}
+
+func (config *GudgeonConfig) CacheRoot() string {
+	return path.Join(config.Home, "cache")
 }
 
 func Load(filename string) (*GudgeonConfig, error) {
-	// config
-	var config GudgeonConfig
+	// config from config root
+	root := new(GudgeonRoot)
+
 	// load bytes from filename
 	bytes, err := ioutil.ReadFile(filename)
 
 	// return nil config object without config file so that
 	if err != nil {
-		return &config, errors.New(fmt.Sprintf("Could not load file '%s', error: %s", filename, err))
+		return nil, errors.New(fmt.Sprintf("Could not load file '%s', error: %s", filename, err))
 	}
 
 	// if file is read then unmarshal from data
-	yErr := yaml.Unmarshal(bytes, &config)
+	yErr := yaml.Unmarshal(bytes, root)
 	if yErr != nil {
-		return &config, errors.New(fmt.Sprintf("Error unmarshaling file '%s', error: %s", filename, yErr))
+		return nil, errors.New(fmt.Sprintf("Error unmarshaling file '%s', error: %s", filename, yErr))
 	}
 
 	// return configuration
-	return &config, nil
+	return root.Config, nil
 }

@@ -1,10 +1,10 @@
----
-blocklists:
-- name: stevenblack
-  src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
-  tags:
-  - ads
-- name: malwaredomains
-  src: https://mirror1.malwaredomains.com/files/justdomains
-  tags:
-  - malware
+gudgeon:
+  blocklists:
+  - name: stevenblack
+    src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+    tags:
+    - ads
+  - name: malwaredomains
+    src: https://mirror1.malwaredomains.com/files/justdomains
+    tags:
+    - malware

@@ -1,120 +1,118 @@
-# control network options
-network:
-  # enable udp and tcp protocols
-  tcp: true
-  udp: true
-  # interfaces where dns hosting happens
-  endpoints:
-  - 0.0.0.0:53
+gudgeon:
+  # filesystem locations for gudgeon data
+  home: ./.gudgeon/
 
-# filesystem locations for gudgeon data
-paths:
-  # this is where gudgeon will write non-database data
-  # this data is volatile and can (and will) be deleted often
-  cache: ./.gudgeon/cache
+  # control network options
+  network:
+    # enable udp and tcp protocols
+    tcp: true
+    udp: true
+    # interfaces where dns hosting happens
+    endpoints:
+    - 0.0.0.0:53
 
-# lists that contain explicitly allowed domains
-# either by name, with wildcards, or by regex
-# these are locally maintained and site specific
-whitelists:
-- name: default
-  src: "./.gudgeon/whitelists/default.list"
-  tags:
-  - default
+  # lists that contain explicitly allowed domains
+  # either by name, with wildcards, or by regex
+  # these are locally maintained and site specific
+  whitelists:
+  - name: default
+    src: "./.gudgeon/whitelists/default.list"
+    tags:
+    - default
 
-# lists that contain explicitly blocked domains
-# either by name, with wildcards, or by regex
-# these are locally maintained and site specific
-# a blacklist is different from a blocklist mainly
-# in the way they are handled. blacklists are intended
-# to cover gaps in blocklists and, as a result, offer
-# things like regex and wildcard matching in order
-# to increaes flexibility. the downside is that these
-# take special/individual processing which can slow
-# down the initial dns query
-blacklists:
-- name: default
-  src: "./.gudgeon/blacklists/default.list"
-  tags:
-  - default
-
-- name: nouser
-  src: "./.gudgeon/blacklists/nouser.list"
-
-# paths or urls of lists that contain blocked domains by name
-# these are generally remotely or group-maintained
-blocklists:
-- name: stevenblack
-  src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
-  tags:
-  - ads
-- name: malwaredomains
-  src: https://mirror1.malwaredomains.com/files/justdomains
-  tags:
-  - malware
-- name: cameleon
-  src: http://sysctl.org/cameleon/hosts
-  tags:
-  - ads
-  - malware
-- name: malvertising
-  src: https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt
-  tags:
-  - default
-  - malicious
-# the privacy list has no tags so can only be matched explicitly
-- name: privacy
-  src: https://v.firebog.net/hosts/Easyprivacy.txt
-
-# these are groups that tie hosts to the specific set of blocklists
-# that they are supposed to use
-groups:
-# the group name functions as a tag match and the 'default' group is always present
-# but here we are explicitly adding 'ads' and 'malware'. These could also be added
-# by setting 'default' as one of the tags on those lists. since the default group
-# is always present it will be matched by any non-matched consumer. You cannot restrict
-# the default group by consumers.
-- name: default 
-  tags:
-  - ads
-  - malware
-# here we define an extra group for use by specific users/machines that provides
-# extra protection against malicious domains.  it explicitly adds the 'privacy' list by name as
-# well as the 'nouser' blacklist.
-- name: users
+  # lists that contain explicitly blocked domains
+  # either by name, with wildcards, or by regex
+  # these are locally maintained and site specific
+  # a blacklist is different from a blocklist mainly
+  # in the way they are handled. blacklists are intended
+  # to cover gaps in blocklists and, as a result, offer
+  # things like regex and wildcard matching in order
+  # to increaes flexibility. the downside is that these
+  # take special/individual processing which can slow
+  # down the initial dns query
   blacklists:
-  - nouser
-  blocklists:
-  - privacy
-  tags:
-  - malicious
-# here we define an open group. this would be useful for machines that need
-# broader domain access or that have issues with false-positives.
-- name: open
+  - name: default
+    src: "./.gudgeon/blacklists/default.list"
+    tags:
+    - default
 
-# consumers are how machine IPs/endpoints/networks are mapped to groups. all
-# unmatched consumers belong to the 'default' group.
-consumers:
-# the endusers group maps a few IPs (explicitly and by range) to the 
-# users group which blocks certain categories of DNS domains.
-# (and the default group)
-- name: endusers
+  - name: nouser
+    src: "./.gudgeon/blacklists/nouser.list"
+
+  # paths or urls of lists that contain blocked domains by name
+  # these are generally remotely or group-maintained
+  blocklists:
+  - name: stevenblack
+    src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+    tags:
+    - ads
+  - name: malwaredomains
+    src: https://mirror1.malwaredomains.com/files/justdomains
+    tags:
+    - malware
+  - name: cameleon
+    src: http://sysctl.org/cameleon/hosts
+    tags:
+    - ads
+    - malware
+  - name: malvertising
+    src: https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt
+    tags:
+    - default
+    - malicious
+  # the privacy list has no tags so can only be matched explicitly
+  - name: privacy
+    src: https://v.firebog.net/hosts/Easyprivacy.txt
+
+  # these are groups that tie hosts to the specific set of blocklists
+  # that they are supposed to use
   groups:
-  - default
-  - users
-  matches:
-  # explicit ip match
-  - ip: 10.0.0.30
-  # range match
-  - range: 
-      from: 10.0.0.35
-      to: 10.0.0.45
-# the openmachines group maps to the open (and default) group and does so for the
-# entire 10.0.2.0/24 subnet.
-- name: openmachines
-  groups:
-  - default
-  - open
-  matches:
-  # subnet match
-  - net: 10.0.2.0/24
+  # the group name functions as a tag match and the 'default' group is always present
+  # but here we are explicitly adding 'ads' and 'malware'. These could also be added
+  # by setting 'default' as one of the tags on those lists. since the default group
+  # is always present it will be matched by any non-matched consumer. You cannot restrict
+  # the default group by consumers.
+  - name: default 
+    tags:
+    - ads
+    - malware
+  # here we define an extra group for use by specific users/machines that provides
+  # extra protection against malicious domains.  it explicitly adds the 'privacy' list by name as
+  # well as the 'nouser' blacklist.
+  - name: users
+    blacklists:
+    - nouser
+    blocklists:
+    - privacy
+    tags:
+    - malicious
+  # here we define an open group. this would be useful for machines that need
+  # broader domain access or that have issues with false-positives.
+  - name: open
+
+  # consumers are how machine IPs/endpoints/networks are mapped to groups. all
+  # unmatched consumers belong to the 'default' group.
+  consumers:
+  # the endusers group maps a few IPs (explicitly and by range) to the 
+  # users group which blocks certain categories of DNS domains.
+  # (and the default group)
+  - name: endusers
+    groups:
+    - default
+    - users
+    matches:
+    # explicit ip match
+    - ip: 10.0.0.30
+    # range match
+    - range: 
+        from: 10.0.0.35
+        to: 10.0.0.45
+  # the openmachines group maps to the open (and default) group and does so for the
+  # entire 10.0.2.0/24 subnet.
+  - name: openmachines
+    groups:
+    - default
+    - open
+    matches:
+    # subnet match
+    - net: 10.0.2.0/24

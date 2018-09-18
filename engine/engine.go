@@ -2,9 +2,12 @@ package engine
 
 import (
 	"bufio"
+	"encoding/base64"
 	"fmt"
 	"os"
+	"path"
 
+	"github.com/google/uuid"
 	"github.com/willf/bloom"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -37,6 +40,8 @@ type activeConsumer struct {
 }
 
 type engine struct {
+	session string
+
 	config *config.GudgeonConfig
 	consumers []*activeConsumer
 	defaultGroup *activeGroup
@@ -114,13 +119,23 @@ func filterAndSeparateRules(config *config.GudgeonConfig, lists []*config.Gudgeo
 	return filter, special
 }
 
-func New(conf *config.GudgeonConfig) (Engine, error) {
-	// make required paths
-	os.MkdirAll(conf.Paths.Cache, os.ModePerm)
+func (engine *engine) Root() string {
+	return path.Join(engine.config.SessionRoot(), engine.session)
+}
 
+func New(conf *config.GudgeonConfig) (Engine, error) {
 	// create return object
 	engine := new(engine)
 	engine.config = conf
+
+	// create session key
+	uuid := uuid.New()
+	engine.session = base64.RawURLEncoding.EncodeToString([]byte(uuid.String()))
+
+	// make required paths
+	os.MkdirAll(conf.Home, os.ModePerm)
+	os.MkdirAll(conf.SessionRoot(), os.ModePerm)
+	os.MkdirAll(engine.Root(), os.ModePerm)
 
 	lists := []*config.GudgeonList{}
 	lists = append(lists, conf.Whitelists...)
@@ -154,7 +169,6 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 
 	// empty activeGroups list of size equal to available groups
 	workingGroups := append([]*config.GudgeonGroup{}, conf.Groups...)
-
 
 	// look for default group
 	foundDefaultGroup := false
@@ -246,7 +260,7 @@ func (engine *engine) domainInLists(domain string, filter *bloom.BloomFilter, li
 				}
 
 				// if one rule is matched, return true
-				if MatchesRule(domain, text) {
+				if IsMatch(domain, text) {
 					return true
 				}
 			}
@@ -285,7 +299,5 @@ func (engine *engine) IsDomainBlocked(consumer string, domain string) bool {
 
 func (engine *engine) Start() error {
 	fmt.Printf("Serving %d consumers with a total of %d explicit groups and %d list\n", len(engine.consumers), len(engine.config.Groups), len(engine.config.Blacklists) + len(engine.config.Whitelists) + len(engine.config.Blocklists))
-	fmt.Printf("domain 'ya-googl.ws' blocked, %s\n", engine.IsDomainBlocked("", "ya-googl.ws"))
-	fmt.Printf("domain 'google.com' blocked, %s\n", engine.IsDomainBlocked("", "google.com"))
 	return nil
 }

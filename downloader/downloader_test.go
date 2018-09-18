@@ -20,49 +20,37 @@ func downloadAll(t *testing.T, config *config.GudgeonConfig) error {
 	return nil
 }
 
-func tmpConf(conf *config.GudgeonConfig) string {
+func conf(t *testing.T, path string) (*config.GudgeonConfig) {
 	// create/get tmp dir
 	dir, _ := ioutil.TempDir("", "gudgeon-cache-")
 
-	// update config
-	if conf.Paths == nil {
-		conf.Paths = new(config.GudgeonPaths)
-	}
-	conf.Paths.Cache = dir
-
-	return dir
-}
-
-func TestDownloadAll(t *testing.T) {
-	// load config
-	config, err := config.Load("testdata/testconfig.yml")
+	conf, err := config.Load(path)
 	if err != nil {
 		t.Errorf("Could not load test configuration: %s", err)
 	}
 
-	// set up temporary config dir
-	dir := tmpConf(config)
-	defer os.RemoveAll(dir)
+	// update home
+	conf.Home = dir
 
-	err = downloadAll(t, config)
+	return conf
+}
+
+func TestDownloadAll(t *testing.T) {
+	config := conf(t, "testdata/testconfig.yml")
+	defer os.RemoveAll(config.Home)
+
+	err := downloadAll(t, config)
 	if err != nil {
 		t.Errorf("Error during downloads: %s", err)
 	}
 }
 
 func TestDownloadOverwrite(t *testing.T) {
-	// load config
-	config, err := config.Load("testdata/testconfig.yml")
-	if err != nil {
-		t.Errorf("Could not load test configuration: %s", err)
-	}
-
-	// set up temporary config dir
-	dir := tmpConf(config)
-	defer os.RemoveAll(dir)
+	config := conf(t, "testdata/testconfig.yml")
+	defer os.RemoveAll(config.Home)
 
 	// download once
-	err = downloadAll(t, config)
+	err := downloadAll(t, config)
 	if err != nil {
 		t.Errorf("Error during downloads: %s", err)
 	}
@@ -75,34 +63,20 @@ func TestDownloadOverwrite(t *testing.T) {
 }
 
 func TestBadDownloadScheme(t *testing.T) {
-	// load config
-	config, err := config.Load("testdata/badconfig.yml")
-	if err != nil {
-		t.Errorf("Could not load test configuration: %s", err)
-	}
+	config := conf(t, "testdata/badurl.yml")
+	defer os.RemoveAll(config.Home)
 
-	// set up temporary config dir
-	dir := tmpConf(config)
-	defer os.RemoveAll(dir)
-
-	err = downloadAll(t, config)
+	err := downloadAll(t, config)
 	if err != nil {
 		t.Errorf("Got error during download: %s", err)
 	}
 }
 
 func TestBadDownloadUrl(t *testing.T) {
-	// load config
-	config, err := config.Load("testdata/badconfig.yml")
-	if err != nil {
-		t.Errorf("Could not load test configuration: %s", err)
-	}
+	config := conf(t, "testdata/badconfig.yml")
+	defer os.RemoveAll(config.Home)
 
-	// set up temporary config dir
-	dir := tmpConf(config)
-	defer os.RemoveAll(dir)
-
-	err = downloadAll(t, config)
+	err := downloadAll(t, config)
 	if err != nil {
 		t.Errorf("Got error during download: %s", err)
 	}

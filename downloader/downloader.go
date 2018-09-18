@@ -4,11 +4,17 @@ import (
 	"io"
 	"os"
 	"net/http"
+	paths "path"
 
 	"github.com/chrisruffalo/gudgeon/config"
 )
 
 func downloadFile(path string, url string) error {
+	dirpart := paths.Dir(path)
+	if _, err := os.Stat(dirpart); os.IsNotExist(err) {
+		os.MkdirAll(dirpart, os.ModePerm)
+	}
+
 	// if the file exists already then it might be used during the
 	// download process so we need to move it
 	if _, err := os.Stat(path); err == nil {

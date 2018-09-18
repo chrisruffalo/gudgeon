@@ -1,4 +1,4 @@
----
-blocklists:
-- name: badfile
-  url: file:///tmp/doesnotexist
+gudgeon:
+  blocklists:
+  - name: badfile
+    url: file:///tmp/doesnotexist
