@@ -2,7 +2,6 @@ package benchmarks
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"strings"
 
@@ -27,18 +26,10 @@ func (hashstore *hashstore) set(h1, h2 uint64) {
 	uh2 := uint32((h2 & mask) >> 32)
 	lh2 := uint32(h2)
 
-	if uh1 > 0 {
-		hashstore.fstQuad.Add(uh1)
-	}
-	if lh1 > 0 {
-		hashstore.secQuad.Add(lh1)
-	}
-	if uh2 > 0 {
-		hashstore.thrQuad.Add(uh2)
-	}
-	if lh2 > 0 {
-		hashstore.fthQuad.Add(lh2)
-	}
+	hashstore.fstQuad.Add(uh1)
+	hashstore.secQuad.Add(lh1)
+	hashstore.thrQuad.Add(uh2)
+	hashstore.fthQuad.Add(lh2)
 }
 
 func (hashstore *hashstore) get(h1, h2 uint64) bool {
@@ -47,7 +38,7 @@ func (hashstore *hashstore) get(h1, h2 uint64) bool {
 	uh2 := uint32((h2 & mask) >> 32)
 	lh2 := uint32(h2)
 
-	return (uh1 == 0 || hashstore.fstQuad.Contains(uh1)) && (lh1 == 0 || hashstore.secQuad.Contains(lh1)) && (uh2 == 0 || hashstore.thrQuad.Contains(uh2)) && (lh2 == 0 || hashstore.fthQuad.Contains(lh2))
+	return hashstore.fstQuad.Contains(uh1) && hashstore.secQuad.Contains(lh1) && hashstore.thrQuad.Contains(uh2) && hashstore.fthQuad.Contains(lh2)
 }
 
 func (hashstore *hashstore) hash(input string) (uint64, uint64) {
@@ -66,6 +57,7 @@ func (hashstore *hashstore) Load(inputfile string) error {
 	if err != nil {
 		return err
 	}
+	defer data.Close()
 
 	scanner := bufio.NewScanner(data)
 	for scanner.Scan() {
@@ -73,10 +65,6 @@ func (hashstore *hashstore) Load(inputfile string) error {
 		if "" == text {
 			continue
 		}
-		if hashstore.test(text) {
-			fmt.Printf("PANIC PANIC PANIC COLISION\n")
-		}
-		//fmt.Printf("text: '%s'\n", text)
 		h1, h2 := hashstore.hash(text)
 		hashstore.set(h1, h2)
 	}
