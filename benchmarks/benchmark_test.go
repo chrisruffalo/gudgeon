@@ -116,3 +116,8 @@ func BenchmarkHashStore(b *testing.B) {
 	bench := new(hashstore)
 	benchmark(bench, b)
 }
+
+func BenchmarkSQLStore(b *testing.B) {
+	bench := new(sqlstore)
+	benchmark(bench, b)
+}

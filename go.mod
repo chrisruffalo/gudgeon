@@ -8,10 +8,12 @@ require (
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
 	github.com/google/uuid v1.0.0
 	github.com/jessevdk/go-flags v1.4.0
+	github.com/mattn/go-sqlite3 v1.9.0
 	github.com/miekg/dns v1.0.8
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72
 	github.com/tinylib/msgp v1.0.2 // indirect
+	github.com/willf/bitset v1.1.9 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
 	gopkg.in/yaml.v2 v2.2.1
 )
