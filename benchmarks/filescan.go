@@ -3,8 +3,6 @@ package benchmarks
 import (
 	"bufio"
 	"os"
-
-	"github.com/chrisruffalo/gudgeon/engine"
 )
 
 type fileScan struct {
@@ -23,9 +21,12 @@ func (fileScan *fileScan) Test(forMatch string) (bool, error) {
 	}
 	defer data.Close()
 
+	rootdomain := rootdomain(forMatch)
+
 	scanner := bufio.NewScanner(data)
 	for scanner.Scan() {
-		if engine.IsMatch(forMatch, scanner.Text()) {
+		text := scanner.Text()
+		if text == forMatch || text == rootdomain {
 			return true, nil
 		}
 	}

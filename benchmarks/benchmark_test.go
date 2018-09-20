@@ -6,10 +6,10 @@ import (
 )
 
 func PrintMemUsage(msg string, b *testing.B) {
-    var m runtime.MemStats
-    runtime.ReadMemStats(&m)
-    // For info on each, see: https://golang.org/pkg/runtime/#MemStats
-    b.Logf("%s: Alloc = %v MiB, TotalAlloc = %v MiB", msg, bToMb(m.Alloc), bToMb(m.TotalAlloc))
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+	b.Logf("%s: Alloc = %v MiB", msg, bToMb(m.Alloc))
 }
 
 func bToMb(b uint64) uint64 {
@@ -72,6 +72,7 @@ func benchmark(bench Benchmark, b *testing.B) {
 		b.Errorf("Could not load benchmark: %s", err)
 		return
 	}
+	runtime.GC()
 	PrintMemUsage("after load", b)
 
 	// load queries to make
@@ -86,6 +87,7 @@ func benchmark(bench Benchmark, b *testing.B) {
 		test(queries, bench, b, pb)
 	})
 
+	runtime.GC()
 	PrintMemUsage("after test", b)
 }
 
@@ -102,5 +104,15 @@ func BenchmarkMPH(b *testing.B) {
 
 func BenchmarkWillBloom(b *testing.B) {
 	bench := new(willbloom)
+	benchmark(bench, b)
+}
+
+func BenchmarkKeepFile(b *testing.B) {
+	bench := new(keepfile)
+	benchmark(bench, b)
+}
+
+func BenchmarkHashStore(b *testing.B) {
+	bench := new(hashstore)
 	benchmark(bench, b)
 }
