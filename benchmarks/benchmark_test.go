@@ -45,8 +45,8 @@ func loadQueries() []string {
 	return queries
 }
 
-func test(queries []string, bench Benchmark, b *testing.B, pb *testing.PB) {
-	for pb.Next() {
+func test(queries []string, bench Benchmark, b *testing.B) {
+	for i := 0; i < b.N; i++ {
 		found := 0
 		for _, q := range queries {
 			result, err := bench.Test(q)
@@ -83,9 +83,7 @@ func benchmark(bench Benchmark, b *testing.B) {
 	b.ReportAllocs()
 
 	// do test(s)
-	b.RunParallel(func(pb *testing.PB){
-		test(queries, bench, b, pb)
-	})
+	test(queries, bench, b)
 
 	runtime.GC()
 	PrintMemUsage("after test", b)
@@ -97,10 +95,6 @@ func BenchmarkFileScan(b *testing.B) {
 	benchmark(bench, b)
 }
 
-func BenchmarkMPH(b *testing.B) {
-	bench := new(minhash)
-	benchmark(bench, b)
-}
 
 func BenchmarkWillBloom(b *testing.B) {
 	bench := new(willbloom)
@@ -112,8 +106,13 @@ func BenchmarkKeepFile(b *testing.B) {
 	benchmark(bench, b)
 }
 
-func BenchmarkHashStore(b *testing.B) {
-	bench := new(hashstore)
+func BenchmarkKeepFileSlow(b *testing.B) {
+	bench := new(keepfileslow)
+	benchmark(bench, b)
+}
+
+func BenchmarkKeepHash(b *testing.B) {
+	bench := new(keephash)
 	benchmark(bench, b)
 }
 

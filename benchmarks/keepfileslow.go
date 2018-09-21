@@ -2,15 +2,14 @@ package benchmarks
 
 import (
 	"io/ioutil"
-	"sort"
 	"strings"
 )
 
-type keepfile struct {
+type keepfileslow struct {
 	file []string
 }
 
-func (keepfile *keepfile) Load(inputfile string) error {
+func (keepfile *keepfileslow) Load(inputfile string) error {
 	content, err := ioutil.ReadFile(inputfile)
 	if err != nil {
 		return err
@@ -19,14 +18,17 @@ func (keepfile *keepfile) Load(inputfile string) error {
 	for idx, item := range array {
 		array[idx] = strings.TrimSpace(item)
 	}
-	sort.Strings(array)
-
 	keepfile.file = array
 
 	return nil
 }
 
-func (keepfile *keepfile) Test(forMatch string) (bool, error) {
+func (keepfile *keepfileslow) Test(forMatch string) (bool, error) {
 	rootdomain := rootdomain(forMatch)
-	return sort.SearchStrings(keepfile.file, forMatch) >= 0 || sort.SearchStrings(keepfile.file, rootdomain) >= 0, nil
+	for _, item := range keepfile.file {
+		if item == forMatch || item == rootdomain {
+			return true, nil
+		}
+	}
+	return false, nil
 }
