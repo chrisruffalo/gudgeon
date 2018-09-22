@@ -47,19 +47,14 @@ func loadQueries() []string {
 
 func test(queries []string, bench Benchmark, b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		found := 0
-		for _, q := range queries {
-			result, err := bench.Test(q)
-			if err != nil {
-				b.Errorf("Error during benchmark, abort: %s", err)
-				return
-			}
-			if result {
-				found ++
-			}
+		q := queries[i % len(queries)]
+		result, err := bench.Test(q)
+		if err != nil {
+			b.Logf("Error during benchmark << %s >>, abort: %s", bench.Id(), err)
+			return
 		}
-		if found != len(queries) {
-			b.Errorf("Found %d but expected %d", found, len(queries))
+		if !result {
+			b.Errorf("Did not find %s as expected", q)
 		}
 	}
 }
@@ -85,19 +80,35 @@ func benchmark(bench Benchmark, b *testing.B) {
 	// do test(s)
 	test(queries, bench, b)
 
-	runtime.GC()
-	PrintMemUsage("after test", b)
+	// teardown
+	bench.Teardown()
 }
 
-// implement filescan benchmark
 func BenchmarkFileScan(b *testing.B) {
 	bench := new(fileScan)
 	benchmark(bench, b)
 }
 
-
-func BenchmarkWillBloom(b *testing.B) {
+func BenchmarkWillBloom1p(b *testing.B) {
 	bench := new(willbloom)
+	benchmark(bench, b)
+}
+
+func BenchmarkWillBloom0_1p(b *testing.B) {
+	bench := new(willbloom)
+	bench.rate = 0.001
+	benchmark(bench, b)
+}
+
+func BenchmarkWillBloom0_0001p(b *testing.B) {
+	bench := new(willbloom)
+	bench.rate = 0.000001
+	benchmark(bench, b)
+}
+
+func BenchmarkWillBloom0_00000000000001p(b *testing.B) {
+	bench := new(willbloom)
+	bench.rate = 0.0000000000000001
 	benchmark(bench, b)
 }
 

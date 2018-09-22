@@ -8,7 +8,12 @@ import (
 )
 
 type willbloom struct {
+	rate float64
 	filter *bloom.BloomFilter
+}
+
+func (willbloom *willbloom) Id() string {
+	return "willbloom"
 }
 
 func (willbloom *willbloom) Load(inputfile string) error {
@@ -26,8 +31,11 @@ func (willbloom *willbloom) Load(inputfile string) error {
 	}
 	data.Close()
 
-	// build bloom
-	filter := bloom.NewWithEstimates(uint(totalLines), 0.00001)
+	// build bloom with non-zero rate
+	if willbloom.rate == 0 {
+		willbloom.rate = 0.01 // 1%
+	}
+	filter := bloom.NewWithEstimates(uint(totalLines), willbloom.rate)
 
 	data, err = os.Open(inputfile)
 	if err != nil {
@@ -49,4 +57,8 @@ func (willbloom *willbloom) Load(inputfile string) error {
 func (willbloom *willbloom) Test(forMatch string) (bool, error) {
 	// either matches the domain or the root domain is in the match
 	return willbloom.filter.TestString(forMatch) || willbloom.filter.TestString(rootdomain(forMatch)), nil
+}
+
+func (willbloom *willbloom) Teardown() error {
+	return nil
 }

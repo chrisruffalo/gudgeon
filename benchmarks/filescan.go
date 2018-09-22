@@ -9,6 +9,10 @@ type fileScan struct {
 	filename string
 }
 
+func (fileScan *fileScan) Id() string {
+	return "filescan: " + fileScan.filename
+}
+
 func (fileScan *fileScan) Load(inputfile string) error {
 	fileScan.filename = inputfile
 	return nil
@@ -31,4 +35,8 @@ func (fileScan *fileScan) Test(forMatch string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func (fileScan *fileScan) Teardown() error {
+	return nil
 }

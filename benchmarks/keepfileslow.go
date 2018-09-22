@@ -9,6 +9,10 @@ type keepfileslow struct {
 	file []string
 }
 
+func (keepfile *keepfileslow) Id() string {
+	return "keepfileslow"
+}
+
 func (keepfile *keepfileslow) Load(inputfile string) error {
 	content, err := ioutil.ReadFile(inputfile)
 	if err != nil {
@@ -31,4 +35,8 @@ func (keepfile *keepfileslow) Test(forMatch string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func (keepfileslow *keepfileslow) Teardown() error {
+	return nil
 }

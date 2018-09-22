@@ -10,6 +10,10 @@ type keepfile struct {
 	file []string
 }
 
+func (keepfile *keepfile) Id() string {
+	return "keepfile"
+}
+
 func (keepfile *keepfile) Load(inputfile string) error {
 	content, err := ioutil.ReadFile(inputfile)
 	if err != nil {
@@ -29,4 +33,8 @@ func (keepfile *keepfile) Load(inputfile string) error {
 func (keepfile *keepfile) Test(forMatch string) (bool, error) {
 	rootdomain := rootdomain(forMatch)
 	return sort.SearchStrings(keepfile.file, forMatch) >= 0 || sort.SearchStrings(keepfile.file, rootdomain) >= 0, nil
+}
+
+func (keepfile *keepfile) Teardown() error {
+	return nil
 }

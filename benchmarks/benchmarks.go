@@ -5,8 +5,10 @@ import (
 )
 
 type Benchmark interface {
+	Id() string
 	Load(inputfile string) error
 	Test(forMatch string) (bool, error)
+	Teardown() error
 }
 
 func rootdomain(domain string) string {
@@ -16,3 +18,4 @@ func rootdomain(domain string) string {
 	}
 	return domain
 }
+

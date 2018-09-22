@@ -12,6 +12,10 @@ type keephash struct {
 	file []uint64
 }
 
+func (keephash *keephash) Id() string {
+	return "keephash"
+}
+
 func hash(input string) uint64 {
 	return murmur3.Sum64([]byte(input))
 }
@@ -41,4 +45,8 @@ func (keephash *keephash) Test(forMatch string) (bool, error) {
 	rootdomain := hash(rootdomain(forMatch))
 	matchhash := hash(forMatch)
 	return found(keephash.file, matchhash) || found(keephash.file, rootdomain), nil
+}
+
+func (keephash *keephash) Teardown() error {
+	return nil
 }
