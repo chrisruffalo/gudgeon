@@ -2,8 +2,9 @@ package benchmarks
 
 import (
   	"database/sql"
+  	//"fmt"
  	"io/ioutil"
- 	"os"
+ 	//"os"
  	"strings"
 
     _ "github.com/mattn/go-sqlite3"
@@ -20,12 +21,12 @@ type sqlstore struct {
 }
 
 const (
-	// mut be less than 1000 and a multiple of insertValueSize
-	batch_size = 999
+	//insertValueSize * batch_size should never be greater than OR EQUSL TO 1000
+	batch_size = 498
 
-	insertStmt = "INSERT INTO rules (rule) VALUES (?)"
-	insertValues = "(?)"
-	insertValueSize = 1
+	insertStmt = "INSERT INTO rules (rule, groups) VALUES "
+	insertValues = "(?, ?)"
+	insertValueSize = 2
 
 	searchQuery = "SELECT rule FROM rules WHERE rule in (?, ?) LIMIT 1;"
 )
@@ -37,7 +38,7 @@ func (sqlstore *sqlstore) Id() string {
 func (sqlstore *sqlstore) insert(db *sql.DB, tx *sql.Tx, rules []string) error {
 	// build value-statement if the size of the value statement has changed (or non-existant)
 	if sqlstore.insertCacheStmt == nil || sqlstore.insertCacheStmtSize != len(rules) {
-		s := insertStmt + strings.Repeat(", " + insertValues, (len(rules) - 1)/insertValueSize)
+		s := insertStmt + insertValues + strings.Repeat(", " + insertValues, len(rules) - 1)
 
 		stmt, err := db.Prepare(s)
 		if err != nil {
@@ -49,9 +50,12 @@ func (sqlstore *sqlstore) insert(db *sql.DB, tx *sql.Tx, rules []string) error {
 		sqlstore.insertCacheStmtSize = len(rules)
 	}
 	
-	args := make([]interface{}, len(rules))
-	for idx, _ := range rules {
-		args[idx] = rules[idx]
+	args := make([]interface{}, len(rules) * insertValueSize)
+	ridx := 0
+	for idx := 0; idx < len(args); idx += insertValueSize {
+		args[idx] = rules[ridx]
+		args[idx+1] = "alpha, bravo, charlie, delta"
+		ridx++
 	}
 
 	_, err := tx.Stmt(sqlstore.insertCacheStmt).Exec(args...)
@@ -98,7 +102,7 @@ func (sqlstore *sqlstore) Load(inputfile string) error {
 	}
 
 	// create table
-	stmt, _ := db.Prepare("CREATE TABLE IF NOT EXISTS rules ( rule VARCHAR )")
+	stmt, _ := db.Prepare("CREATE TABLE IF NOT EXISTS rules ( rule VARCHAR, groups VARCHAR )")
 	stmt.Exec()
 
 	// batch inserts inside one big transaction
@@ -169,6 +173,6 @@ func (sqlstore *sqlstore) Test(forMatch string) (bool, error) {
 
 func (sqlstore *sqlstore) Teardown() error {
 	sqlstore.db.Close()
-	os.Remove(sqlstore.file)
+	//os.Remove(sqlstore.file)
 	return nil
 }
