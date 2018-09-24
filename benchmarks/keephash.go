@@ -38,13 +38,11 @@ func (keephash *keephash) Load(inputfile string) error {
 }
 
 func found(array []uint64, item uint64) bool {
-	return sort.Search(len(array), func(i int) bool { return array[i] >= item }) >= 0
+	return array[sort.Search(len(array), func(i int) bool { return array[i] >= item })] == item
 }
 
 func (keephash *keephash) Test(forMatch string) (bool, error) {
-	rootdomain := hash(rootdomain(forMatch))
-	matchhash := hash(forMatch)
-	return found(keephash.file, matchhash) || found(keephash.file, rootdomain), nil
+	return found(keephash.file, hash(forMatch)) || found(keephash.file, hash(rootdomain(forMatch))), nil
 }
 
 func (keephash *keephash) Teardown() error {

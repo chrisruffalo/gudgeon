@@ -65,7 +65,7 @@ func (sqlstore *sqlstore) insert(db *sql.DB, tx *sql.Tx, rules []string) error {
 	return nil
 }
 
-func (sqlstore *sqlstore) Load(inputfile stringd) error {
+func (sqlstore *sqlstore) Load(inputfile string) error {
 	// go through file
 	content, err := ioutil.ReadFile(inputfile)
 	if err != nil {

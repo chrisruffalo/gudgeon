@@ -32,7 +32,7 @@ func (keepfile *keepfile) Load(inputfile string) error {
 
 func (keepfile *keepfile) Test(forMatch string) (bool, error) {
 	rootdomain := rootdomain(forMatch)
-	return sort.SearchStrings(keepfile.file, forMatch) >= 0 || sort.SearchStrings(keepfile.file, rootdomain) >= 0, nil
+	return keepfile.file[sort.SearchStrings(keepfile.file, forMatch)] == forMatch || keepfile.file[sort.SearchStrings(keepfile.file, rootdomain)] == rootdomain, nil
 }
 
 func (keepfile *keepfile) Teardown() error {
