@@ -3,7 +3,7 @@ package benchmarks
 import (
   	"database/sql"
  	"io/ioutil"
- 	//"os"
+ 	"os"
  	"strings"
 
     _ "github.com/mattn/go-sqlite3"
@@ -169,6 +169,6 @@ func (sqlstore *sqlstore) Test(forMatch string) (bool, error) {
 
 func (sqlstore *sqlstore) Teardown() error {
 	sqlstore.db.Close()
-	//os.Remove(sqlstore.file)
+	os.Remove(sqlstore.file)
 	return nil
 }
