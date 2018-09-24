@@ -6,7 +6,7 @@ import (
 )
 
 type query struct {
-	domain   string
+	domain string
 	found bool
 }
 
@@ -134,5 +134,10 @@ func BenchmarkKeepHash(b *testing.B) {
 
 func BenchmarkSQLStore(b *testing.B) {
 	bench := new(sqlstore)
+	benchmark(bench, b)
+}
+
+func BenchmarkBadgerStore(b *testing.B) {
+	bench := new(badgerstore)
 	benchmark(bench, b)
 }

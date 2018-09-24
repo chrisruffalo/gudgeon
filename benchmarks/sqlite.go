@@ -12,11 +12,22 @@ import (
 type sqlstore struct {
 	file string
 	db *sql.DB
+
+	insertCacheStmtSize int
+	insertCacheStmt *sql.Stmt
+
 	stmt *sql.Stmt
 }
 
 const (
-	batch_size = 800
+	// mut be less than 1000 and a multiple of insertValueSize
+	batch_size = 999
+
+	insertStmt = "INSERT INTO rules (rule) VALUES (?)"
+	insertValues = "(?)"
+	insertValueSize = 1
+
+	stmt = "SELECT rule FROM rules WHERE rule = ? OR rule = ? LIMIT 1;"
 )
 
 func (sqlstore *sqlstore) Id() string {
@@ -27,12 +38,17 @@ func (sqlstore *sqlstore) insert(db *sql.DB, rules []string) error {
 	tx, _ := db.Begin()
 
 	// build value-statement
-	s := "INSERT INTO rules (rule) VALUES (?)" + strings.Repeat(", (?)", len(rules) - 1)
+	if sqlstore.insertCacheStmtSize != len(rules) {
+		s := insertStmt + strings.Repeat(", " + insertValues, (len(rules) - 1)/insertValueSize)
 
-	stmt, err := db.Prepare(s)
-	if err != nil {
-		tx.Rollback()
-		return err
+		stmt, err := db.Prepare(s)
+		if err != nil {
+			return err
+		}
+
+		// cache statement and statement size
+		sqlstore.insertCacheStmt = stmt
+		sqlstore.insertCacheStmtSize = len(rules)
 	}
 	
 	args := make([]interface{}, len(rules))
@@ -40,7 +56,7 @@ func (sqlstore *sqlstore) insert(db *sql.DB, rules []string) error {
 		args[idx] = rules[idx]
 	}
 
-	_, err = tx.Stmt(stmt).Exec(args...)
+	_, err := tx.Stmt(sqlstore.insertCacheStmt).Exec(args...)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -66,9 +82,9 @@ func (sqlstore *sqlstore) Load(inputfile string) error {
 		array[mindex] = item
 		mindex++
 	}
-	array = array[:mindex+1]
+	array = array[:mindex + 1]
 
-	// open tmp dir
+	// open tmp file
 	file, err := ioutil.TempFile("", "gudgeon-sql-test-*.db")
 	if err != nil {
 		return err
@@ -81,9 +97,6 @@ func (sqlstore *sqlstore) Load(inputfile string) error {
 	if err != nil {
 		return err
 	}
-
-	// turn off key creation
-
 
 	// create table
 	stmt, _ := db.Prepare("CREATE TABLE IF NOT EXISTS rules ( rule VARCHAR PRIMARY KEY );")
@@ -122,7 +135,6 @@ func (sqlstore *sqlstore) Load(inputfile string) error {
 	return nil
 }
 
-var stmt = "SELECT rule FROM rules WHERE rule = ? OR rule = ? LIMIT 1;"
 func (sqlstore *sqlstore) Test(forMatch string) (bool, error) {
 
 	if sqlstore.stmt == nil {	
