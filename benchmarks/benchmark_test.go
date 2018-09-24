@@ -15,7 +15,7 @@ type query struct {
 }
 
 // one tmpdir to rule them all
-var tmpdir, _ = ioutil.TempDir("", "gudgeon-test-")
+var tmpdir string
 
 var queries = []query{
 	// near the top of the list
@@ -164,10 +164,11 @@ func BenchmarkBadgerStore(b *testing.B) {
 
 func TestMain(m *testing.M) {
 	// startup
+	tmpdir, _ = ioutil.TempDir("", "gudgeon-test-")
 
 	// run
 	result := m.Run()
-	
+
 	// teardown
 	os.RemoveAll(tmpdir)
 
