@@ -2,9 +2,8 @@ package benchmarks
 
 import (
   	"database/sql"
-  	//"fmt"
  	"io/ioutil"
- 	//"os"
+ 	"os"
  	"strings"
 
     _ "github.com/mattn/go-sqlite3"
@@ -66,7 +65,7 @@ func (sqlstore *sqlstore) insert(db *sql.DB, tx *sql.Tx, rules []string) error {
 	return nil
 }
 
-func (sqlstore *sqlstore) Load(inputfile string) error {
+func (sqlstore *sqlstore) Load(inputfile stringd) error {
 	// go through file
 	content, err := ioutil.ReadFile(inputfile)
 	if err != nil {
@@ -173,6 +172,6 @@ func (sqlstore *sqlstore) Test(forMatch string) (bool, error) {
 
 func (sqlstore *sqlstore) Teardown() error {
 	sqlstore.db.Close()
-	//os.Remove(sqlstore.file)
+	os.Remove(sqlstore.file)
 	return nil
 }
