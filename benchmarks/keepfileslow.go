@@ -13,7 +13,7 @@ func (keepfile *keepfileslow) Id() string {
 	return "keepfileslow"
 }
 
-func (keepfile *keepfileslow) Load(inputfile string) error {
+func (keepfile *keepfileslow) Load(inputfile string, testdir string) error {
 	content, err := ioutil.ReadFile(inputfile)
 	if err != nil {
 		return err

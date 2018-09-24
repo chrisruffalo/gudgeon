@@ -20,7 +20,7 @@ func hash(input string) uint64 {
 	return murmur3.Sum64([]byte(input))
 }
 
-func (keephash *keephash) Load(inputfile string) error {
+func (keephash *keephash) Load(inputfile string, testdir string) error {
 	content, err := ioutil.ReadFile(inputfile)
 	if err != nil {
 		return err

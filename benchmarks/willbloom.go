@@ -16,7 +16,7 @@ func (willbloom *willbloom) Id() string {
 	return "willbloom"
 }
 
-func (willbloom *willbloom) Load(inputfile string) error {
+func (willbloom *willbloom) Load(inputfile string, testdir string) error {
 	data, err := os.Open(inputfile)
 	if err != nil {
 		return err

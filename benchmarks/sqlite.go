@@ -4,6 +4,7 @@ import (
   	"database/sql"
  	"io/ioutil"
  	"os"
+ 	"path"
  	"strings"
 
     _ "github.com/mattn/go-sqlite3"
@@ -23,7 +24,7 @@ const (
 	//insertValueSize * batch_size should never be greater than OR EQUSL TO 1000
 	batch_size = 498
 
-	insertStmt = "INSERT INTO rules (rule, groups) VALUES "
+	insertStmt = "INSERT OR IGNORE INTO rules (rule, groups) VALUES "
 	insertValues = "(?, ?)"
 	insertValueSize = 2
 
@@ -65,43 +66,27 @@ func (sqlstore *sqlstore) insert(db *sql.DB, tx *sql.Tx, rules []string) error {
 	return nil
 }
 
-func (sqlstore *sqlstore) Load(inputfile string) error {
-	// go through file
-	content, err := ioutil.ReadFile(inputfile)
+func (sqlstore *sqlstore) openRODB(dbpath string) error {
+	// open read-only db
+	db, err := sql.Open("sqlite3", dbpath + "?cache=shared&_sync=OFF&_mutex=NO&_locking=NORMAL&_journal=OFF&_query_only=true")
 	if err != nil {
 		return err
 	}
+	sqlstore.db = db
 
-	// use this method to comb the array for bad items before it 
-	// is used in the batch insert
-	array := strings.Split(string(content), "\r")
-	mindex := 0
-	for _, item := range array {
-		item = strings.TrimSpace(item)
-		if "" == item {
-			continue
-		}
-		array[mindex] = item
-		mindex++
-	}
-	array = array[:mindex + 1]
+	return nil
+}
 
-	// open tmp file
-	file, err := ioutil.TempFile("", "gudgeon-sql-test-*.db")
-	if err != nil {
-		return err
-	}
-	file.Close()
-	sqlstore.file = file.Name()
-
+func (sqlstore *sqlstore) loadDB(array []string, dbpath string) error {
 	// open db
-	db, err := sql.Open("sqlite3", sqlstore.file + "?_sync=OFF&_mutex=NO&_locking=NORMAL&_journal=MEMORY")
+	db, err := sql.Open("sqlite3", dbpath + "?_sync=OFF&_mutex=NO&_locking=NORMAL&_journal=MEMORY")
 	if err != nil {
 		return err
 	}
+	sqlstore.file = dbpath
 
 	// create table
-	stmt, _ := db.Prepare("CREATE TABLE IF NOT EXISTS rules ( rule VARCHAR, groups VARCHAR )")
+	stmt, _ := db.Prepare("CREATE TABLE IF NOT EXISTS rules ( rule VARCHAR UNIQUE, groups VARCHAR )")
 	stmt.Exec()
 
 	// batch inserts inside one big transaction
@@ -136,14 +121,43 @@ func (sqlstore *sqlstore) Load(inputfile string) error {
 	db.Close()
 
 	// open read-only db
-	db, err = sql.Open("sqlite3", sqlstore.file + "?cache=shared&_sync=OFF&_mutex=NO&_locking=NORMAL&_journal=OFF&_query_only=true")
+	sqlstore.openRODB(dbpath)
+
+	return nil	
+}
+
+func (sqlstore *sqlstore) Load(inputfile string, testdir string) error {
+	// create db path
+	dbpath := path.Join(testdir, "gudgeon.db")
+
+	// if file exists, bail
+	if _, err := os.Stat(dbpath); !os.IsNotExist(err) {
+		sqlstore.openRODB(dbpath)
+		return nil
+	}
+
+	// go through file
+	content, err := ioutil.ReadFile(inputfile)
 	if err != nil {
 		return err
 	}
-	sqlstore.db = db
 
+	// use this method to comb the array for bad items before it 
+	// is used in the batch insert
+	array := strings.Split(string(content), "\r")
+	mindex := 0
+	for _, item := range array {
+		item = strings.TrimSpace(item)
+		if "" == item {
+			continue
+		}
+		array[mindex] = item
+		mindex++
+	}
+	array = array[:mindex + 1]
 
-	return nil
+	// load database
+	return sqlstore.loadDB(array, dbpath)
 }
 
 func (sqlstore *sqlstore) Test(forMatch string) (bool, error) {
@@ -172,6 +186,5 @@ func (sqlstore *sqlstore) Test(forMatch string) (bool, error) {
 
 func (sqlstore *sqlstore) Teardown() error {
 	sqlstore.db.Close()
-	os.Remove(sqlstore.file)
 	return nil
 }

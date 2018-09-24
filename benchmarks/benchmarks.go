@@ -6,7 +6,7 @@ import (
 
 type Benchmark interface {
 	Id() string
-	Load(inputfile string) error
+	Load(inputfile string, testdir string) error
 	Test(forMatch string) (bool, error)
 	Teardown() error
 }

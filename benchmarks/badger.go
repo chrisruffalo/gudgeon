@@ -4,6 +4,7 @@ import (
  	"io/ioutil"
  	"log"
  	"os"
+ 	"path"
  	"strings"
 
     "github.com/dgraph-io/badger"
@@ -22,7 +23,7 @@ func (badgerstore *badgerstore) Id() string {
 	return "badger: '" + badgerstore.dir + "'"
 }
 
-func (badgerstore *badgerstore) Load(inputfile string) error {
+func (badgerstore *badgerstore) Load(inputfile string, testdir string) error {
 	// redirect output
 	f, err := os.OpenFile("/dev/null", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
 	if err != nil {
@@ -31,25 +32,36 @@ func (badgerstore *badgerstore) Load(inputfile string) error {
 	defer f.Close()
 	log.SetOutput(f)
 
-	// go through file
-	content, err := ioutil.ReadFile(inputfile)
-	if err != nil {
-		return err
-	}
-	array := strings.Split(string(content), "\r")
+	// 
+	dir := path.Join(testdir, "badgerdb")
 
-	// open tmp file
-	dir, err := ioutil.TempDir("", "gudgeon-badger-test-")
-	if err != nil {
-		return err
-	}
+	// set dir
 	badgerstore.dir = dir
 
 	// open db
 	opts := badger.DefaultOptions
 	opts.Dir = dir
 	opts.ValueDir = dir
+
+	// if the db exists straight open it and return
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		db, err := badger.Open(opts)
+		if err != nil {
+			return err
+		}
+  		badgerstore.db = db
+		return nil
+	}
+
+	// if it does not exist open it and move on (which makes it get created and used on the next cycle)
 	db, err := badger.Open(opts)	
+
+	// go through file
+	content, err := ioutil.ReadFile(inputfile)
+	if err != nil {
+		return err
+	}
+	array := strings.Split(string(content), "\r")
 
 	for i := 0; i < len(array); i += batchSize {
 		end := i + batchSize
@@ -106,6 +118,5 @@ func (badgerstore *badgerstore) Test(forMatch string) (bool, error) {
 
 func (badgerstore *badgerstore) Teardown() error {
 	badgerstore.db.Close()
-	os.RemoveAll(badgerstore.dir)
 	return nil
 }

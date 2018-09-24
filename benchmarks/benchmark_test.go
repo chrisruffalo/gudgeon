@@ -1,6 +1,10 @@
 package benchmarks
 
 import (
+	"io/ioutil"
+	"os"
+	"path"
+	"reflect"
 	"runtime"
 	"testing"
 )
@@ -9,6 +13,9 @@ type query struct {
 	domain string
 	found bool
 }
+
+// one tmpdir to rule them all
+var tmpdir, _ = ioutil.TempDir("", "gudgeon-test-")
 
 var queries = []query{
 	// near the top of the list
@@ -53,6 +60,14 @@ func bToMb(b uint64) uint64 {
     return b / 1024 / 1024
 }
 
+func getType(myvar interface{}) string {
+    if t := reflect.TypeOf(myvar); t.Kind() == reflect.Ptr {
+        return t.Elem().Name()
+    } else {
+        return t.Name()
+    }
+}
+
 func test(bench Benchmark, b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		q := queries[i % len(queries)]
@@ -68,9 +83,14 @@ func test(bench Benchmark, b *testing.B) {
 }
 
 func benchmark(bench Benchmark, b *testing.B) {
+	// get class name
+	name := getType(bench)
+	dir := path.Join(tmpdir, name)
+	os.MkdirAll(dir, os.ModePerm)
+
 	// do pre-load stuff
 	PrintMemUsage("before load", b)
-	err := bench.Load("testdata/top-1m.list")
+	err := bench.Load("testdata/top-1m.list", dir)
 	if err != nil {
 		b.Errorf("Could not load benchmark: %s", err)
 		return
@@ -85,7 +105,7 @@ func benchmark(bench Benchmark, b *testing.B) {
 	// do test(s)
 	test(bench, b)
 
-	// teardown
+	// teardown individual test
 	bench.Teardown()
 }
 
@@ -140,4 +160,17 @@ func BenchmarkSQLStore(b *testing.B) {
 func BenchmarkBadgerStore(b *testing.B) {
 	bench := new(badgerstore)
 	benchmark(bench, b)
+}
+
+func TestMain(m *testing.M) {
+	// startup
+
+	// run
+	result := m.Run()
+	
+	// teardown
+	os.RemoveAll(tmpdir)
+
+	// done
+	os.Exit(result)
 }

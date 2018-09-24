@@ -13,7 +13,7 @@ func (fileScan *fileScan) Id() string {
 	return "filescan: " + fileScan.filename
 }
 
-func (fileScan *fileScan) Load(inputfile string) error {
+func (fileScan *fileScan) Load(inputfile string, testdir string) error {
 	fileScan.filename = inputfile
 	return nil
 }

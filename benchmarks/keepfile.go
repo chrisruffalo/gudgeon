@@ -14,7 +14,7 @@ func (keepfile *keepfile) Id() string {
 	return "keepfile"
 }
 
-func (keepfile *keepfile) Load(inputfile string) error {
+func (keepfile *keepfile) Load(inputfile string, testdir string) error {
 	content, err := ioutil.ReadFile(inputfile)
 	if err != nil {
 		return err
