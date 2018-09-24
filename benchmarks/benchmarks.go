@@ -18,4 +18,3 @@ func rootdomain(domain string) string {
 	}
 	return domain
 }
-

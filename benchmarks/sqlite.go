@@ -12,6 +12,7 @@ import (
 type sqlstore struct {
 	file string
 	db *sql.DB
+	stmt *sql.Stmt
 }
 
 const (
@@ -68,7 +69,7 @@ func (sqlstore *sqlstore) Load(inputfile string) error {
 	array = array[:mindex+1]
 
 	// open tmp dir
-	file, err := ioutil.TempFile("", "gudgeon-sql-test-*.db?_sync=OFF&_mutex=NO&_locking=NORMAL&_journal=MEMORY")
+	file, err := ioutil.TempFile("", "gudgeon-sql-test-*.db")
 	if err != nil {
 		return err
 	}
@@ -76,11 +77,13 @@ func (sqlstore *sqlstore) Load(inputfile string) error {
 	sqlstore.file = file.Name()
 
 	// open db
-	db, err := sql.Open("sqlite3", sqlstore.file)
+	db, err := sql.Open("sqlite3", sqlstore.file + "?_sync=OFF&_mutex=NO&_locking=NORMAL&_journal=MEMORY")
 	if err != nil {
 		return err
 	}
-	sqlstore.db = db
+
+	// turn off key creation
+
 
 	// create table
 	stmt, _ := db.Prepare("CREATE TABLE IF NOT EXISTS rules ( rule VARCHAR PRIMARY KEY );")
@@ -101,37 +104,44 @@ func (sqlstore *sqlstore) Load(inputfile string) error {
 		idx += batch_size
 	}
 
+	// force vaccum tables
 	stmt, _ = db.Prepare("VACUUM;")
 	stmt.Exec()
+
+	// close old db
+	db.Close()
+
+	// open read-only db
+	db, err = sql.Open("sqlite3", sqlstore.file + "?cache=shared&_sync=OFF&_mutex=NO&_locking=NORMAL&_journal=OFF&_query_only=true")
+	if err != nil {
+		return err
+	}
+	sqlstore.db = db
+
 
 	return nil
 }
 
+var stmt = "SELECT rule FROM rules WHERE rule = ? OR rule = ? LIMIT 1;"
 func (sqlstore *sqlstore) Test(forMatch string) (bool, error) {
-	db := sqlstore.db
 
-	stmt, err := db.Prepare("SELECT count(*) as count FROM rules WHERE rule = ? OR rule = ?")
-	if err != nil {
-		return false, err
+	if sqlstore.stmt == nil {	
+		stmt, err := sqlstore.db.Prepare(stmt)
+		if err != nil {
+			return false, err
+		}
+		sqlstore.stmt = stmt
 	}
 
 	rootform := rootdomain(forMatch)
-	resp, err := stmt.Query(forMatch, rootform)
+	resp, err := sqlstore.stmt.Query(forMatch, rootform)
 	if err != nil {
 		return false, err
 	}
 	defer resp.Close()
 
-	count := 0
 	if resp.Next() {
-		err := resp.Scan(&count)
-		if err != nil {
-			return false, err
-		}
-
-		if count > 0 {
-			return true, nil
-		}
+		return true, nil
 	}
 
 	return false, nil

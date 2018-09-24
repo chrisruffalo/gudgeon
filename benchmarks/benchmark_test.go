@@ -5,6 +5,43 @@ import (
 	"testing"
 )
 
+type query struct {
+	domain   string
+	found bool
+}
+
+var queries = []query{
+	// near the top of the list
+	{ domain: "google.com", found: true },
+	{ domain: "amazon.com", found: true },
+	{ domain: "netflix.com", found: true },
+
+	// middle of list
+	{ domain: "www.missmoss.co.za", found: true },
+	{ domain: "www.mmsend30.com", found: true },
+	{ domain: "www.monat.mx", found: true },
+
+	// very bottom of list
+	{ domain: "www.price4limo.com", found: true },
+	{ domain: "www.probuilder.com", found: true },
+	{ domain: "www.professorshouse.com", found: true },
+
+	// subdomains of listed domains
+	{ domain: "ads.google.com", found: true },
+	{ domain: "subnet.netflix.com", found: true },
+	{ domain: "things.www.monat.mx", found: true },
+	{ domain: "test.www.mmsend30.com", found: true },
+	{ domain: "thisisnotasubdomain.google.com", found: true },
+	{ domain: "nowaythisisfoundasadomain.www.professorshouse.com", found: true },
+
+	// domains not in list
+	{ domain: "gudgeon.com", found: false },
+	{ domain: "gyip.io", found: false },
+	{ domain: "testdomainthatisntfound.com", found: false },
+	{ domain: "homeagainhomeagain.com", found: false },
+	{ domain: "w.com", found: false },
+}
+
 func PrintMemUsage(msg string, b *testing.B) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
@@ -16,45 +53,16 @@ func bToMb(b uint64) uint64 {
     return b / 1024 / 1024
 }
 
-func loadQueries() []string {
-	queries := []string{
-		// in the list or near the top of it
-		"google.com",
-		"amazon.com",
-		"netflix.com",
-
-		// near the middle
-		"www.missmoss.co.za",
-		"www.mmsend30.com",
-		"www.monat.mx",
-
-		// at the bottom
-		"www.price4limo.com",
-		"www.probuilder.com",
-		"www.professorshouse.com",
-
-		// dns children for suffix match rule
-		"ads.google.com",
-		"subnet.netflix.com",
-		"things.www.monat.mx",
-		"test.www.mmsend30.com",
-		"thisisnotasubdomain.google.com",
-		"nowaythisisfoundasadomain.www.professorshouse.com",
-	} 
-
-	return queries
-}
-
-func test(queries []string, bench Benchmark, b *testing.B) {
+func test(bench Benchmark, b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		q := queries[i % len(queries)]
-		result, err := bench.Test(q)
+		result, err := bench.Test(q.domain)
 		if err != nil {
 			b.Logf("Error during benchmark << %s >>, abort: %s", bench.Id(), err)
 			return
 		}
-		if !result {
-			b.Errorf("Did not find %s as expected", q)
+		if result != q.found {
+			b.Errorf("Result %t for %s but expected %t", result, q.domain, q.found)
 		}
 	}
 }
@@ -70,15 +78,12 @@ func benchmark(bench Benchmark, b *testing.B) {
 	runtime.GC()
 	PrintMemUsage("after load", b)
 
-	// load queries to make
-	queries := loadQueries()
-
 	// reset timer and start reporting allocations
 	b.ResetTimer()
 	b.ReportAllocs()
 
 	// do test(s)
-	test(queries, bench, b)
+	test(bench, b)
 
 	// teardown
 	bench.Teardown()
