@@ -170,7 +170,11 @@ func TestMain(m *testing.M) {
 	result := m.Run()
 
 	// teardown
-	os.RemoveAll(tmpdir)
+
+	// remove file when no errors are present
+	if result == 0 {
+		os.RemoveAll(tmpdir)
+	}
 
 	// done
 	os.Exit(result)

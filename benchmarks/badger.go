@@ -24,16 +24,16 @@ func (badgerstore *badgerstore) Id() string {
 }
 
 func (badgerstore *badgerstore) Load(inputfile string, testdir string) error {
-	// redirect output
-	f, err := os.OpenFile("/dev/null", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+	// where the db goes
+	dir := path.Join(testdir, "badgerdb")
+
+	// redirect log framework output
+	f, err := os.OpenFile(path.Join(testdir,"badger-output.log"), os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	log.SetOutput(f)
-
-	// 
-	dir := path.Join(testdir, "badgerdb")
 
 	// set dir
 	badgerstore.dir = dir
