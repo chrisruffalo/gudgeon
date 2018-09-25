@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	batchSize = 5000
+	batchSize = 128
 )
 
 type badgerstore struct {
