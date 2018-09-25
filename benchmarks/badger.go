@@ -40,6 +40,11 @@ func (badgerstore *badgerstore) Load(inputfile string, testdir string) error {
 
 	// open db
 	opts := badger.DefaultOptions
+
+	// significant decrease (to 1/3) in memory consumed
+	opts.MaxTableSize = 64 << 16
+	opts.NumMemtables = 8
+
 	opts.Dir = dir
 	opts.ValueDir = dir
 
@@ -74,13 +79,32 @@ func (badgerstore *badgerstore) Load(inputfile string, testdir string) error {
 				if "" == item {
 					continue
 				}
-	  			txn.Set([]byte(item), []byte("group1, group2, group3, group4"))
+	  			err = txn.Set([]byte(item), []byte(item + "{ group1, group2, group3, group4 }"))
+	  			if err != nil {
+	  				return err
+	  			}
 	  		}
 	  		return nil
 		})
+		if err != nil {
+			db.Close()
+			return err
+		}
+	}
+	db.Close()
+
+	// re-open db without making writes from this point on
+
+	db, err = badger.Open(opts)
+	opts.NumCompactors = 0
+	opts.DoNotCompact = true
+	opts.ReadOnly = true
+
+	if err != nil {
+		return err
 	}
 	badgerstore.db = db
-
+	
 	return nil
 }
 
