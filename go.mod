@@ -11,6 +11,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.9.0
 	github.com/miekg/dns v1.0.8
 	github.com/pkg/errors v0.8.0 // indirect
+	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72
 	github.com/willf/bitset v1.1.9 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
