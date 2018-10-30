@@ -5,17 +5,17 @@ import (
 )
 
 func TestRuleCreation(t *testing.T) {
-	rule := Create("simple.domain.com")
+	rule := CreateRule("simple.domain.com", BLOCKLIST)
 	if rule == nil || rule.IsComplex() {
 		t.Errorf("Simple rule should not be a complex rule")
 	}
 
-	rule = Create("/.*google.*/") 
+	rule = CreateRule("/.*google.*/", BLOCKLIST) 
 	if rule == nil || !rule.IsComplex() {
 		t.Errorf("Regex rule should not be nil and should be complex")
 	}
 
-	rule = Create("*.google.com") 
+	rule = CreateRule("*.google.com", BLOCKLIST)
 	if rule == nil || !rule.IsComplex(){
 		t.Errorf("Wildcard rule should not be nil and should be complex")
 	}
@@ -27,7 +27,7 @@ type domainData struct {
 }
 
 func testRuleMatching(testType string, text string, data []domainData, t *testing.T) {
-	rule := Create(text)
+	rule := CreateRule(text, BLOCKLIST)
 	for _, d := range data {
 		result := rule.IsMatch(d.domain)
 		if result != d.expected {
