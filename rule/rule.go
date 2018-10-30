@@ -96,7 +96,7 @@ func createRegexMatchRule(rule string, ruleType uint8) Rule {
 }
 
 // =================================================================
-//
+// Base operations for Rule identification (mainly for backing stores)
 // =================================================================
 func (rule *baseRule) RuleType() uint8 {
 	return rule.ruleType

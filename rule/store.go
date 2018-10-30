@@ -23,8 +23,13 @@ func CreateStore(backingStoreType string) RuleStore {
 	}	
 
 	// create appropriate backing store
-
+	var backingStore RuleStore
+	if "mem" == backingStoreType || "memory" == backingStoreType || "" == backingStoreType {
+		backingStore = new(memoryStore)
+	}
+	
 	// set backing store
+	store.backingStore = backingStore
 
 	// finalize and return store
 	return store
