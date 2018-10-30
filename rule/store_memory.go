@@ -61,9 +61,12 @@ func (store *memoryStore) IsMatch(group string, domain string) bool {
 		result := memlist[foundex] == domain
 		if !result {
 			rootdomain := util.RootDomain(domain)
-			foundex = sort.SearchStrings(memlist, rootdomain)
-			if foundex >= 0 || foundex < len(memlist) {
-				result = memlist[foundex] == rootdomain
+			// if the domain is the same as the root domain (say the original domain is redhat.com) then skip it
+			if domain != rootdomain {
+				foundex = sort.SearchStrings(memlist, rootdomain)
+				if foundex >= 0 || foundex < len(memlist) {
+					result = memlist[foundex] == rootdomain
+				}
 			}
 		}
 		// create result
