@@ -1,16 +1,16 @@
 package downloader
 
 import (
+	"github.com/chrisruffalo/gudgeon/config"
 	"io/ioutil"
 	"os"
 	"testing"
-	"github.com/chrisruffalo/gudgeon/config"
 )
 
 // shortcut method that downloads all lists
 func downloadAll(t *testing.T, config *config.GudgeonConfig) error {
 	// go through lists
-	for _, list := range config.Blocklists {
+	for _, list := range config.Lists {
 		err := Download(config, list)
 		if err != nil {
 			t.Logf("Error downloading list=<< %s >>: %s", list.Name, err)
@@ -20,7 +20,7 @@ func downloadAll(t *testing.T, config *config.GudgeonConfig) error {
 	return nil
 }
 
-func conf(t *testing.T, path string) (*config.GudgeonConfig) {
+func conf(t *testing.T, path string) *config.GudgeonConfig {
 	// create/get tmp dir
 	dir, _ := ioutil.TempDir("", "gudgeon-cache-")
 

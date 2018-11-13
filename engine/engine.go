@@ -1,53 +1,60 @@
 package engine
 
 import (
-	"bufio"
 	"encoding/base64"
-	"fmt"
 	"os"
 	"path"
 
 	"github.com/google/uuid"
-	"github.com/willf/bloom"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/downloader"
+	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
-const (
-	bloomFilterAcceptableError = float64(0.0005) // rate of acceptable error
-)
-
-type activeGroup struct {
+// an active group is a group within the engine
+// that has been processed and is being used to
+// select rules. this will be used with the
+// rule processing to create rules and will
+// be used by the consumer to talk to the store
+type group struct {
 	engine *engine
 
 	configGroup *config.GudgeonGroup
-	whiteFilter *bloom.BloomFilter
-	blackFilter *bloom.BloomFilter
-	blockFilter *bloom.BloomFilter
-
-	specialWhitelistRules []string
-	specialBlacklistRules []string
-	specialBlocklistRules []string
-
-	whitelists []*config.GudgeonList
-	blacklists []*config.GudgeonList
-	blocklists []*config.GudgeonList
 }
 
-type activeConsumer struct {
+// represents a parsed "consumer" type that
+// links it to active parsed groups
+type consumer struct {
+	// engine pointer so we can use the engine from the active consumer
 	engine *engine
-	consumer *config.GundgeonConsumer
-	groups []*activeGroup
+
+	// configuration that this consumer was parsed from
+	configConsumer *config.GundgeonConsumer
+
+	// list of parsed groups that belong to this consumer
+	groups     []*group
+	groupNames []string
 }
 
+// stores the internals of the engine abstraction
 type engine struct {
+	// the session (which will represent the on-disk location inside of the gudgeon folder)
+	// that is being used as backing storage and state behind the engine
 	session string
 
+	// maintain config pointer
 	config *config.GudgeonConfig
-	consumers []*activeConsumer
-	defaultGroup *activeGroup
+
+	// consumers that have been parsed
+	consumers []*consumer
+
+	// the default group (used to ensure we have one)
+	defaultGroup *group
+
+	// the backing store for the engine
+	store rule.RuleStore
 }
 
 func (engine *engine) Root() string {
@@ -55,7 +62,7 @@ func (engine *engine) Root() string {
 }
 
 func (engine *engine) ListPath(listType string) string {
-	return path.Join(engine.Root(), listType + ".list")
+	return path.Join(engine.Root(), listType+".list")
 }
 
 type Engine interface {
@@ -63,7 +70,7 @@ type Engine interface {
 	Start() error
 }
 
-func shouldAssignList(listNames []string, listTags []string, lists []*config.GudgeonList) []*config.GudgeonList {
+func assignedLists(listNames []string, listTags []string, lists []*config.GudgeonList) []*config.GudgeonList {
 	// empty list
 	should := []*config.GudgeonList{}
 
@@ -86,57 +93,13 @@ func shouldAssignList(listNames []string, listTags []string, lists []*config.Gud
 	return should
 }
 
-func filterAndSeparateRules(activeGroup *activeGroup, lists []*config.GudgeonList) (*bloom.BloomFilter, []string) {
-	// get configuration from engine through group
-	config := activeGroup.engine.config
-
-	// count lines
-	totalLines := uint(0)
-	for _, list := range lists {
-		lines, err := util.LinesInFile(config.PathToList(list))
-		if err != nil {
-			continue
-		}
-		totalLines += lines
-	}
-
-	// create filter with acceptable error
-	filter := bloom.NewWithEstimates(totalLines, bloomFilterAcceptableError)
-
-	// special rules
-	special := []string{}
-
-	// load lines
-	for _, list := range lists {
-		reader, err := os.Open(config.PathToList(list))
-		if err != nil {
-			continue
-		}
-
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			// parse out rule
-			text := ParseRule(scanner.Text())
-			if "" == text {
-				continue
-			}
-
-			// only add to bloom filter if rule is not complex (ie: straight block)
-			if !IsComplexRule(text) {
-				filter.AddString(text)	
-			} else {
-				special = append(special, text)
-			}
-		}
-	}
-
-	return filter, special
-}
-
 func New(conf *config.GudgeonConfig) (Engine, error) {
 	// create return object
 	engine := new(engine)
 	engine.config = conf
+
+	// create store
+	engine.store = rule.CreateDefaultStore() // create memory store
 
 	// create session key
 	uuid := uuid.New()
@@ -147,13 +110,11 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	os.MkdirAll(conf.SessionRoot(), os.ModePerm)
 	os.MkdirAll(engine.Root(), os.ModePerm)
 
-	lists := []*config.GudgeonList{}
-	lists = append(lists, conf.Whitelists...)
-	lists = append(lists, conf.Blacklists...)
-	lists = append(lists, conf.Blocklists...)
+	// get lists from the configuration
+	lists := conf.Lists
 
 	// load lists (from remote urls)
-	for _, list := range conf.Blocklists {
+	for _, list := range lists {
 		// get list path
 		path := conf.PathToList(list)
 
@@ -170,14 +131,14 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 			continue
 		}
 
-		// load/download list
+		// load/download list if required
 		err := downloader.Download(conf, list)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// empty activeGroups list of size equal to available groups
+	// empty groups list of size equal to available groups
 	workingGroups := append([]*config.GudgeonGroup{}, conf.Groups...)
 
 	// look for default group
@@ -198,118 +159,60 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	}
 
 	// use length of working groups to make list of active groups
-	activeGroups := make([]*activeGroup, len(workingGroups))
+	groups := make([]*group, len(workingGroups))
 
 	// process groups
-	for index, group := range conf.Groups {
-		// create active group
-		activeGroup := new(activeGroup)
-		activeGroup.engine = engine
-		activeGroup.configGroup = group
+	for _, configGroup := range conf.Groups {
+		// create active group for gorup name
+		engineGroup := new(group)
+		engineGroup.engine = engine
+		engineGroup.configGroup = configGroup
 
-		// walk through lists and assign to group as needed
-		activeGroup.whitelists = shouldAssignList(group.Whitelists, group.Tags, conf.Whitelists)
-		activeGroup.blacklists = shouldAssignList(group.Blacklists, group.Tags, conf.Blacklists)
-		activeGroup.blocklists = shouldAssignList(group.Blocklists, group.Tags, conf.Blocklists)
+		// determine which lists belong to this group
+		_ = assignedLists(configGroup.Lists, configGroup.Tags, conf.Lists)
 
-		// populate bloom filters as needed
-		activeGroup.whiteFilter, activeGroup.specialWhitelistRules = filterAndSeparateRules(activeGroup, activeGroup.whitelists)
-		activeGroup.blackFilter, activeGroup.specialBlacklistRules = filterAndSeparateRules(activeGroup, activeGroup.blacklists)
-		activeGroup.blockFilter, activeGroup.specialBlocklistRules = filterAndSeparateRules(activeGroup, activeGroup.blocklists)
-
-		// set active group to list of active groups
-		activeGroups[index] = activeGroup
+		// open the file, read each line, parse to
 
 		// set default group on engine if found
-		if "default" == group.Name {
-			engine.defaultGroup = activeGroup
+		if "default" == configGroup.Name {
+			engine.defaultGroup = engineGroup
 		}
 	}
 
 	// attach groups to consumers
-	activeConsumers := make([]*activeConsumer, len(conf.Consumers))
-	for index, consumer := range conf.Consumers {
+	consumers := make([]*consumer, len(conf.Consumers))
+	for index, configConsumer := range conf.Consumers {
 		// create an active consumer
-		activeConsumer := new(activeConsumer)
-		activeConsumer.engine = engine
+		consumer := new(consumer)
+		consumer.engine = engine
 
 		// link consumer to group when the consumer's group elements contains the group name
-		for _, activeGroup := range activeGroups {
-			if util.StringIn(activeGroup.configGroup.Name, consumer.Groups) {
-				activeConsumer.groups = append(activeConsumer.groups, activeGroup)
+		for _, group := range groups {
+			if util.StringIn(group.configGroup.Name, configConsumer.Groups) {
+				consumer.groups = append(consumer.groups, group)
+				consumer.groupNames = append(consumer.groupNames, group.configGroup.Name)
 			}
 		}
 
 		// add active consumer to list
-		activeConsumers[index] = activeConsumer
+		consumers[index] = consumer
 	}
-	engine.consumers = activeConsumers
+	engine.consumers = consumers
 
 	return engine, nil
 }
 
-func (engine *engine) consumerGroups(consumer string) []*activeGroup {
+func (engine *engine) consumerGroups(consumer string) []string {
 	// return the default group in the event nothing else is available
-	return []*activeGroup{engine.defaultGroup}
-}
-
-func (engine *engine) domainInLists(domain string, filter *bloom.BloomFilter, lists []*config.GudgeonList) bool {
-	// if it is in the bloom filter confirm that it is in the file which covers
-	// the case of false positivies
-	if filter.TestString(domain) {
-		// go through each list
-		for _, list := range lists {
-			reader, err := os.Open(engine.config.PathToList(list))
-			if err != nil {
-				continue
-			}
-
-			scanner := bufio.NewScanner(reader)
-			for scanner.Scan() {
-				text := ParseRule(scanner.Text())
-				if "" == text {
-					continue
-				}
-
-				// if one rule is matched, return true
-				if IsMatch(domain, text) {
-					return true
-				}
-			}
-		}
-	} 
-
-	// if nothing is found return false
-	return false
+	return []string{"default"}
 }
 
 func (engine *engine) IsDomainBlocked(consumer string, domain string) bool {
-	// get group from conumer string, most likely by converting it to
-	// an IP address and then comparing against the items in the consumers list
-	// possibly caching the result for later
-	groups := engine.consumerGroups(consumer)
-
-	// for each group
-	for _, group := range groups {
-		// process all WHITElists
-		if engine.domainInLists(domain, group.whiteFilter, group.whitelists) {
-			return false // not blocked if found in whitelists
-		}
-
-		// process all BLACKlists
-		if engine.domainInLists(domain, group.blackFilter, group.blacklists) {
-			return true
-		}
-
-		// process all BLOCKlists
-		if engine.domainInLists(domain, group.blockFilter, group.blocklists) {
-			return true
-		}
-	}
-	return false
+	// get groups applicable to consumer
+	groupNames := engine.consumerGroups(consumer)
+	return engine.store.IsMatchAny(groupNames, domain)
 }
 
 func (engine *engine) Start() error {
-	fmt.Printf("Serving %d consumers with a total of %d explicit groups and %d list\n", len(engine.consumers), len(engine.config.Groups), len(engine.config.Blacklists) + len(engine.config.Whitelists) + len(engine.config.Blocklists))
 	return nil
 }

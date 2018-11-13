@@ -24,7 +24,7 @@ func StartsWithAny(value string, any []string) bool {
 }
 
 func RootDomain(domain string) string {
-	split := strings.Split(domain, ".") 
+	split := strings.Split(domain, ".")
 	if len(split) >= 2 {
 		return strings.Join(split[len(split)-2:], ".")
 	}

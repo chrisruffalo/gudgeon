@@ -11,37 +11,9 @@ gudgeon:
     endpoints:
     - 0.0.0.0:53
 
-  # lists that contain explicitly allowed domains
-  # either by name, with wildcards, or by regex
-  # these are locally maintained and site specific
-  whitelists:
-  - name: default
-    src: "./.gudgeon/whitelists/default.list"
-    tags:
-    - default
-
-  # lists that contain explicitly blocked domains
-  # either by name, with wildcards, or by regex
-  # these are locally maintained and site specific
-  # a blacklist is different from a blocklist mainly
-  # in the way they are handled. blacklists are intended
-  # to cover gaps in blocklists and, as a result, offer
-  # things like regex and wildcard matching in order
-  # to increaes flexibility. the downside is that these
-  # take special/individual processing which can slow
-  # down the initial dns query
-  blacklists:
-  - name: default
-    src: "./.gudgeon/blacklists/default.list"
-    tags:
-    - default
-
-  - name: nouser
-    src: "./.gudgeon/blacklists/nouser.list"
-
   # paths or urls of lists that contain blocked domains by name
   # these are generally remotely or group-maintained
-  blocklists:
+  lists:
   - name: stevenblack
     src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
     tags:

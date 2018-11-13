@@ -11,37 +11,21 @@ gudgeon:
     endpoints:
     - 0.0.0.0:53
 
+  dns:
+  - name: default
+    servers:
+    - 8.8.8.8
+    - 8.8.4.4
+
   # lists that contain explicitly allowed domains
   # either by name, with wildcards, or by regex
   # these are locally maintained and site specific
-  whitelists:
-  - name: default
-    src: "./.gudgeon/whitelists/default.list"
+  lists:
+  - name: global whitelist
+    type: allow # explicitly allow entries in this list
+    src: "./.gudgeon/global_whitelist.list"
     tags:
     - default
-
-  # lists that contain explicitly blocked domains
-  # either by name, with wildcards, or by regex
-  # these are locally maintained and site specific
-  # a blacklist is different from a blocklist mainly
-  # in the way they are handled. blacklists are intended
-  # to cover gaps in blocklists and, as a result, offer
-  # things like regex and wildcard matching in order
-  # to increaes flexibility. the downside is that these
-  # take special/individual processing which can slow
-  # down the initial dns query
-  blacklists:
-  - name: default
-    src: "./.gudgeon/blacklists/default.list"
-    tags:
-    - default
-
-  - name: nouser
-    src: "./.gudgeon/blacklists/nouser.list"
-
-  # paths or urls of lists that contain blocked domains by name
-  # these are generally remotely or group-maintained
-  blocklists:
   - name: stevenblack
     src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
     tags:
@@ -72,7 +56,7 @@ gudgeon:
   # by setting 'default' as one of the tags on those lists. since the default group
   # is always present it will be matched by any non-matched consumer. You cannot restrict
   # the default group by consumers.
-  - name: default 
+  - name: default
     tags:
     - ads
     - malware
@@ -93,7 +77,7 @@ gudgeon:
   # consumers are how machine IPs/endpoints/networks are mapped to groups. all
   # unmatched consumers belong to the 'default' group.
   consumers:
-  # the endusers group maps a few IPs (explicitly and by range) to the 
+  # the endusers group maps a few IPs (explicitly and by range) to the
   # users group which blocks certain categories of DNS domains.
   # (and the default group)
   - name: endusers
@@ -104,7 +88,7 @@ gudgeon:
     # explicit ip match
     - ip: 10.0.0.30
     # range match
-    - range: 
+    - range:
         from: 10.0.0.35
         to: 10.0.0.45
   # the openmachines group maps to the open (and default) group and does so for the

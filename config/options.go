@@ -3,13 +3,13 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
 	"github.com/jessevdk/go-flags"
+	"os"
 )
 
 type HelpOptions struct {
-	Help bool `short:"h" long:"help" group:"Help options" description:"Show this help message."`
-	Version bool `short:"v" long:"version" description:"Print the version of the software."`	
+	Help    bool `short:"h" long:"help" group:"Help options" description:"Show this help message."`
+	Version bool `short:"v" long:"version" description:"Print the version of the software."`
 }
 
 type AppOptions struct {
@@ -19,9 +19,9 @@ type AppOptions struct {
 type GudgeonOptions struct {
 	// explict app group
 	AppOptions AppOptions `group:"Application Options"`
-	
+
 	// emulate help flag with direct support for accessing it
-	HelpOptions HelpOptions `group:"Help Options"`	
+	HelpOptions HelpOptions `group:"Help Options"`
 }
 
 func Options(longVersion string) (GudgeonOptions, error) {
@@ -38,7 +38,7 @@ func Options(longVersion string) (GudgeonOptions, error) {
 		}
 		// and then we explicitly quit here
 		os.Exit(0)
-	// otherwise we just throw back an error
+		// otherwise we just throw back an error
 	} else if err != nil {
 		return opts, errors.New(fmt.Sprintf("Error parsing commands: %s", err))
 	}

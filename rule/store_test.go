@@ -5,10 +5,10 @@ import (
 )
 
 type ruleList struct {
-	group string
-	rule string
-	ruleType uint8
-	matching []string
+	group     string
+	rule      string
+	ruleType  uint8
+	matching  []string
 	nomatches []string
 }
 
@@ -19,7 +19,7 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 	for _, data := range ruleData {
 		// create rule and rule list
 		rule := CreateRule(data.rule, data.ruleType)
-		rules := []Rule{ rule }
+		rules := []Rule{rule}
 
 		// load rules into target store
 		store := createRuleStore()
@@ -43,11 +43,11 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 
 func TestComplexRuleStore(t *testing.T) {
 
-	ruleData := []ruleList {
+	ruleData := []ruleList{
 		// whitelist checks are inverted but force a return without going through BLACK or BLOCK lists
-		{ group: "default", rule: "/^r.*\\..*/", ruleType: WHITELIST, matching: []string{}, nomatches: []string{"ring.com", "rank.org", "riff.io"} },
+		{group: "default", rule: "/^r.*\\..*/", ruleType: ALLOW, matching: []string{}, nomatches: []string{"ring.com", "rank.org", "riff.io"}},
 		// black and blocklist checks are not
-		{ group: "default", rule: "/^r.*\\..*/", ruleType: BLACKLIST, matching: []string{"ring.com", "rank.org", "riff.io"}, nomatches: []string{"argument.com"} },
+		{group: "default", rule: "/^r.*\\..*/", ruleType: BLOCK, matching: []string{"ring.com", "rank.org", "riff.io"}, nomatches: []string{"argument.com"}},
 	}
 
 	// with creator function

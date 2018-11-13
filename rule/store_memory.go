@@ -1,86 +1,76 @@
 package rule
 
 import (
-	"sort"
+	"strings"
+
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
+// map rule to group to rule type
 type memoryStore struct {
-	rules map[uint8]map[string][]string
+	rules map[string]map[string]*uint8
 }
 
 func (store *memoryStore) Load(group string, rules []Rule) {
 	if store.rules == nil {
-		store.rules = make(map[uint8]map[string][]string)
+		store.rules = make(map[string]map[string]*uint8)
 	}
 
 	// categorize and put rules
 	for _, rule := range rules {
-		if store.rules[rule.RuleType()] == nil {
-			store.rules[rule.RuleType()] = make(map[string][]string)
+		lower := strings.ToLower(rule.Text())
+		if store.rules[lower] == nil {
+			store.rules[lower] = make(map[string]*uint8)
 		}
-		if store.rules[rule.RuleType()][group] == nil {
-			store.rules[rule.RuleType()][group] = make([]string, 0)
-		}
-		store.rules[rule.RuleType()][group] = append(store.rules[rule.RuleType()][group], rule.Text())
-	}
 
-	// sort each list of rules based on type and group
-	for ruleKey, _ := range store.rules {
-		// now handle each group in map
-		for groupKey, _ := range store.rules[ruleKey] {
-			// sort the string
-			sort.Strings(store.rules[ruleKey][groupKey])
+		// if rule not already allowed in this group set allowance
+		if store.rules[lower][group] == nil || *store.rules[lower][group] != ALLOW {
+			ruleType := rule.RuleType()
+			store.rules[lower][group] = &ruleType
 		}
 	}
 }
 
-func (store *memoryStore) IsMatch(group string, domain string) bool {
+func (store *memoryStore) IsMatchAny(groups []string, domain string) bool {
 	// if we don't know about rules exit
 	if store.rules == nil {
 		return false
 	}
 
-	// go through each rule type and apply the rules in order
-	for _, ruleType := range ruleApplyOrder {
-		// continue if there are no rules of that type
-		if store.rules[ruleType] == nil {
-			continue
-		}
-		// look for the group of that rule type
-		if store.rules[ruleType][group] == nil || len(store.rules[ruleType][group]) < 1 {
-			continue
-		}
-		// get the list into a local slice for brevity
-		memlist := store.rules[ruleType][group]
-		// now try and find the item
-		foundex := sort.SearchStrings(memlist, domain)
-		if foundex < 0 || foundex >= len(memlist) {
-			continue
-		}
-		result := memlist[foundex] == domain
-		if !result {
-			rootdomain := util.RootDomain(domain)
-			// if the domain is the same as the root domain (say the original domain is redhat.com) then skip it
-			if domain != rootdomain {
-				foundex = sort.SearchStrings(memlist, rootdomain)
-				if foundex >= 0 || foundex < len(memlist) {
-					result = memlist[foundex] == rootdomain
-				}
-			}
-		}
-		// create result
-		if result {
-			// whitelist is an immediate short circuit no/false
-			if ruleType == WHITELIST {
+	if "" == domain {
+		return false
+	}
+
+	// domain matching is done on lower case domains
+	domain = strings.ToLower(domain)
+	root := util.RootDomain(domain)
+
+	if store.rules[domain] != nil {
+		for _, group := range groups {
+			if store.rules[domain][group] != nil && *store.rules[domain][group] == ALLOW {
 				return false
-			} else {
-				// otherwise return true on match
+			} else if store.rules[domain][group] != nil && *store.rules[domain][group] == BLOCK {
 				return true
 			}
 		}
 	}
 
-	// if nothing was ever found return false
+	if store.rules[root] != nil {
+		for _, group := range groups {
+			// get root domain
+			if store.rules[root][group] != nil && *store.rules[root][group] == ALLOW {
+				return false
+			} else if store.rules[root][group] != nil && *store.rules[root][group] == BLOCK {
+				return true
+			}
+		}
+	}
+
+	// check root domain after domain
 	return false
+}
+
+// default implementation of IsMatch
+func (store *memoryStore) IsMatch(group string, domain string) bool {
+	return store.IsMatchAny([]string{group}, domain)
 }

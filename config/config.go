@@ -1,7 +1,7 @@
 package config
 
 import (
-    "errors"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path"
@@ -11,8 +11,7 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
-var	remoteProtocols = []string{"http:", "https:"}
-
+var remoteProtocols = []string{"http:", "https:"}
 
 // network: general dns network configuration
 type GudgeonNetwork struct {
@@ -28,6 +27,8 @@ type GudgeonNetwork struct {
 type GudgeonList struct {
 	// the name of the list (also automatically used as a tag)
 	Name string `yaml:"name"`
+	// the type of the list, requires "allow" or "block", defaults to "block"
+	Type string `yaml:"type"`
 	// the tags that relate to the list for tag filtering/processing
 	Tags []string `yaml:"tags"`
 	// the path to the list, remote paths will be downloaded if possible
@@ -40,12 +41,8 @@ type GudgeonGroup struct {
 	Name string `yaml:"name"`
 	// inherit: list of groups to copy settings from
 	Inherit []string `yaml:"inherit"`
-	// blacklists: names of blacklists to use
-	Blacklists []string `yaml:"blacklists"`
-	// whitelists: names of whitelists to use
-	Whitelists []string `yaml:"whitelists"`
 	// blocklists: names of blocklists to use
-	Blocklists []string `yaml:"blocklists"`
+	Lists []string `yaml:"lists"`
 	// tags: tags to use for tag-based matching
 	Tags []string `yaml:"tags"`
 }
@@ -53,18 +50,18 @@ type GudgeonGroup struct {
 // range: an IP range for consumer matching
 type GudgeonMatchRange struct {
 	From string `yaml:"from"`
-	To string `yaml:"to"`
+	To   string `yaml:"to"`
 }
 
 type GudgeonMatch struct {
-	IP string `yaml:"ip"`
+	IP    string             `yaml:"ip"`
 	Range *GudgeonMatchRange `yaml:"range"`
-	Net string `yaml:"net"`
+	Net   string             `yaml:"net"`
 }
 
 type GundgeonConsumer struct {
-	Name string `yaml:"name"`
-	Groups []string `yaml:"groups"`
+	Name    string          `yaml:"name"`
+	Groups  []string        `yaml:"groups"`
 	Matches []*GudgeonMatch `yaml:"matches"`
 }
 
@@ -73,11 +70,7 @@ type GudgeonConfig struct {
 
 	Network *GudgeonNetwork `yaml:"network"`
 
-	Blacklists []*GudgeonList `yaml:"blacklists"`
-
-	Whitelists []*GudgeonList `yaml:"whitelists"`
-
-	Blocklists []*GudgeonList `yaml:"blocklists"`
+	Lists []*GudgeonList `yaml:"lists"`
 
 	Groups []*GudgeonGroup `yaml:"groups"`
 
@@ -88,14 +81,22 @@ type GudgeonRoot struct {
 	Config *GudgeonConfig `yaml:"gudgeon"`
 }
 
-func (list * GudgeonList) IsRemote() bool {
-	return list != nil &&  "" != list.Source && util.StartsWithAny(list.Source, remoteProtocols)
+// simple function to get source as name if name is missing
+func (list *GudgeonList) CanonicalName() string {
+	if "" == list.Name {
+		return list.Source
+	}
+	return list.Name
+}
+
+func (list *GudgeonList) IsRemote() bool {
+	return list != nil && "" != list.Source && util.StartsWithAny(list.Source, remoteProtocols)
 }
 
 func (list *GudgeonList) path(cachePath string) string {
 	source := list.Source
 	if list.IsRemote() {
-		return path.Join(cachePath, list.Name + ".list")
+		return path.Join(cachePath, list.Name+".list")
 	}
 	return source
 }

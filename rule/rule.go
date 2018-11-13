@@ -7,15 +7,14 @@ import (
 	"github.com/ryanuber/go-glob"
 )
 
-var BLOCKLIST = uint8(0)
-var BLACKLIST = uint8(1)
-var WHITELIST = uint8(2)
+const ALLOW = uint8(0)
+const BLOCK = uint8(1)
 
 const (
-	wildcard = "*"
-	comment = "#"
-    altComment = "//"
-	regex = "/"
+	wildcard   = "*"
+	comment    = "#"
+	altComment = "//"
+	regex      = "/"
 )
 
 type Rule interface {
@@ -26,7 +25,7 @@ type Rule interface {
 }
 
 type baseRule struct {
-	text string
+	text     string
 	ruleType uint8
 }
 
@@ -55,7 +54,7 @@ func CreateRule(rule string, ruleType uint8) Rule {
 		// regex rules start and end with "/" to denote them that way
 		createdRule = createRegexMatchRule(rule, ruleType)
 	} else if strings.Contains(rule, wildcard) {
-		// wildcard rules have wildcards in them (only * is supported)	
+		// wildcard rules have wildcards in them (only * is supported)
 		createdRule = createWildcardMatchRule(rule, ruleType)
 	} else {
 		// all other rules are straight text match
@@ -71,7 +70,7 @@ func CreateRule(rule string, ruleType uint8) Rule {
 // =================================================================
 func createTextMatchRule(rule string, ruleType uint8) Rule {
 	newRule := new(textMatchRule)
-	newRule.text = rule
+	newRule.text = strings.ToLower(rule) // simple rules are always lowercase and simple matches are always lowercase to match
 	newRule.ruleType = ruleType
 	return newRule
 }
@@ -87,7 +86,7 @@ func createRegexMatchRule(rule string, ruleType uint8) Rule {
 	newRule := new(regexMatchRule)
 	newRule.text = rule
 	newRule.ruleType = ruleType
-	cRegex, err := regexp.Compile(rule[1:len(rule)-1])
+	cRegex, err := regexp.Compile(rule[1 : len(rule)-1])
 	newRule.regexp = cRegex
 	if err != nil {
 		return nil
@@ -125,10 +124,10 @@ func (rule *regexMatchRule) IsComplex() bool {
 // Rule Matching
 // =================================================================
 func (rule *textMatchRule) IsMatch(sample string) bool {
-	// check to see if the value matches the rule OR if the 
+	// check to see if the value matches the rule OR if the
 	// value has a suffix that matches the "." + rule so that
 	// "google.com" blocks "subdomain.google.com" and "google.com"
-	return rule.text == sample || strings.HasSuffix(sample, "." + rule.text)
+	return rule.text == sample || strings.HasSuffix(sample, "."+rule.text)
 }
 
 func (rule *wildcardMatchRule) IsMatch(sample string) bool {

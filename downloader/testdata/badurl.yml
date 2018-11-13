@@ -1,4 +1,4 @@
 gudgeon:
-  blocklists:
+  lists:
   - name: badurl
     url: http://google.com/thisdoesnotexist

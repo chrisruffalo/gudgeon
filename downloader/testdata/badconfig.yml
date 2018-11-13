@@ -1,4 +1,4 @@
 gudgeon:
-  blocklists:
+  lists:
   - name: badfile
     url: file:///tmp/doesnotexist

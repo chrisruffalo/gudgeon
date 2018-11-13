@@ -16,26 +16,26 @@ func LinesInFile(path string) (uint, error) {
 	}
 
 	// create buffered reader (more raw than scanner/readline)
-    reader := bufio.NewReader(r)
+	reader := bufio.NewReader(r)
 
-    // start with 0
-    count := uint(0)
+	// start with 0
+	count := uint(0)
 
-    // chomps through the file/reader in buffer size chunks
-    for {
-        _, isPrefix, err := reader.ReadLine()
+	// chomps through the file/reader in buffer size chunks
+	for {
+		_, isPrefix, err := reader.ReadLine()
 
-        if !isPrefix {
-            count++
-        }
+		if !isPrefix {
+			count++
+		}
 
-        if err == io.EOF {
-            return count - 1, nil
-        } else if err != nil {
-            return count, err
-        }
+		if err == io.EOF {
+			return count - 1, nil
+		} else if err != nil {
+			return count, err
+		}
 
-    }
+	}
 
-    return count, nil
+	return count, nil
 }

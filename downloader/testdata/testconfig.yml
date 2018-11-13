@@ -1,5 +1,5 @@
 gudgeon:
-  blocklists:
+  lists:
   - name: stevenblack
     src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
     tags:

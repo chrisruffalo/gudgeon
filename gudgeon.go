@@ -1,15 +1,15 @@
 package main
 
 import (
-    "fmt"
-    "os"
+	"fmt"
+	"os"
 
-    "github.com/chrisruffalo/gudgeon/config"
-    "github.com/chrisruffalo/gudgeon/engine"
+	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/engine"
 )
 
 // pick up version from build process
-var	Version = "1.0.0"
+var Version = "1.0.0"
 var GitHash = ""
 var LongVersion = Version + "@git" + GitHash
 
