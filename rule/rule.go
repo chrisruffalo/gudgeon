@@ -7,8 +7,8 @@ import (
 	"github.com/ryanuber/go-glob"
 )
 
-const ALLOW = uint8(0)
-const BLOCK = uint8(1)
+const ALLOW = uint8(1)
+const BLOCK = uint8(0)
 
 const (
 	wildcard   = "*"

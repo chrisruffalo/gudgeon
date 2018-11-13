@@ -2,38 +2,30 @@ package rule
 
 import (
 	"strings"
-	"sort"
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
-// map rule to allowed types (0 or 1) and then to groups for that allowed type
+
 type memoryStore struct {
-	rules map[string][][]string
+	rules map[string]map[string]uint8
 }
 
 func (store *memoryStore) Load(group string, rules []Rule) {
 	if store.rules == nil {
-		store.rules = make(map[string][][]string)
+		store.rules = make(map[string]map[string]uint8)
 	}
 
 	// categorize and put rules
 	for _, rule := range rules {
 		lower := strings.ToLower(rule.Text())
 		if store.rules[lower] == nil {
-			store.rules[lower] = make([][]string, 2)
+			store.rules[lower] = make(map[string]uint8)
 		}
 
 		// if group list not present for rule type create group list
 		ruleType := rule.RuleType()
-		if store.rules[lower][ruleType] == nil {
-			store.rules[lower][ruleType] = make([]string, 0)
-		}
-
-		// append group to list belonging to rule type
-		if !util.StringIn(group, store.rules[lower][ruleType]) {
-			store.rules[lower][ruleType] = append(store.rules[lower][ruleType], group)
-			// just sort it each time so we can search it later
-			sort.Strings(store.rules[lower][ruleType])
+		if ALLOW != store.rules[lower][group] {
+			store.rules[lower][group] = ruleType
 		}
 	}
 }
@@ -51,30 +43,19 @@ func (store *memoryStore) IsMatchAny(groups []string, domain string) bool {
 	// domain matching is done on lower case domains
 	domain = strings.ToLower(domain)
 	if store.rules[domain] != nil {
-		// do the same thing for each rule type
-		for _, ruleType := range ruleApplyOrder {
-			// get groups that this rule type applies to
-			applyToGroups := store.rules[domain][ruleType]
+		ruleType := uint8(99)
 
-			// skip forward if rule type is not represented
-			if applyToGroups == nil || len(applyToGroups) < 1 {
-				continue
+		for _, group := range groups {
+			if ruleType == ALLOW {
+				break
 			}
+			ruleType = store.rules[domain][group]
+		}
 
-			// look for group in list of groups
-			for _, group := range groups {
-				// get index for search
-				idx := sort.SearchStrings(applyToGroups, group)
-
-				// if found 
-				if idx >= 0 && idx < len(applyToGroups) && applyToGroups[idx] == group {
-					if ruleType == ALLOW {
-						return false
-					} else {
-						return true
-					}
-				}
-			}
+		if ruleType == ALLOW {
+			return false
+		} else if ruleType == BLOCK {
+			return true
 		}
 	}
 
