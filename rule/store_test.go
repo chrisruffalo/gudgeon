@@ -2,6 +2,13 @@ package rule
 
 import (
 	"testing"
+
+	"github.com/chrisruffalo/gudgeon/testutil"
+)
+
+const (
+	// one million rules
+	benchRules = 1000000
 )
 
 type ruleList struct {
@@ -38,6 +45,45 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 				t.Errorf("Rule '%s' of type %d not expected to match '%s' but did", data.rule, data.ruleType, noMatch)
 			}
 		}
+	}
+}
+
+// for benchmarking non-complex implementations
+func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
+	// create rule store
+	store := createRuleStore()
+
+	// create rules
+	rules := make([]Rule, benchRules)
+	ruleType := ALLOW
+	for idx := range rules {
+		if idx >= benchRules / 2 {
+			ruleType = BLOCK
+		}
+		rules[idx] = CreateRule(testutil.RandomDomain(), ruleType)
+	}
+
+	groups := []string{"alpha", "bravo", "charlie", "delta", "echo"}
+	inGroups := []string{"zulu", "yankee", "november", "echo"}
+
+	// load rules into store for each group
+	for _, group := range groups {
+		store.Load(group, rules)
+	}
+
+	// create list of queries
+	queryData := make([]string, 100)
+	for rdx := range queryData {
+		queryData[rdx] = rules[(len(rules)/2)-(len(queryData)/2)+rdx].Text()
+	}
+
+	// start timer
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	// query
+	for i := 0; i < b.N; i++ {
+		store.IsMatchAny(inGroups, queryData[i%len(queryData)])
 	}
 }
 

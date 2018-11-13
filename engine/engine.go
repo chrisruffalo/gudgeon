@@ -171,7 +171,7 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		// determine which lists belong to this group
 		_ = assignedLists(configGroup.Lists, configGroup.Tags, conf.Lists)
 
-		// open the file, read each line, parse to
+		// open the file, read each line, parse to rules
 
 		// set default group on engine if found
 		if "default" == configGroup.Name {

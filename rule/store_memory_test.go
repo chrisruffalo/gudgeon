@@ -15,3 +15,7 @@ func TestMemoryRuleStore(t *testing.T) {
 
 	testStore(ruleData, func() RuleStore { return new(memoryStore) }, t)
 }
+
+func BenchmarkMemoryRuleStore(b *testing.B) {
+	benchNonComplexStore(func() RuleStore { return new(memoryStore) }, b)
+}
