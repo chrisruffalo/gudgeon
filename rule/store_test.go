@@ -1,13 +1,14 @@
 package rule
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/chrisruffalo/gudgeon/testutil"
 )
 
 const (
-	// one million rules
+	// how many rules to benchmark with
 	benchRules = 1000000
 )
 
@@ -53,6 +54,8 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 	// create rule store
 	store := createRuleStore()
 
+	printMemUsage("before load", b)
+
 	// create rules
 	rules := make([]Rule, benchRules)
 	ruleType := ALLOW
@@ -77,6 +80,9 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 		queryData[rdx] = rules[(len(rules)/2)-(len(queryData)/2)+rdx].Text()
 	}
 
+	runtime.GC()
+	printMemUsage("after load", b)
+
 	// start timer
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -85,6 +91,10 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		store.IsMatchAny(inGroups, queryData[i%len(queryData)])
 	}
+
+	// after test print memory usage too
+	runtime.GC()
+	printMemUsage("after test", b)
 }
 
 func TestComplexRuleStore(t *testing.T) {
@@ -98,4 +108,15 @@ func TestComplexRuleStore(t *testing.T) {
 
 	// with creator function
 	testStore(ruleData, func() RuleStore { return CreateStore("") }, t)
+}
+
+func printMemUsage(msg string, b *testing.B) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+	b.Logf("%s: Alloc = %v MiB", msg, bToMb(m.Alloc))
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
 }

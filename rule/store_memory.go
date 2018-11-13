@@ -6,37 +6,34 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
-// map rule to group to list type to group names
+// map rule to allowed types (0 or 1) and then to groups for that allowed type
 type memoryStore struct {
-	rules map[string]map[uint8]*[]string
+	rules map[string][][]string
 }
 
 func (store *memoryStore) Load(group string, rules []Rule) {
 	if store.rules == nil {
-		store.rules = make(map[string]map[uint8]*[]string)
+		store.rules = make(map[string][][]string)
 	}
 
 	// categorize and put rules
 	for _, rule := range rules {
 		lower := strings.ToLower(rule.Text())
 		if store.rules[lower] == nil {
-			store.rules[lower] = make(map[uint8]*[]string)
+			store.rules[lower] = make([][]string, 2)
 		}
 
 		// if group list not present for rule type create group list
 		ruleType := rule.RuleType()
 		if store.rules[lower][ruleType] == nil {
-			newEmptySlice := make([]string, 0)
-			store.rules[lower][ruleType] = &newEmptySlice
+			store.rules[lower][ruleType] = make([]string, 0)
 		}
 
 		// append group to list belonging to rule type
-		if !util.StringIn(group, *store.rules[lower][ruleType]) {
-			appendedSlice := append(*store.rules[lower][ruleType], group)
+		if !util.StringIn(group, store.rules[lower][ruleType]) {
+			store.rules[lower][ruleType] = append(store.rules[lower][ruleType], group)
 			// just sort it each time so we can search it later
-			sort.Strings(appendedSlice)
-
-			store.rules[lower][ruleType] = &appendedSlice
+			sort.Strings(store.rules[lower][ruleType])
 		}
 	}
 }
@@ -56,15 +53,11 @@ func (store *memoryStore) IsMatchAny(groups []string, domain string) bool {
 	if store.rules[domain] != nil {
 		// do the same thing for each rule type
 		for _, ruleType := range ruleApplyOrder {
-			if store.rules[domain][ruleType] == nil {
-				continue
-			}
-
 			// get groups that this rule type applies to
-			applyToGroups := *store.rules[domain][ruleType]
+			applyToGroups := store.rules[domain][ruleType]
 
 			// skip forward if rule type is not represented
-			if len(applyToGroups) < 1 {
+			if applyToGroups == nil || len(applyToGroups) < 1 {
 				continue
 			}
 
