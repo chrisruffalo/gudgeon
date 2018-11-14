@@ -7,25 +7,24 @@ import (
 
 
 type memoryStore struct {
-	rules map[string]map[string]uint8
+	rules map[string]map[string]bool
 }
 
 func (store *memoryStore) Load(group string, rules []Rule) {
 	if store.rules == nil {
-		store.rules = make(map[string]map[string]uint8)
+		store.rules = make(map[string]map[string]bool)
 	}
 
 	// categorize and put rules
 	for _, rule := range rules {
 		lower := strings.ToLower(rule.Text())
 		if store.rules[lower] == nil {
-			store.rules[lower] = make(map[string]uint8)
+			store.rules[lower] = make(map[string]bool)
 		}
 
-		// if group list not present for rule type create group list
-		ruleType := rule.RuleType()
-		if ALLOW != store.rules[lower][group] {
-			store.rules[lower][group] = ruleType
+		// you can't overwrite an ALLOW because that takes precedence
+		if !store.rules[lower][group] {
+			store.rules[lower][group] = ALLOW == rule.RuleType()
 		}
 	}
 }
@@ -43,20 +42,26 @@ func (store *memoryStore) IsMatchAny(groups []string, domain string) bool {
 	// domain matching is done on lower case domains
 	domain = strings.ToLower(domain)
 	if store.rules[domain] != nil {
-		ruleType := uint8(99)
+		// value for when all the groups are checked
+		// and when a group is found but not TRUE/ALLOW
+		// then it needs to be blocked
+		blocked := false
 
+		// go through each group
 		for _, group := range groups {
-			if ruleType == ALLOW {
-				break
+			// if any group has ALLOW (true) as a value
+			// then return false immediately according to
+			// the whitelist behavior
+			val, found := store.rules[domain][group]
+			if found && val {
+				return false
+			// otherwise if a value was found it must be false
+			} else if found {
+				blocked = true
 			}
-			ruleType = store.rules[domain][group]
 		}
 
-		if ruleType == ALLOW {
-			return false
-		} else if ruleType == BLOCK {
-			return true
-		}
+		return blocked
 	}
 
 	// process root domain if it is different
