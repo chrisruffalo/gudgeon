@@ -23,6 +23,14 @@ func StartsWithAny(value string, any []string) bool {
 	return false
 }
 
+func SubDomain(domain string) string {
+	split := strings.Split(domain, ".")
+	if len(split) >= 2 {
+		return strings.Join(split[1:], ".")
+	}
+	return domain
+}
+
 func RootDomain(domain string) string {
 	split := strings.Split(domain, ".")
 	if len(split) >= 2 {

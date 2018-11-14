@@ -65,9 +65,9 @@ func (store *memoryStore) IsMatchAny(groups []string, domain string) bool {
 	}
 
 	// process root domain if it is different
-	root := util.RootDomain(domain)
-	if domain != root {
-		return store.IsMatchAny(groups, root)
+	sub := util.SubDomain(domain)
+	if domain != sub {
+		return store.IsMatchAny(groups, sub)
 	}
 	
 	// check root domain after domain
