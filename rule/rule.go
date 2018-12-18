@@ -9,6 +9,7 @@ import (
 
 const ALLOW = uint8(1)
 const BLOCK = uint8(0)
+const ALLOWSTRING = "allow"
 
 const (
 	wildcard   = "*"
@@ -42,6 +43,13 @@ type regexMatchRule struct {
 	regexp *regexp.Regexp
 }
 
+func ParseType(listType string) uint8 {
+	if strings.EqualFold(ALLOWSTRING, listType) {
+		return ALLOW
+	}
+	return BLOCK
+}
+
 func CreateRule(rule string, ruleType uint8) Rule {
 	// a rule that starts with a comment sign is parsed as an empty string which should be ignored by other parts of the API
 	if strings.HasPrefix(rule, comment) || strings.HasPrefix(rule, altComment) {
@@ -49,6 +57,12 @@ func CreateRule(rule string, ruleType uint8) Rule {
 	}
 
 	var createdRule Rule = nil
+
+	// a rule that can be split on spaces is more complicated, for right now just take everything after the first space
+	split := strings.Split(rule, " ")
+	if len(split) > 1 {
+		rule = strings.Join(split[1:], " ")
+	}
 
 	if strings.HasPrefix(rule, regex) && strings.HasSuffix(rule, regex) {
 		// regex rules start and end with "/" to denote them that way

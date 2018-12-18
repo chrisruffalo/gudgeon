@@ -1,15 +1,22 @@
 package rule
 
+// a match can be: 
+// allow (don't block, override/bypass block)
+// block (explicit block)
+// none (no reason found to block or allow)
+type Match uint8
+const (
+	MatchAllow Match = 2
+	MatchBlock Match = 1
+	MatchNone  Match = 0
+)
+
 type RuleStore interface {
-	Load(group string, rules []Rule)
-	IsMatch(group string, domain string) bool
-	IsMatchAny(group []string, domain string) bool
+	Load(group string, rules []Rule) uint64
+	IsMatch(group string, domain string) Match
+	IsMatchAny(group []string, domain string) Match
 }
 
-type complexStore struct {
-	backingStore RuleStore
-	complexRules map[uint8]map[string][]Rule
-}
 
 // order of applying/creating/using rules
 var ruleApplyOrder = []uint8{ALLOW, BLOCK}
@@ -39,74 +46,4 @@ func CreateStore(backingStoreType string) RuleStore {
 
 	// finalize and return store
 	return store
-}
-
-func (store *complexStore) Load(group string, rules []Rule) {
-	// need to just forward the simple rules
-	simpleRuleList := make([]Rule, 0)
-
-	// make decisions based on the rule type
-	for _, rule := range rules {
-		if rule == nil {
-			continue
-		}
-
-		// complex rules are locally stored
-		if rule.IsComplex() {
-			targetType := rule.RuleType()
-			targetGroup := store.complexRules[targetType][group]
-			if targetGroup == nil {
-				targetGroup = make([]Rule, 0)
-				store.complexRules[targetType][group] = targetGroup
-			}
-			store.complexRules[targetType][group] = append(store.complexRules[targetType][group], rule)
-		} else {
-			// simple rules are forwarded to the backing store for storage
-			simpleRuleList = append(simpleRuleList, rule)
-		}
-	}
-
-	// backing store load is handled
-	if store.backingStore != nil {
-		store.backingStore.Load(group, simpleRuleList)
-	}
-}
-
-func (store *complexStore) IsMatchAny(groups []string, domain string) bool {
-
-	// go through the order of application (ALLOW, BLOCK)
-	for _, element := range ruleApplyOrder {
-		for _, group := range groups {
-			// get rules that were stored for that type and group
-			complexRules := store.complexRules[element][group]
-			// do complex rules that are found
-			if complexRules != nil {
-				// for each of the rules
-				for _, rule := range complexRules {
-					// check the rule using the rule logic
-					if rule.IsMatch(domain) {
-						// whitelist immediately returns false for a match
-						if element == ALLOW {
-							return false
-						} else {
-							return true
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// if nothing happened then we need to see what the backing store has to say
-	if store.backingStore != nil {
-		return store.backingStore.IsMatchAny(groups, domain)
-	}
-
-	// otherwise (if no backing store is configured) return false
-	return false
-}
-
-// default implementation of IsMatch
-func (store *complexStore) IsMatch(group string, domain string) bool {
-	return store.IsMatchAny([]string{group}, domain)
 }

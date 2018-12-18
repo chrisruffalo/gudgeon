@@ -10,13 +10,18 @@ type memoryStore struct {
 	rules map[string]map[string]bool
 }
 
-func (store *memoryStore) Load(group string, rules []Rule) {
+func (store *memoryStore) Load(group string, rules []Rule) uint64 {
 	if store.rules == nil {
 		store.rules = make(map[string]map[string]bool)
 	}
 
 	// categorize and put rules
+	counter := uint64(0)
 	for _, rule := range rules {
+		if rule == nil {
+			continue
+		}
+
 		lower := strings.ToLower(rule.Text())
 		if store.rules[lower] == nil {
 			store.rules[lower] = make(map[string]bool)
@@ -25,18 +30,21 @@ func (store *memoryStore) Load(group string, rules []Rule) {
 		// you can't overwrite an ALLOW because that takes precedence
 		if !store.rules[lower][group] {
 			store.rules[lower][group] = ALLOW == rule.RuleType()
+			counter++
 		}
 	}
+
+	return counter
 }
 
-func (store *memoryStore) IsMatchAny(groups []string, domain string) bool {
+func (store *memoryStore) IsMatchAny(groups []string, domain string) Match {
 	// if we don't know about rules exit
 	if store.rules == nil {
-		return false
+		return MatchNone
 	}
 
 	if "" == domain {
-		return false
+		return MatchNone
 	}
 
 	// domain matching is done on lower case domains
@@ -54,14 +62,16 @@ func (store *memoryStore) IsMatchAny(groups []string, domain string) bool {
 			// the whitelist behavior
 			val, found := store.rules[domain][group]
 			if found && val {
-				return false
+				return MatchAllow
 			// otherwise if a value was found it must be false
 			} else if found {
 				blocked = true
 			}
 		}
 
-		return blocked
+		if blocked {
+			return MatchBlock
+		}
 	}
 
 	// process root domain if it is different
@@ -70,11 +80,11 @@ func (store *memoryStore) IsMatchAny(groups []string, domain string) bool {
 		return store.IsMatchAny(groups, sub)
 	}
 	
-	// check root domain after domain
-	return false
+	// no match
+	return MatchNone
 }
 
 // default implementation of IsMatch
-func (store *memoryStore) IsMatch(group string, domain string) bool {
+func (store *memoryStore) IsMatch(group string, domain string) Match {
 	return store.IsMatchAny([]string{group}, domain)
 }

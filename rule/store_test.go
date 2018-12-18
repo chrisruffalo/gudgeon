@@ -16,8 +16,9 @@ type ruleList struct {
 	group     string
 	rule      string
 	ruleType  uint8
-	matching  []string
-	nomatches []string
+	blocked   []string
+	allowed   []string
+	nomatch   []string
 }
 
 type ruleStoreCreator func() RuleStore
@@ -33,19 +34,26 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 		store := createRuleStore()
 		store.Load(data.group, rules)
 
-		// check matching
-		for _, expectedMatch := range data.matching {
-			if !store.IsMatch(data.group, expectedMatch) {
-				t.Errorf("Rule '%s' of type %d expected to match '%s' but did not", data.rule, data.ruleType, expectedMatch)
+		// check blocked
+		for _, expectedBlock := range data.blocked {
+			if MatchBlock != store.IsMatch(data.group, expectedBlock) {
+				t.Errorf("Rule '%s' of type %d expected to block '%s' but did not", data.rule, data.ruleType, expectedBlock)
 			}
 		}
 
-		// check non-matching
-		for _, noMatch := range data.nomatches {
-			if store.IsMatch(data.group, noMatch) {
-				t.Errorf("Rule '%s' of type %d not expected to match '%s' but did", data.rule, data.ruleType, noMatch)
+		// check allowed
+		for _, expectedAllow := range data.allowed {
+			if MatchAllow != store.IsMatch(data.group, expectedAllow) {
+				t.Errorf("Rule '%s' of type %d expected to allow '%s' but did not", data.rule, data.ruleType, expectedAllow)
 			}
 		}
+
+		// check no match ata ll
+		for _, expectedNoMatch := range data.nomatch {
+			if MatchNone != store.IsMatch(data.group, expectedNoMatch) {
+				t.Errorf("Rule '%s' of type %d expected to not match '%s' but did", data.rule, data.ruleType, expectedNoMatch)
+			}
+		}		
 	}
 }
 
@@ -101,9 +109,9 @@ func TestComplexRuleStore(t *testing.T) {
 
 	ruleData := []ruleList{
 		// whitelist checks are inverted but force a return without going through BLACK or BLOCK lists
-		{group: "default", rule: "/^r.*\\..*/", ruleType: ALLOW, matching: []string{}, nomatches: []string{"ring.com", "rank.org", "riff.io"}},
+		{group: "default", rule: "/^r.*\\..*/", ruleType: ALLOW, blocked: []string{}, allowed: []string{"ring.com", "rank.org", "riff.io"}, nomatch: []string{}},
 		// black and blocklist checks are not
-		{group: "default", rule: "/^r.*\\..*/", ruleType: BLOCK, matching: []string{"ring.com", "rank.org", "riff.io"}, nomatches: []string{"argument.com"}},
+		{group: "default", rule: "/^r.*\\..*/", ruleType: BLOCK, blocked: []string{"ring.com", "rank.org", "riff.io"}, allowed: []string{}, nomatch: []string{"argument.com"}},
 	}
 
 	// with creator function

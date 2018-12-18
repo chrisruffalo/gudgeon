@@ -70,6 +70,7 @@ type Engine interface {
 	Start() error
 }
 
+// returns an array of the GudgeonLists that are assigned either by name or by tag from within the list of GudgeonLists in the config file
 func assignedLists(listNames []string, listTags []string, lists []*config.GudgeonList) []*config.GudgeonList {
 	// empty list
 	should := []*config.GudgeonList{}
@@ -89,7 +90,6 @@ func assignedLists(listNames []string, listTags []string, lists []*config.Gudgeo
 		}
 	}
 
-	// return the list of names
 	return should
 }
 
@@ -99,7 +99,7 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	engine.config = conf
 
 	// create store
-	engine.store = rule.CreateDefaultStore() // create memory store
+	engine.store = rule.CreateDefaultStore() // create default store type
 
 	// create session key
 	uuid := uuid.New()
@@ -162,16 +162,34 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	groups := make([]*group, len(workingGroups))
 
 	// process groups
-	for _, configGroup := range conf.Groups {
+	for _, configGroup := range workingGroups {
+
 		// create active group for gorup name
 		engineGroup := new(group)
 		engineGroup.engine = engine
 		engineGroup.configGroup = configGroup
 
 		// determine which lists belong to this group
-		_ = assignedLists(configGroup.Lists, configGroup.Tags, conf.Lists)
+		lists := assignedLists(configGroup.Lists, configGroup.Tags, conf.Lists)
 
 		// open the file, read each line, parse to rules
+		for _, list := range lists {
+			path := conf.PathToList(list)
+			array, err := util.GetFileAsArray(path)
+			if err != nil {
+				continue
+			}
+
+			// now parse the array by creating rules and storing them
+			parsedType := rule.ParseType(list.Type)
+			rules := make([]rule.Rule, len(array))
+			for idx, ruleText := range array {
+				rules[idx] = rule.CreateRule(ruleText, parsedType)
+			}
+
+			// send rule array to engine store
+			engine.store.Load(configGroup.Name, rules)
+		}
 
 		// set default group on engine if found
 		if "default" == configGroup.Name {
@@ -210,7 +228,8 @@ func (engine *engine) consumerGroups(consumer string) []string {
 func (engine *engine) IsDomainBlocked(consumer string, domain string) bool {
 	// get groups applicable to consumer
 	groupNames := engine.consumerGroups(consumer)
-	return engine.store.IsMatchAny(groupNames, domain)
+	result := engine.store.IsMatchAny(groupNames, domain)
+	return !(result == rule.MatchAllow || result == rule.MatchNone)
 }
 
 func (engine *engine) Start() error {

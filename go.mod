@@ -1,6 +1,7 @@
 module github.com/chrisruffalo/gudgeon
 
 require (
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/google/uuid v1.0.0
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/mattn/go-sqlite3 v1.9.0

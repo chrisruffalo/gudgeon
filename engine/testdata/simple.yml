@@ -1,0 +1,8 @@
+gudgeon:
+  lists:
+  - name: stevenblack
+    src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+    tags: [default]
+  - name: malwaredomains
+    src: https://mirror1.malwaredomains.com/files/justdomains
+    tags: [default]
