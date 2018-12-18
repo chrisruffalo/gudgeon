@@ -9,7 +9,7 @@ import (
 
 func TestBasicEngine(t *testing.T) {
 	config := testutil.Conf(t, "testdata/simple.yml")
-	defer os.RemoveAll(config.Home)	
+	defer os.RemoveAll(config.Home)
 
 	// create engine from test config
 	engine, err := New(config)
