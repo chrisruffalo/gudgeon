@@ -8,21 +8,30 @@ import (
 )
 
 // key delimeter
-const delimeter = "|"
+const (
+	delimeter = "|"
+	dnsMaxTtl = uint32(604800)
+)
 
-type entry struct {
-	answers []dns.RR
-	ns []dns.RR
-	extra []dns.RR
+type envelope struct {
+	message *dns.Msg
+	time time.Time
 }
 
 type Cache interface {
-	Store(group string, msg *dns.Msg)
-	Query(group string, msg *dns.Msg) bool
+	Store(group string, request *dns.Msg, response *dns.Msg)
+	Query(group string, request *dns.Msg) (*dns.Msg, bool)
 }
 
 type gocache struct {
 	backer *backer.Cache
+}
+
+func min(a uint32, b uint32) uint32 {
+	if a <= b {
+		return a
+	}
+	return b
 }
 
 // make string key from group + message
@@ -47,61 +56,65 @@ func New() Cache {
 	return gocache
 }
 
-func (gocache *gocache) Store(group string, msg *dns.Msg) {
-	// create copy of message
-	mCopy := msg.Copy()
-
+func (gocache *gocache) Store(group string, request *dns.Msg, response *dns.Msg) {
 	// create key from message
-	key := key(group, mCopy.Question)
+	key := key(group, request.Question)
 	if "" == key {
 		return
 	}
 
-	// store parts
-	entry := new(entry)
-	entry.answers = make([]dns.RR, len(mCopy.Answer))
-	for idx, a := range mCopy.Answer {
-		entry.answers[idx] = a
+	// get ttl from parts and use lowest ttl as cache value
+	ttl := dnsMaxTtl
+	for _, value := range response.Answer {
+		ttl = min(ttl, value.Header().Ttl)
 	}
-	entry.ns = make([]dns.RR, len(mCopy.Ns))
-	for idx, ns := range mCopy.Ns {
-		entry.ns[idx] = ns
-	}
-	entry.extra = make([]dns.RR, len(mCopy.Extra))
-	for idx, ex := range mCopy.Extra {
-		entry.extra[idx] = ex
-	}
+	for _, value := range response.Ns {
+		ttl = min(ttl, value.Header().Ttl)
+	}	
+	for _, value := range response.Extra {
+		ttl = min(ttl, value.Header().Ttl)
+	}	
 
-	// stuff in backing store
-	gocache.backer.Set(key, entry, backer.NoExpiration)
+	// if ttl is 0 or less then we don't need to bother to store it at all
+	if ttl > 0 {
+		// copy response to envelope
+		envelope := new(envelope)
+		envelope.message = response.Copy()
+		envelope.time = time.Now()
+
+		// put in backing store key -> envelope
+		gocache.backer.Set(key, envelope, time.Duration(ttl) * time.Second)
+	}
 }
 
-func (gocache *gocache) Query(group string, msg *dns.Msg) bool {
+func (gocache *gocache) Query(group string, request *dns.Msg) (*dns.Msg, bool) {
 	// get key
-	key := key(group, msg.Question)
+	key := key(group, request.Question)
 	if "" == key {
-		return false
+		return nil, false
 	}
 
 	value, found := gocache.backer.Get(key)
 	if !found {
-		return false
+		return nil, false
 	}
-	entry := value.(*entry)
+	envelope := value.(*envelope)
+	if envelope == nil || envelope.message == nil {
+		return nil, false
+	}
+	delta := time.Now().Sub(envelope.time)
+	message := envelope.message.Copy()
 
-	msg.Answer = make([]dns.RR, len(entry.answers))
-	for idx, value := range entry.answers {
-		msg.Answer[idx] = value
+	// count down/change ttl values in response
+	for _, value := range envelope.message.Answer {
+		value.Header().Ttl = value.Header().Ttl - uint32(delta/time.Second)
 	}
-	msg.Ns = make([]dns.RR, len(entry.ns))
-	for idx, value := range entry.ns {
-		msg.Ns[idx] = value
-	}
-	msg.Extra = make([]dns.RR, len(entry.extra)) 
-	for idx, value := range entry.extra {
-		msg.Extra[idx] = value
-	}
+	for _, value := range envelope.message.Ns {
+		value.Header().Ttl = value.Header().Ttl - uint32(delta/time.Second)
+	}	
+	for _, value := range envelope.message.Extra {
+		value.Header().Ttl = value.Header().Ttl - uint32(delta/time.Second)
+	}	
 
-
-	return true
+	return message, true
 }

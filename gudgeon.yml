@@ -62,14 +62,11 @@ gudgeon:
     - malware
   # here we define an extra group for use by specific users/machines that provides
   # extra protection against malicious domains.  it explicitly adds the 'privacy' list by name as
-  # well as the 'nouser' blacklist.
+  # well as the 'ads' blacklist.
   - name: users
-    blacklists:
-    - nouser
-    blocklists:
+    lists:
     - privacy
-    tags:
-    - malicious
+    - ads
   # here we define an open group. this would be useful for machines that need
   # broader domain access or that have issues with false-positives.
   - name: open
@@ -89,8 +86,8 @@ gudgeon:
     - ip: 10.0.0.30
     # range match
     - range:
-        from: 10.0.0.35
-        to: 10.0.0.45
+        start: 10.0.0.35
+        end: 10.0.0.45
   # the openmachines group maps to the open (and default) group and does so for the
   # entire 10.0.2.0/24 subnet.
   - name: openmachines

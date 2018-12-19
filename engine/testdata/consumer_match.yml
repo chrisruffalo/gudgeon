@@ -1,0 +1,31 @@
+gudgeon:
+  groups:
+  - name: alpha
+  - name: bravo
+  - name: charlie
+  - name: delta
+
+  consumers:
+  - name: ip
+    groups:
+    - alpha
+    - bravo
+    matches:
+    - ip: 192.168.0.1
+    - ip: 192.168.0.2
+  
+  - name: range
+    groups:
+    - bravo
+    - charlie
+    matches:
+    - range:
+        start: 192.168.50.20
+        end: 192.168.50.90
+
+  - name: subnet
+    groups:
+    - delta
+    matches:
+    - net: 192.168.5.0/24
+

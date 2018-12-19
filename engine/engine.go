@@ -1,12 +1,17 @@
 package engine
 
 import (
+	"bytes"
 	"encoding/base64"
+	"net"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/google/uuid"
+	"github.com/miekg/dns"
 
+	"github.com/chrisruffalo/gudgeon/cache"
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/downloader"
 	"github.com/chrisruffalo/gudgeon/rule"
@@ -53,8 +58,11 @@ type engine struct {
 	// the default group (used to ensure we have one)
 	defaultGroup *group
 
-	// the backing store for the engine
+	// the backing store for block/allow rules
 	store rule.RuleStore
+
+	// 	query cache
+	cache cache.Cache
 }
 
 func (engine *engine) Root() string {
@@ -66,8 +74,8 @@ func (engine *engine) ListPath(listType string) string {
 }
 
 type Engine interface {
-	IsDomainBlocked(consumer string, domain string) bool
-	Resolve(consumer string, domain string) string
+	IsDomainBlocked(consumer net.IP, domain string) bool
+	Handle(dnsWriter dns.ResponseWriter, request *dns.Msg)
 	Start() error
 }
 
@@ -101,6 +109,9 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 
 	// create store
 	engine.store = rule.CreateDefaultStore() // create default store type
+
+	// create a new empty cache
+	engine.cache = cache.New()
 
 	// create session key
 	uuid := uuid.New()
@@ -163,12 +174,14 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	groups := make([]*group, len(workingGroups))
 
 	// process groups
-	for _, configGroup := range workingGroups {
+	for idx, configGroup := range workingGroups {
 
 		// create active group for gorup name
 		engineGroup := new(group)
 		engineGroup.engine = engine
 		engineGroup.configGroup = configGroup
+		// add created engine group to list of groups
+		groups[idx] = engineGroup		
 
 		// determine which lists belong to this group
 		lists := assignedLists(configGroup.Lists, configGroup.Tags, conf.Lists)
@@ -204,6 +217,9 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		// create an active consumer
 		consumer := new(consumer)
 		consumer.engine = engine
+		consumer.groups = make([]*group, 0)
+		consumer.groupNames = make([]string, 0)
+		consumer.configConsumer = configConsumer
 
 		// link consumer to group when the consumer's group elements contains the group name
 		for _, group := range groups {
@@ -221,29 +237,103 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	return engine, nil
 }
 
-func (engine *engine) consumerGroups(consumer string) []string {
+func (engine *engine) consumerGroups(consumerIp net.IP) []string {
+	var foundConsumer *consumer = nil
+
+	for _, activeConsumer := range engine.consumers {
+		for _, match := range activeConsumer.configConsumer.Matches {
+			// test ip match
+			if "" != match.IP {
+				matchIp := net.ParseIP(match.IP)
+				if matchIp != nil && bytes.Compare(matchIp.To16(), consumerIp.To16()) == 0 {
+					foundConsumer = activeConsumer
+				}
+			}
+			// test range match
+			if foundConsumer == nil && match.Range != nil && "" != match.Range.Start && "" != match.Range.End {
+				startIp := net.ParseIP(match.Range.Start)
+				endIp := net.ParseIP(match.Range.End)
+				if startIp != nil && endIp != nil && bytes.Compare(consumerIp.To16(), startIp.To16()) >= 0 && bytes.Compare(consumerIp.To16(), endIp.To16()) <= 0 {
+					foundConsumer = activeConsumer
+				}
+			}
+			// test net (subnet) match
+			if foundConsumer == nil && "" != match.Net {
+				_, parsedNet, err := net.ParseCIDR(match.Net)
+				if err == nil && parsedNet != nil && parsedNet.Contains(consumerIp) {
+					foundConsumer = activeConsumer
+				}
+			}
+			if foundConsumer != nil {
+				break
+			}			
+		}
+		if foundConsumer != nil {
+			break
+		}
+	}
+
+	// return found consumer data if something was found
+	if foundConsumer != nil && len(foundConsumer.groups) > 0 {
+		return foundConsumer.groupNames
+	}
+
 	// return the default group in the event nothing else is available
 	return []string{"default"}
 }
 
-func (engine *engine) IsDomainBlocked(consumer string, domain string) bool {
+func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) bool {
+	// drop ending . if present from domain
+	if strings.HasSuffix(domain, ".") {
+		domain = domain[:len(domain) - 1]
+	}
+
 	// get groups applicable to consumer
-	groupNames := engine.consumerGroups(consumer)
+	groupNames := engine.consumerGroups(consumerIp)
 	result := engine.store.IsMatchAny(groupNames, domain)
 	return !(result == rule.MatchAllow || result == rule.MatchNone)
 }
 
-func (engine *engine) Resolve(consumer string, domain string) string {
-	// check cache for answer
+func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
+	var (
+		// used as address for consumer lookups
+		a net.IP = nil
+		// scope provided for loop
+		response *dns.Msg = nil
+		found bool = false
+	)
 
-	// check block engine to see if it is blocked
+	// get consumer ip from request
+	if ip, ok := dnsWriter.RemoteAddr().(*net.UDPAddr); ok {
+		a = ip.IP
+	}
+	if ip, ok := dnsWriter.RemoteAddr().(*net.TCPAddr); ok {
+		a = ip.IP
+	}
 
-	// if blocked, return blocking result (NXDOMAIN, static IP, etc)
+	// get groups from consumer
+	groups := engine.consumerGroups(a)
 
-	// if not blocked ask upstream DNS
+	// look for a response for each group
+	for _, group := range groups {
+		if response, found = engine.cache.Query(group, request); found {
+			break
+		}
+	}
+	// if a (cached) response was found from a group write response and return
+	if response != nil {
+		response.SetReply(request)
+		dnsWriter.WriteMsg(response)
+		return
+	}
+	// get domain name
+	domain := request.Question[0].Name
+	// get block status
+	if engine.IsDomainBlocked(a, domain) {
+		// do block logic
+	}
 
-	// todo: don't return empty string
-	return ""
+	// otherwise, forward to upstream dns query
 }
 
 func (engine *engine) Start() error {

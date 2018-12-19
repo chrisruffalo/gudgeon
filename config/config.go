@@ -49,8 +49,8 @@ type GudgeonGroup struct {
 
 // range: an IP range for consumer matching
 type GudgeonMatchRange struct {
-	From string `yaml:"from"`
-	To   string `yaml:"to"`
+	Start string `yaml:"start"`
+	End   string `yaml:"end"`
 }
 
 type GudgeonMatch struct {
