@@ -73,6 +73,9 @@ func TestConsumerMatching(t *testing.T) {
 		{"2001:db8:0:0:0:ff00:aaaa:ff0", []string{"delta6"}},
 		{"2001:db8:0:0:0:ff00:aaaa:faa", []string{"delta6"}},
 		{"2001:db8:0:0:0:ff00:aaaa:fff", []string{"delta6"}},
+		// mixed support
+		{"192.168.49.30", []string{"alpha", "alpha6"}},
+		{"2002:0db8:0000:0000:0000:ff00:0090:0043", []string{"alpha", "alpha6"}},
 	}
 
 	// check data

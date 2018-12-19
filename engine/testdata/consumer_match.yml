@@ -56,3 +56,16 @@ gudgeon:
     - delta6
     matches:
     - net: 2001:0db8:0000:0000:0000:ff00:aaaa:0000/116
+
+  # mixed
+  - name: mixed
+    groups:
+    - alpha
+    - alpha6
+    matches:
+    - range:
+        start: 192.168.49.25
+        end: 192.168.49.55
+    - range:
+        start: 2002:0db8:0000:0000:0000:ff00:0090:0002
+        end: 2002:0db8:0000:0000:0000:ff00:0099:0050
