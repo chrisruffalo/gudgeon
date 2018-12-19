@@ -31,7 +31,9 @@ gudgeon:
              # The IP of an upstream server
              # A path to a file (like a hosts file)
              # The name of a DNS group
+    - internal
     - local
+    - att
     - google
     - cloudflare
   - name: google
@@ -43,14 +45,25 @@ gudgeon:
   - name: cloudflare
     sources:
     - 1.1.1.1
+  - name: att 
+    domains: # provide the ability to resolve specific addresses from a different dns (and only those addresses)
+    - "*.att.net" # match a glob style string against the domain
+    - "*.apple.com"
+    sources:
+    - 192.168.1.254
+  - name: internal # you can also do domain matching with local/internal sources
+    domains:
+    - "*.lan"
+    - "*.local"
+    sources:
+    - /etc/gudgeon/hosts/localhosts
+    - 192.168.2.6 # and add local intranet for those sources if required 
 
-  # lists that contain explicitly allowed domains
-  # either by name, with wildcards, or by regex
-  # these are locally maintained and site specific
+  # a list of lists to get/download/etc and parse for use to block by various groups
   lists:
   - name: global whitelist
     type: allow # explicitly allow entries in this list
-    src: "./.gudgeon/global_whitelist.list"
+    src: "/etc/gudgeon/lists/global_whitelist.list"
     tags:
     - default
   - name: stevenblack
