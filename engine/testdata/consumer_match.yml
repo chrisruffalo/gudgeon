@@ -4,8 +4,13 @@ gudgeon:
   - name: bravo
   - name: charlie
   - name: delta
+  - name: alpha6
+  - name: bravo6
+  - name: charlie6
+  - name: delta6
 
   consumers:
+  # ipv 4
   - name: ip
     groups:
     - alpha
@@ -29,3 +34,25 @@ gudgeon:
     matches:
     - net: 192.168.5.0/24
 
+  # ipv 6
+  - name: ip6
+    groups:
+    - alpha6
+    - bravo6
+    matches:
+    - ip: 2001:0db8:0000:0000:0000:ff00:0042:8329
+      
+  - name: range6
+    groups:
+    - bravo6
+    - charlie6
+    matches:
+    - range:
+        start: 2001:0db8:0000:0000:0000:ff00:0090:0002
+        end: 2001:0db8:0000:0000:0000:ff00:0099:0050
+
+  - name: subnet6
+    groups:
+    - delta6
+    matches:
+    - net: 2001:0db8:0000:0000:0000:ff00:aaaa:0000/116

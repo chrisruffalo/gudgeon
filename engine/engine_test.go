@@ -43,6 +43,7 @@ func TestConsumerMatching(t *testing.T) {
 		ip string
 		expectedGroups []string
 	} {
+		// ipv4
 		{"192.168.0.1", []string{"alpha", "bravo"}},
 		{"192.168.0.3", []string{"default"}},
 		{"192.168.50.19", []string{"default"}},
@@ -56,6 +57,22 @@ func TestConsumerMatching(t *testing.T) {
 		{"192.168.5.3", []string{"delta"}},
 		{"192.168.5.128", []string{"delta"}},
 		{"192.168.5.255", []string{"delta"}},
+		// ipv6
+		{"2001:0db8:0000:0000:0000:ff00:0042:8329", []string{"alpha6", "bravo6"}},
+		{"2001:db8:0:0:0:ff00:42:8329", []string{"alpha6", "bravo6"}},
+		{"2001:db8::ff00:42:8329", []string{"alpha6", "bravo6"}},
+		{"2001:db8::ff00:42:8330", []string{"default"}},
+		{"2001:0db8:0000:0000:0000:ff00:0090:0001", []string{"default"}},
+		{"2001:0db8:0000:0000:0000:ff00:0090:0002", []string{"bravo6", "charlie6"}},
+		{"2001:0db8:0000:0000:0000:ff00:0090:0003", []string{"bravo6", "charlie6"}},
+		{"2001:0db8:0000:0000:0000:ff00:0091:0001", []string{"bravo6", "charlie6"}},
+		{"2001:0db8:0000:0000:0000:ff00:0095:8329", []string{"bravo6", "charlie6"}},
+		{"2001:0db8:0000:0000:0000:ff00:0099:0001", []string{"bravo6", "charlie6"}},
+		{"2001:0db8:0000:0000:0000:ff00:009a:0001", []string{"default"}},
+		{"2001:db8:0:0:0:ff00:aaaa:0", []string{"delta6"}},
+		{"2001:db8:0:0:0:ff00:aaaa:ff0", []string{"delta6"}},
+		{"2001:db8:0:0:0:ff00:aaaa:faa", []string{"delta6"}},
+		{"2001:db8:0:0:0:ff00:aaaa:fff", []string{"delta6"}},
 	}
 
 	// check data
