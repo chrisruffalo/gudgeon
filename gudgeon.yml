@@ -2,20 +2,47 @@ gudgeon:
   # filesystem locations for gudgeon data
   home: ./.gudgeon/
 
+  # global values
+  global:
+    maxTtl: 86400 # one day
+    minTtl: 0     # allow immediate expiration ttls
+    blockResponse: NXDOMAIN # response when a domain is blocked (found in a block list)
+                            # can be NXDOMAIN, ENDPOINT, or a specific IP.
+                            # NXDOMAIN returns NXDOMAIN (no domain found)
+                            # ENDPOINT returns the IP of the endpoint that serviced the request
+                            # Setting a specific IP ("192.168.0.1", "0.0.0.0", or "127.0.0.1") will override the response for that domain
+
   # control network options
   network:
     # enable udp and tcp protocols
     tcp: true
     udp: true
-    # interfaces where dns hosting happens
+    # interfaces where gudgeon will listen
     endpoints:
     - 0.0.0.0:53
 
   dns:
-  - name: default
-    servers:
+  # a dns must be present or gudgeon will not start, if there is no
+  # dns entry named 'default' then the first dns will be chosen as the 
+  # default entry
+  - name: default # a name to identify the dns group
+    sources: # a list of sources to use to get IP information
+             # these can be:
+             # The IP of an upstream server
+             # A path to a file (like a hosts file)
+             # The name of a DNS group
+    - local
+    - google
+    - cloudflare
+  - name: google
+    sources:
     - 8.8.8.8
-    - 8.8.4.4
+    - 8.8.8.4
+  - name: local
+    - /etc/hosts
+  - name: cloudflare
+    sources:
+    - 1.1.1.1
 
   # lists that contain explicitly allowed domains
   # either by name, with wildcards, or by regex
@@ -67,6 +94,7 @@ gudgeon:
     lists:
     - privacy
     - ads
+    blockResponse: ENDPOINT # override the block response for this group
   # here we define an open group. this would be useful for machines that need
   # broader domain access or that have issues with false-positives.
   - name: open
