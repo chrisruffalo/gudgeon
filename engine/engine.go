@@ -67,6 +67,7 @@ func (engine *engine) ListPath(listType string) string {
 
 type Engine interface {
 	IsDomainBlocked(consumer string, domain string) bool
+	Resolve(consumer string, domain string) string
 	Start() error
 }
 
@@ -230,6 +231,19 @@ func (engine *engine) IsDomainBlocked(consumer string, domain string) bool {
 	groupNames := engine.consumerGroups(consumer)
 	result := engine.store.IsMatchAny(groupNames, domain)
 	return !(result == rule.MatchAllow || result == rule.MatchNone)
+}
+
+func (engine *engine) Resolve(consumer string, domain string) string {
+	// check cache for answer
+
+	// check block engine to see if it is blocked
+
+	// if blocked, return blocking result (NXDOMAIN, static IP, etc)
+
+	// if not blocked ask upstream DNS
+
+	// todo: don't return empty string
+	return ""
 }
 
 func (engine *engine) Start() error {
