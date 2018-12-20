@@ -13,12 +13,12 @@ const (
 )
 
 type ruleList struct {
-	group     string
-	rule      string
-	ruleType  uint8
-	blocked   []string
-	allowed   []string
-	nomatch   []string
+	group    string
+	rule     string
+	ruleType uint8
+	blocked  []string
+	allowed  []string
+	nomatch  []string
 }
 
 type ruleStoreCreator func() RuleStore
@@ -53,7 +53,7 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 			if MatchNone != store.IsMatch(data.group, expectedNoMatch) {
 				t.Errorf("Rule '%s' of type %d expected to not match '%s' but did", data.rule, data.ruleType, expectedNoMatch)
 			}
-		}		
+		}
 	}
 }
 
@@ -68,7 +68,7 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 	rules := make([]Rule, benchRules)
 	ruleType := ALLOW
 	for idx := range rules {
-		if idx >= benchRules / 2 {
+		if idx >= benchRules/2 {
 			ruleType = BLOCK
 		}
 		rules[idx] = CreateRule(testutil.RandomDomain(), ruleType)

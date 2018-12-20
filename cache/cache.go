@@ -15,7 +15,7 @@ const (
 
 type envelope struct {
 	message *dns.Msg
-	time time.Time
+	time    time.Time
 }
 
 type Cache interface {
@@ -70,10 +70,10 @@ func (gocache *gocache) Store(group string, request *dns.Msg, response *dns.Msg)
 	}
 	for _, value := range response.Ns {
 		ttl = min(ttl, value.Header().Ttl)
-	}	
+	}
 	for _, value := range response.Extra {
 		ttl = min(ttl, value.Header().Ttl)
-	}	
+	}
 
 	// if ttl is 0 or less then we don't need to bother to store it at all
 	if ttl > 0 {
@@ -83,7 +83,7 @@ func (gocache *gocache) Store(group string, request *dns.Msg, response *dns.Msg)
 		envelope.time = time.Now()
 
 		// put in backing store key -> envelope
-		gocache.backer.Set(key, envelope, time.Duration(ttl) * time.Second)
+		gocache.backer.Set(key, envelope, time.Duration(ttl)*time.Second)
 	}
 }
 
@@ -111,10 +111,10 @@ func (gocache *gocache) Query(group string, request *dns.Msg) (*dns.Msg, bool) {
 	}
 	for _, value := range envelope.message.Ns {
 		value.Header().Ttl = value.Header().Ttl - uint32(delta/time.Second)
-	}	
+	}
 	for _, value := range envelope.message.Extra {
 		value.Header().Ttl = value.Header().Ttl - uint32(delta/time.Second)
-	}	
+	}
 
 	return message, true
 }

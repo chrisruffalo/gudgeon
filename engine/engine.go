@@ -181,7 +181,7 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		engineGroup.engine = engine
 		engineGroup.configGroup = configGroup
 		// add created engine group to list of groups
-		groups[idx] = engineGroup		
+		groups[idx] = engineGroup
 
 		// determine which lists belong to this group
 		lists := assignedLists(configGroup.Lists, configGroup.Tags, conf.Lists)
@@ -266,7 +266,7 @@ func (engine *engine) consumerGroups(consumerIp net.IP) []string {
 			}
 			if foundConsumer != nil {
 				break
-			}			
+			}
 		}
 		if foundConsumer != nil {
 			break
@@ -285,7 +285,7 @@ func (engine *engine) consumerGroups(consumerIp net.IP) []string {
 func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) bool {
 	// drop ending . if present from domain
 	if strings.HasSuffix(domain, ".") {
-		domain = domain[:len(domain) - 1]
+		domain = domain[:len(domain)-1]
 	}
 
 	// get groups applicable to consumer
@@ -300,7 +300,7 @@ func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
 		a net.IP = nil
 		// scope provided for loop
 		response *dns.Msg = nil
-		found bool = false
+		found    bool     = false
 	)
 
 	// get consumer ip from request

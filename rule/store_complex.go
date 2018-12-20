@@ -22,7 +22,7 @@ func (store *complexStore) Load(group string, rules []Rule) uint64 {
 				store.complexRules[targetType][group] = targetGroup
 			}
 			store.complexRules[targetType][group] = append(store.complexRules[targetType][group], rule)
-		
+
 			// rule is nilled out from list forwarded to next component
 			rules[idx] = nil
 
@@ -52,7 +52,7 @@ func (store *complexStore) IsMatchAny(groups []string, domain string) Match {
 				for _, rule := range complexRules {
 					// check the rule using the rule logic
 					if rule.IsMatch(domain) {
-						// whitelist immediately returns 
+						// whitelist immediately returns
 						if element == ALLOW {
 							return MatchAllow
 						} else {

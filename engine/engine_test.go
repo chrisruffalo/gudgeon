@@ -39,10 +39,10 @@ func TestConsumerMatching(t *testing.T) {
 	}
 
 	// ip match data
-	data := [] struct {
-		ip string
+	data := []struct {
+		ip             string
 		expectedGroups []string
-	} {
+	}{
 		// ipv4
 		{"192.168.0.1", []string{"alpha", "bravo"}},
 		{"192.168.0.3", []string{"default"}},

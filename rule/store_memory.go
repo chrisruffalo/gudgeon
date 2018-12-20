@@ -1,10 +1,9 @@
 package rule
 
 import (
-	"strings"
 	"github.com/chrisruffalo/gudgeon/util"
+	"strings"
 )
-
 
 type memoryStore struct {
 	rules map[string]map[string]bool
@@ -63,7 +62,7 @@ func (store *memoryStore) IsMatchAny(groups []string, domain string) Match {
 			val, found := store.rules[domain][group]
 			if found && val {
 				return MatchAllow
-			// otherwise if a value was found it must be false
+				// otherwise if a value was found it must be false
 			} else if found {
 				blocked = true
 			}
@@ -79,7 +78,7 @@ func (store *memoryStore) IsMatchAny(groups []string, domain string) Match {
 	if domain != sub {
 		return store.IsMatchAny(groups, sub)
 	}
-	
+
 	// no match
 	return MatchNone
 }

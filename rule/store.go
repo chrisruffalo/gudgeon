@@ -1,10 +1,11 @@
 package rule
 
-// a match can be: 
+// a match can be:
 // allow (don't block, override/bypass block)
 // block (explicit block)
 // none (no reason found to block or allow)
 type Match uint8
+
 const (
 	MatchAllow Match = 2
 	MatchBlock Match = 1
@@ -16,7 +17,6 @@ type RuleStore interface {
 	IsMatch(group string, domain string) Match
 	IsMatchAny(group []string, domain string) Match
 }
-
 
 // order of applying/creating/using rules
 var ruleApplyOrder = []uint8{ALLOW, BLOCK}

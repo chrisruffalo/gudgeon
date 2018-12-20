@@ -23,9 +23,14 @@ type GudgeonNetwork struct {
 	Endpoints []string `yaml:"string"`
 }
 
+type GudgeonDns struct {
+	Name    string   `yaml:"name"`
+	Sources []string `yaml:"sources"`
+}
+
 // blocklists, blacklists, whitelists: different types of lists for domains that gudgeon will evaluate
 type GudgeonList struct {
-	// the name of the list (also automatically used as a tag)
+	// the name of the list
 	Name string `yaml:"name"`
 	// the type of the list, requires "allow" or "block", defaults to "block"
 	Type string `yaml:"type"`
@@ -113,6 +118,10 @@ func (config *GudgeonConfig) CacheRoot() string {
 	return path.Join(config.Home, "cache")
 }
 
+func (config *GudgeonConfig) verifyAndInit() error {
+	return nil
+}
+
 func Load(filename string) (*GudgeonConfig, error) {
 	// config from config root
 	root := new(GudgeonRoot)
@@ -120,7 +129,7 @@ func Load(filename string) (*GudgeonConfig, error) {
 	// load bytes from filename
 	bytes, err := ioutil.ReadFile(filename)
 
-	// return nil config object without config file so that
+	// return nil config object without config file (propagate error)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Could not load file '%s', error: %s", filename, err))
 	}
@@ -131,6 +140,13 @@ func Load(filename string) (*GudgeonConfig, error) {
 		return nil, errors.New(fmt.Sprintf("Error unmarshaling file '%s', error: %s", filename, yErr))
 	}
 
+	// get config
+	config := root.Config
+	verifyErr := config.verifyAndInit()
+	if verifyErr != nil {
+		return nil, verifyErr
+	}
+
 	// return configuration
-	return root.Config, nil
+	return config, nil
 }

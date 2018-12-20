@@ -30,7 +30,7 @@ gudgeon:
              # these can be:
              # The IP of an upstream server
              # A path to a file (like a hosts file)
-             # The name of a DNS group
+             # The name of another DNS group
     - internal
     - local
     - att
@@ -41,6 +41,7 @@ gudgeon:
     - 8.8.8.8
     - 8.8.8.4
   - name: local
+    sources:
     - /etc/hosts
   - name: cloudflare
     sources:

@@ -8,7 +8,6 @@ import (
 var tlds = []string{".com", ".org", ".net"}
 var runes = []rune("abcdefghijklmnopqrstuvwxyz")
 
-
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }

@@ -7,11 +7,10 @@ import (
 	"github.com/miekg/dns"
 )
 
-
 func TestSimpleCache(t *testing.T) {
 	// create new cache
 	cache := New()
-	
+
 	// create a new msg
 	request := new(dns.Msg)
 
@@ -25,7 +24,6 @@ func TestSimpleCache(t *testing.T) {
 		A:   net.ParseIP("192.168.0.1"),
 	}
 	response.Answer = append(response.Answer, answer)
-	
 
 	cache.Store("default", request, response)
 
