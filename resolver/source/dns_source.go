@@ -15,12 +15,15 @@ const (
 type dnsSource struct {
 	dnsServer string
 	port uint
+	remoteAddress string
 }
 
 func newDnsSource(sourceAddress string) Source {
 	source := new(dnsSource)
 	source.port = 0
 	source.dnsServer = sourceAddress
+
+	// need to determine if a port comes along with the address and parse it out once
 	if strings.Contains(sourceAddress, portDelimeter) {
 		split := strings.Split(sourceAddress, portDelimeter)
 		if len(split) > 1 {
@@ -40,6 +43,10 @@ func newDnsSource(sourceAddress string) Source {
 	if source.port == 0 {
 		source.port = defaultPort
 	}
+
+	// save/parse remote address once
+	source.remoteAddress = source.dnsServer + portDelimeter + strconv.Itoa(int(source.port))
+
 	return source
 }
 
@@ -48,7 +55,7 @@ func (dnsSource *dnsSource) Answer(request *dns.Msg) (*dns.Msg, error) {
 	client := new(dns.Client)
 
 	// forward message without interference
-	response, _, err := client.Exchange(request, dnsSource.dnsServer + portDelimeter + strconv.Itoa(int(dnsSource.port)))
+	response, _, err := client.Exchange(request, dnsSource.remoteAddress)
 	
 	// return error if error
 	if err != nil {
