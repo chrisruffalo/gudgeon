@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	defaultPort = uint(53)
+	defaultPort   = uint(53)
 	portDelimeter = ":"
 )
 
 type dnsSource struct {
-	dnsServer string
-	port uint
+	dnsServer     string
+	port          uint
 	remoteAddress string
 }
 
@@ -56,7 +56,7 @@ func (dnsSource *dnsSource) Answer(request *dns.Msg) (*dns.Msg, error) {
 
 	// forward message without interference
 	response, _, err := client.Exchange(request, dnsSource.remoteAddress)
-	
+
 	// return error if error
 	if err != nil {
 		return nil, err

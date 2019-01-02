@@ -6,16 +6,16 @@ import (
 	"github.com/miekg/dns"
 )
 
-func TestDnsSourceResolution(t* testing.T) {
+func TestDnsSourceResolution(t *testing.T) {
 	data := []struct {
-		domain string
+		domain        string
 		serverAddress string
-	} {
+	}{
 		// udp, regular port
-		{ "google.com.", "8.8.8.8" },
-		{ "cloudflare.com.", "1.1.1.1" },
+		{"google.com.", "8.8.8.8"},
+		{"cloudflare.com.", "1.1.1.1"},
 		// udp, alternate ports
-		{ "google.com.", "208.67.222.222:5353"},
+		{"google.com.", "208.67.222.222:5353"},
 	}
 
 	for _, d := range data {

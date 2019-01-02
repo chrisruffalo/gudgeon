@@ -7,4 +7,3 @@ import (
 type Source interface {
 	Answer(request *dns.Msg) (*dns.Msg, error)
 }
-
