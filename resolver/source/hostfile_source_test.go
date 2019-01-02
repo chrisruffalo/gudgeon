@@ -13,8 +13,9 @@ func TestBasicHostFile(t *testing.T) {
 
 	data := []struct {
 		domain string
+		expectedAnswers int
 	}{
-		{"google.com."},
+		{"google.com.", 4},
 	}
 
 	for _, d := range data {
@@ -39,10 +40,12 @@ func TestBasicHostFile(t *testing.T) {
 		}
 
 		// check response
-		if len(response.Answer) < 1 {
-			t.Errorf("No answers for question:\n%s\n-----\n%s", m, response)
+		if len(response.Answer) != d.expectedAnswers {
+			t.Errorf("Expected %d answers for question but got %d:\n%s\n-----\n%s", d.expectedAnswers, len(response.Answer), m, response)
 			continue
 		}
+
+
 	}
 
 }

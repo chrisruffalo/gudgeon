@@ -114,7 +114,7 @@ func (hostFileSource *hostFileSource) Answer(request *dns.Msg) (*dns.Msg, error)
 			RecursionDesired:  true,
 			Opcode:            dns.OpcodeQuery,
 		},
-		Answer: make([]dns.RR, 1),
+		Answer: make([]dns.RR, 0),
 	}
 
 	// get name from question
