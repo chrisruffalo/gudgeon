@@ -21,7 +21,7 @@ gudgeon:
     endpoints:
     - 0.0.0.0:53
 
-  dns:
+  resolvers:
   # a dns must be present or gudgeon will not start, if there is no
   # dns entry named 'default' then the first dns will be chosen as the 
   # default entry

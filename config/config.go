@@ -23,7 +23,7 @@ type GudgeonNetwork struct {
 	Endpoints []string `yaml:"string"`
 }
 
-type GudgeonDns struct {
+type GudgeonResolver struct {
 	Name    string   `yaml:"name"`
 	Sources []string `yaml:"sources"`
 }
@@ -74,6 +74,8 @@ type GudgeonConfig struct {
 	Home string `yaml:"home"`
 
 	Network *GudgeonNetwork `yaml:"network"`
+
+	Resolvers []*GudgeonResolver `yaml:"resolvers"`
 
 	Lists []*GudgeonList `yaml:"lists"`
 
