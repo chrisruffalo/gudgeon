@@ -16,6 +16,7 @@ func TestBasicHostFile(t *testing.T) {
 		expectedAnswers int
 	}{
 		{"google.com.", 4},
+		{"google2.com.", 3},
 	}
 
 	for _, d := range data {

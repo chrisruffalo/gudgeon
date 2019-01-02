@@ -61,7 +61,7 @@ func newHostFileSource(sourceFile string) Source {
 		}
 
 		// split after first space
-		values := strings.Split(d, " ")
+		values := strings.SplitN(d, " ", 2)
 
 		// need at least two values to continue
 		if len(values) < 2 {
@@ -77,7 +77,7 @@ func newHostFileSource(sourceFile string) Source {
 			continue
 		}
 
-		// parse out list
+		// parse out list of domains
 		domains := strings.Split(values[1], " ")
 
 		// add to map
@@ -114,7 +114,6 @@ func (hostFileSource *hostFileSource) Answer(request *dns.Msg) (*dns.Msg, error)
 			RecursionDesired:  true,
 			Opcode:            dns.OpcodeQuery,
 		},
-		Answer: make([]dns.RR, 0),
 	}
 
 	// get name from question
@@ -122,8 +121,10 @@ func (hostFileSource *hostFileSource) Answer(request *dns.Msg) (*dns.Msg, error)
 
 	// if the domain is available from the host file, go through it
 	if val, ok := hostFileSource.hostEntries[name]; ok {
+		response.Answer = make([]dns.RR, len(val))
+
 		// entries were found so we need to loop through them
-		for _, address := range val {
+		for idx, address := range val {
 			// skipp nil addresses
 			if address == nil {
 				continue
@@ -138,13 +139,13 @@ func (hostFileSource *hostFileSource) Answer(request *dns.Msg) (*dns.Msg, error)
 					Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl},
 					A:   ipV4,
 				}
-				response.Answer = append(response.Answer, rr)
+				response.Answer[idx] = rr
 			} else if ipV6 != nil {
 				rr := &dns.AAAA{
 					Hdr:  dns.RR_Header{Name: name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl},
 					AAAA: ipV6,
 				}
-				response.Answer = append(response.Answer, rr)
+				response.Answer[idx] = rr
 			}
 
 		}
