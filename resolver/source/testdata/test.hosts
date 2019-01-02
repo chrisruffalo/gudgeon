@@ -1,3 +1,8 @@
+# comments shouldn't throw it off
+# 74.125.21.100 google.com
+// 74.125.21.99 google.com
+
+# these should actually work
 74.125.21.101 google.com, google2.com
 74.125.21.102 google.com google2.com
 74.125.21.103    google.com
