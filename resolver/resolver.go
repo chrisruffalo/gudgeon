@@ -10,6 +10,6 @@ type Resolver interface {
 	Answer(request *dns.Msg) (*dns.Msg, error)
 }
 
-func NewResolver(configuredResolver *GudgeonResolver) *Resolver {
+func NewResolver(configuredResolver *config.GudgeonResolver) *Resolver {
 	return nil
 }
