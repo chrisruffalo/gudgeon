@@ -22,10 +22,10 @@ gudgeon:
     - 0.0.0.0:53
 
   resolvers:
-  # a dns must be present or gudgeon will not start, if there is no
-  # dns entry named 'default' then the first dns will be chosen as the 
+  # at least oneresolver must be present or gudgeon will not start, if there is no
+  # resolver entry named 'default' then the first resolver will be chosen as the 
   # default entry
-  - name: default # a name to identify the dns group
+  - name: default # a name to identify the resolver group
     sources: # a list of sources to use to get IP information
              # these can be:
              # The IP of an upstream server
