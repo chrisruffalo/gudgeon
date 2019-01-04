@@ -23,18 +23,23 @@ func StartsWithAny(value string, any []string) bool {
 	return false
 }
 
-func SubDomain(domain string) string {
-	split := strings.Split(domain, ".")
-	if len(split) >= 2 {
-		return strings.Join(split[1:], ".")
+// adapted from https://groups.google.com/d/msg/golang-nuts/oPuBaYJ17t4/PCmhdAyrNVkJ
+func ReverseString(input string) string {
+	// Get Unicode code points.
+	n := 0
+	rune := make([]rune, len(input))
+	for _, r := range input {
+		rune[n] = r
+		n++
 	}
-	return domain
-}
+	rune = rune[0:n]
 
-func RootDomain(domain string) string {
-	split := strings.Split(domain, ".")
-	if len(split) >= 2 {
-		return strings.Join(split[len(split)-2:], ".")
+	// Reverse
+	for i := 0; i < n/2; i++ {
+		rune[i], rune[n-1-i] = rune[n-1-i], rune[i]
 	}
-	return domain
+	// Convert back to UTF-8.
+	output := string(rune)
+
+	return output
 }

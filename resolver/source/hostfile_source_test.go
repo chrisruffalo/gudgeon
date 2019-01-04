@@ -12,7 +12,7 @@ func TestBasicHostFile(t *testing.T) {
 	source := newHostFileSource("testdata/test.hosts")
 
 	data := []struct {
-		domain string
+		domain          string
 		expectedAnswers int
 	}{
 		{"google.com.", 4},
@@ -45,7 +45,6 @@ func TestBasicHostFile(t *testing.T) {
 			t.Errorf("Expected %d answers for question but got %d:\n%s\n-----\n%s", d.expectedAnswers, len(response.Answer), m, response)
 			continue
 		}
-
 
 	}
 

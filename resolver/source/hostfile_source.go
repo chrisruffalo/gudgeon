@@ -17,8 +17,10 @@ const (
 )
 
 type hostFileSource struct {
-	filePath    string
-	hostEntries map[string][]*net.IP
+	filePath      string
+	hostEntries   map[string][]*net.IP
+	reverseLookup map[string][]string
+	dnsWildcards  map[string][]*net.IP
 }
 
 func newHostFileSource(sourceFile string) Source {
@@ -27,6 +29,8 @@ func newHostFileSource(sourceFile string) Source {
 
 	// make new map
 	source.hostEntries = make(map[string][]*net.IP)
+	source.reverseLookup = make(map[string][]string)
+	source.dnsWildcards = make(map[string][]*net.IP)
 
 	// open file and parse each line
 	data, err := util.GetFileAsArray(sourceFile)
@@ -80,15 +84,14 @@ func newHostFileSource(sourceFile string) Source {
 		// parse out list of domains
 		domains := strings.Split(values[1], " ")
 
+		// add to reverse lookup
+		ptr := util.ReverseLookupDomain(&parsedAddress)
+		source.reverseLookup[ptr] = domains
+
 		// add to map
 		for _, domain := range domains {
 			if !strings.HasSuffix(domain, ".") {
 				domain = domain + "."
-			}
-
-			// if no value exists, make new list
-			if _, ok := source.hostEntries[domain]; !ok {
-				source.hostEntries[domain] = make([]*net.IP, 0)
 			}
 
 			// append value to list
@@ -104,6 +107,8 @@ func (hostFileSource *hostFileSource) Answer(request *dns.Msg) (*dns.Msg, error)
 	if len(request.Question) < 1 {
 		return nil, nil
 	}
+
+	// todo: filter question types
 
 	// create new response message
 	response := &dns.Msg{
