@@ -62,6 +62,9 @@ func (dnsSource *dnsSource) Answer(request *dns.Msg) (*dns.Msg, error) {
 		return nil, err
 	}
 
+	// set reply???
+	// response.SetReply(request)
+
 	// otherwise just return response
 	return response, nil
 }

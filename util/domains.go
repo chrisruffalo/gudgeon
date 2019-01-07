@@ -64,3 +64,11 @@ func ReverseLookupDomain(ip *net.IP) string {
 
 	return sb.String() + suffix
 }
+
+func ReverseLookupDomainString(ipString string) string {
+	ip := net.ParseIP(ipString)
+	if ip == nil {
+		return ""
+	}
+	return ReverseLookupDomain(&ip)	
+}

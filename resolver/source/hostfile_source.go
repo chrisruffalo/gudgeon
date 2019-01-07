@@ -102,35 +102,14 @@ func newHostFileSource(sourceFile string) Source {
 	return source
 }
 
-func (hostFileSource *hostFileSource) Answer(request *dns.Msg) (*dns.Msg, error) {
-	// return nil response if no question was formed
-	if len(request.Question) < 1 {
-		return nil, nil
-	}
-
-	// todo: filter question types
-
-	// create new response message
-	response := &dns.Msg{
-		MsgHdr: dns.MsgHdr{
-			Authoritative:     true,
-			AuthenticatedData: true,
-			CheckingDisabled:  true,
-			RecursionDesired:  true,
-			Opcode:            dns.OpcodeQuery,
-		},
-	}
-
-	// get name from question
-	name := request.Question[0].Name
-
+func (hostFileSource *hostFileSource) respondToA(name string, response *dns.Msg) {
 	// if the domain is available from the host file, go through it
 	if val, ok := hostFileSource.hostEntries[name]; ok {
 		response.Answer = make([]dns.RR, len(val))
 
 		// entries were found so we need to loop through them
 		for idx, address := range val {
-			// skipp nil addresses
+			// skip nil addresses
 			if address == nil {
 				continue
 			}
@@ -154,6 +133,63 @@ func (hostFileSource *hostFileSource) Answer(request *dns.Msg) (*dns.Msg, error)
 			}
 
 		}
+	}
+}
+
+func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Msg) {
+	// if the domain is available from the host file, go through it
+	if val, ok := hostFileSource.reverseLookup[name]; ok {
+		response.Answer = make([]dns.RR, len(val))
+
+		// entries were found so we need to loop through them
+		for idx, ptr := range val {
+			// skip empty ptr
+			if "" != ptr {
+				continue
+			}
+
+			rr := &dns.PTR{
+				Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
+				Ptr:   ptr,
+			}
+			response.Answer[idx] = rr
+		}
+	}
+}
+
+func (hostFileSource *hostFileSource) Answer(request *dns.Msg) (*dns.Msg, error) {
+	// return nil response if no question was formed
+	if len(request.Question) < 1 {
+		return nil, nil
+	}
+
+	// get details from question
+	question := request.Question[0]
+	name := question.Name
+	qType := question.Qtype
+
+	// can only respond to A, AAAA, and PTR questions
+	if qType != dns.TypeA && qType != dns.TypeAAAA && qType != dns.TypePTR {
+		return nil, nil
+	}
+
+	// create new response message
+	response := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Authoritative:     true,
+			AuthenticatedData: true,
+			CheckingDisabled:  true,
+			RecursionDesired:  true,
+			Opcode:            dns.OpcodeQuery,
+		},
+	}
+	response.SetReply(request)
+
+	// handle appropriate question type
+	if qType == dns.TypeA || qType == dns.TypeAAAA {
+		hostFileSource.respondToA(name, response)
+	} else if qType == dns.TypePTR {
+		hostFileSource.respondToPTR(name, response)
 	}
 
 	return response, nil

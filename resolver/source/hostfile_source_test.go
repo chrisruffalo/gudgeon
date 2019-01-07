@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/miekg/dns"
+
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 func TestBasicHostFile(t *testing.T) {
@@ -13,10 +15,13 @@ func TestBasicHostFile(t *testing.T) {
 
 	data := []struct {
 		domain          string
+		qType           uint16 
 		expectedAnswers int
 	}{
-		{"google.com.", 4},
-		{"google2.com.", 3},
+		{"google.com.", dns.TypeA, 4},
+		{"google2.com.", dns.TypeA, 3},
+		{util.ReverseLookupDomainString("74.125.21.101"), dns.TypePTR, 2},
+		{util.ReverseLookupDomainString("2607:f8b0:4002:c09::8a"), dns.TypePTR, 3},
 	}
 
 	for _, d := range data {
@@ -31,7 +36,7 @@ func TestBasicHostFile(t *testing.T) {
 			},
 			Question: make([]dns.Question, 1),
 		}
-		m.Question[0] = dns.Question{Name: d.domain, Qtype: dns.TypeA, Qclass: dns.ClassINET}
+		m.Question[0] = dns.Question{Name: d.domain, Qtype: d.qType, Qclass: dns.ClassINET}
 
 		// use source to resolve
 		response, err := source.Answer(m)
