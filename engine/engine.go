@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/miekg/dns"
 
-	"github.com/chrisruffalo/gudgeon/cache"
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/downloader"
+	"github.com/chrisruffalo/gudgeon/resolver"
 	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/util"
 )
@@ -61,8 +61,8 @@ type engine struct {
 	// the backing store for block/allow rules
 	store rule.RuleStore
 
-	// 	query cache
-	cache cache.Cache
+	// the resolution structure
+	resolvers resolver.ResolverMap
 }
 
 func (engine *engine) Root() string {
@@ -110,9 +110,6 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	// create store
 	engine.store = rule.CreateDefaultStore() // create default store type
 
-	// create a new empty cache
-	engine.cache = cache.New()
-
 	// create session key
 	uuid := uuid.New()
 	engine.session = base64.RawURLEncoding.EncodeToString([]byte(uuid.String()))
@@ -121,6 +118,9 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	os.MkdirAll(conf.Home, os.ModePerm)
 	os.MkdirAll(conf.SessionRoot(), os.ModePerm)
 	os.MkdirAll(engine.Root(), os.ModePerm)
+
+	// configure resolvers
+	engine.resolvers = resolver.NewResolverMap(conf.Resolvers)
 
 	// get lists from the configuration
 	lists := conf.Lists
@@ -300,7 +300,6 @@ func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
 		a net.IP = nil
 		// scope provided for loop
 		response *dns.Msg = nil
-		found    bool     = false
 	)
 
 	// get consumer ip from request
@@ -311,29 +310,26 @@ func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
 		a = ip.IP
 	}
 
-	// get groups from consumer
-	groups := engine.consumerGroups(a)
-
-	// look for a response for each group
-	for _, group := range groups {
-		if response, found = engine.cache.Query(group, request); found {
-			break
-		}
-	}
-	// if a (cached) response was found from a group write response and return
-	if response != nil {
-		response.SetReply(request)
-		dnsWriter.WriteMsg(response)
-		return
-	}
 	// get domain name
 	domain := request.Question[0].Name
+
 	// get block status
 	if engine.IsDomainBlocked(a, domain) {
-		// do block logic
+		// do block logic with response
+	} else {
+		// if not blocked then actually try resolution, by grabbing the resolver names
+		// associated with each of the matched/associated groups and then resolving
+		// against each one in turn until a result is found
+
 	}
 
-	// otherwise, forward to upstream dns query
+	// if no result is found at this point return NXDOMAIN
+	if response == nil {
+
+	}
+
+	// write response to response writer
+
 }
 
 func (engine *engine) Start() error {
