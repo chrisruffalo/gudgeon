@@ -25,6 +25,7 @@ type GudgeonNetwork struct {
 
 type GudgeonResolver struct {
 	Name    string   `yaml:"name"`
+	Domains []string `yaml:"domains"`
 	Sources []string `yaml:"sources"`
 }
 
