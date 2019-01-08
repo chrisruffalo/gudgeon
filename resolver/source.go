@@ -1,4 +1,4 @@
-package source
+package resolver
 
 import (
 	"net"
@@ -8,7 +8,7 @@ import (
 )
 
 type Source interface {
-	Answer(request *dns.Msg) (*dns.Msg, error)
+	Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
 }
 
 func NewSource(sourceSpecification string) Source {
@@ -23,5 +23,7 @@ func NewSource(sourceSpecification string) Source {
 		return newDnsSource(sourceSpecification)
 	}
 
-	return nil
+	// fall back to looking for a resolver source which will basically be a no-op resolver in the event
+	// that the named resolver doesn't exist
+	return newResolverSource(sourceSpecification)
 }

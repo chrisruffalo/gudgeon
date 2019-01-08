@@ -1,4 +1,4 @@
-package source
+package resolver
 
 import (
 	"net"
@@ -157,7 +157,7 @@ func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Ms
 	}
 }
 
-func (hostFileSource *hostFileSource) Answer(request *dns.Msg) (*dns.Msg, error) {
+func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// return nil response if no question was formed
 	if len(request.Question) < 1 {
 		return nil, nil

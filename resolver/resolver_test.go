@@ -1,21 +1,24 @@
-package source
+package resolver
 
 import (
 	"testing"
 
 	"github.com/miekg/dns"
+
+	"github.com/chrisruffalo/gudgeon/testutil"
 )
 
-func TestDnsSourceResolution(t *testing.T) {
+func TestDnsResolver(t *testing.T) {
+	// load configuration
+	conf := testutil.Conf(t, "testdata/resolvers.yml")
+	resolvers := NewResolverMap(conf.Resolvers)
+
 	data := []struct {
+		resolverName  string
 		domain        string
-		serverAddress string
 	}{
-		// udp, regular port
-		{"google.com.", "8.8.8.8"},
-		{"cloudflare.com.", "1.1.1.1"},
-		// udp, alternate ports
-		{"google.com.", "208.67.222.222:5353"},
+		{"google", "google.com."},
+		{"google", "cloudflare.com."},
 	}
 
 	for _, d := range data {
@@ -32,13 +35,15 @@ func TestDnsSourceResolution(t *testing.T) {
 		}
 		m.Question[0] = dns.Question{Name: d.domain, Qtype: dns.TypeA, Qclass: dns.ClassINET}
 
-		// create source
-		source := newDnsSource(d.serverAddress)
-
 		// use source to resolve
-		response, err := source.Answer(m)
+		response, err := resolvers.Answer(d.resolverName, m)
 		if err != nil {
 			t.Errorf("Could not resolve: %s", err)
+			continue
+		}
+
+		if response == nil {
+			t.Errorf("Got no/nil response from resolver: %s", d.resolverName)
 			continue
 		}
 
@@ -48,4 +53,6 @@ func TestDnsSourceResolution(t *testing.T) {
 			continue
 		}
 	}
+
+
 }

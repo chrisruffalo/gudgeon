@@ -1,0 +1,34 @@
+---
+gudgeon:
+  resolvers:
+  - name: default
+    sources: 
+    - internal
+    - local
+    - att
+    - google
+    - cloudflare
+  - name: google
+    sources:
+    - 8.8.8.8
+    - 8.8.8.4
+  - name: local
+    sources:
+    - /etc/hosts
+  - name: cloudflare
+    sources:
+    - 1.1.1.1
+  - name: att 
+    domains: 
+    - "*.att.net"
+    - "*.apple.com"
+    - twc.com
+    sources:
+    - 192.168.1.254
+  - name: internal
+    domains:
+    - "*.lan"
+    - "*.local"
+    sources:
+    - /etc/gudgeon/hosts/localhosts
+    - 192.168.2.6

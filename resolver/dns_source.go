@@ -1,4 +1,4 @@
-package source
+package resolver
 
 import (
 	"strconv"
@@ -50,7 +50,7 @@ func newDnsSource(sourceAddress string) Source {
 	return source
 }
 
-func (dnsSource *dnsSource) Answer(request *dns.Msg) (*dns.Msg, error) {
+func (dnsSource *dnsSource) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// create new client instance
 	client := new(dns.Client)
 

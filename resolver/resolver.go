@@ -4,35 +4,43 @@ import (
 	"github.com/miekg/dns"
 
 	"github.com/chrisruffalo/gudgeon/config"
-	"github.com/chrisruffalo/gudgeon/resolver/source"
 )
 
-// TODO: implement resolution context so that the visited resolvers can go all the way down
-// and we can implement source -> resolver in the source package alone
+type ResolutionContext struct {
+	ResolverMap ResolverMap // pointer to the resolvermap that started resolution, can be nil
+	Visited []string // list of visited resolver names
+}
+
+func DefaultContext() *ResolutionContext {
+	context := new(ResolutionContext)
+	context.Visited = make([]string, 0) 
+	return context
+}
+
+func DefaultContextWithMap(resolverMap ResolverMap) *ResolutionContext {
+	context := DefaultContext()
+	context.ResolverMap = resolverMap
+	return context
+}
 
 // a single resolver
 type resolver struct {
 	name    string
-	sources []source.Source
+	sources []Source
 }
 
 // a group of resolvers
-type mapResolver struct {
+type resolverMap struct {
 	resolvers map[string]Resolver
-}
-
-// a source that uses a resolver as a source
-type resolverSource struct {
-	name string
-	resolverMap *mapResolver
 }
 
 type ResolverMap interface {
 	Answer(resolverName string, request *dns.Msg) (*dns.Msg, error)
+	answerWithContext(resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
 }
 
 type Resolver interface {
-	Answer(request *dns.Msg) (*dns.Msg, error)
+	Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
 }
 
 // create a new resolver
@@ -45,11 +53,11 @@ func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
 	// make new resolver
 	resolver := new(resolver)
 	resolver.name = configuredResolver.Name
-	resolver.sources = make([]source.Source, 0)
+	resolver.sources = make([]Source, 0)
 
 	// add sources
 	for _, configuredSource := range configuredResolver.Sources {
-		source := source.NewSource(configuredSource)
+		source := NewSource(configuredSource)
 		if source != nil {
 			resolver.sources = append(resolver.sources, source)
 		}
@@ -59,10 +67,10 @@ func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
 }
 
 // returns a map of resolvers with name->resolver mapping
-func NewResolver(configuredResolvers []*config.GudgeonResolver) ResolverMap {
+func NewResolverMap(configuredResolvers []*config.GudgeonResolver) ResolverMap {
 
 	// make a new map resolver
-	resolverMap := new(mapResolver)
+	resolverMap := new(resolverMap)
 
 	// empty map of resolvers
 	resolverMap.resolvers = make(map[string]Resolver, 0)
@@ -78,46 +86,54 @@ func NewResolver(configuredResolvers []*config.GudgeonResolver) ResolverMap {
 	return resolverMap
 }
 
-// answer a question descending into other resolvers as "sources"
-func (resolver *resolver) answerWithResolverSources(mapResolver *mapResolver, visitedResolvers *[]string, request *dns.Msg) (*dns.Msg, error) {
+// base answer function
+func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	// create context if context is nil (no map)
+	if context == nil {
+		context = DefaultContext()
+	}
+
+	// mark resolver as visited by adding the resolver name to the list of visited resolvers
+	context.Visited = append(context.Visited, resolver.name)
+
+	// step through sources and return result
 	for _, source := range resolver.sources {
-		response, err := source.Answer(request)
-		// if error is not nil, come up with a response
+		response, err := source.Answer(context, request)
 		if err != nil {
+			// todo: log error
 			continue
 		}
-		// inspect answer
-		if response != nil {
+		if response != nil && len(response.Answer) > 0 {
 			return response, nil
 		}
 	}
 
+	// todo, maybe return more appropriate error?
 	return nil, nil
-}
-
-// base answer function
-func (resolver *resolver) Answer(request *dns.Msg) (*dns.Msg, error) {
-	visited := make([]string, 0)
-	return resolver.answerWithResolverSources(nil, &visited, request)
 }
 
 // base answer function for full resolver map
-func (resolverMap *mapResolver) Answer(resolverName string, request *dns.Msg) (*dns.Msg, error) {
-	visited := make([]string, 0)
-	return resolverMap.answerWithDescent(&visited, resolverName, request)
-}
-
-// answer with recursive descent into other resolvers
-func (resolverMap *mapResolver) answerWithDescent(visitedResolvers *[]string, resolverName string, request *dns.Msg) (*dns.Msg, error) {
-
-
-
-
-	return nil, nil
+func (resolverMap *resolverMap) Answer(resolverName string, request *dns.Msg) (*dns.Msg, error) {
+	// return answer with context
+	return resolverMap.answerWithContext(resolverName, nil, request)
 }
 
 
-func (resolverSource *resolverSource) Answer(request *dns.Msg) (*dns.Msg, error) {
+// base answer function for full resolver map
+func (resolverMap *resolverMap) answerWithContext(resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	// if no named resolver in map, return
+	resolver, ok := resolverMap.resolvers[resolverName]
+	if !ok {
+		return nil, nil
+	}
 
-	return nil, nil
+	// create context
+	if context == nil {
+		context = DefaultContextWithMap(resolverMap)
+	}
+
+	// return answer
+	return resolver.Answer(context, request)
 }
+
+
