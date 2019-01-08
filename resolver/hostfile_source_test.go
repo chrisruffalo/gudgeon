@@ -15,7 +15,7 @@ func TestBasicHostFile(t *testing.T) {
 
 	data := []struct {
 		domain          string
-		qType           uint16 
+		qType           uint16
 		expectedAnswers int
 	}{
 		{"google.com.", dns.TypeA, 4},

@@ -150,7 +150,7 @@ func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Ms
 
 			rr := &dns.PTR{
 				Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
-				Ptr:   ptr,
+				Ptr: ptr,
 			}
 			response.Answer[idx] = rr
 		}

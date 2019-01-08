@@ -70,5 +70,5 @@ func ReverseLookupDomainString(ipString string) string {
 	if ip == nil {
 		return ""
 	}
-	return ReverseLookupDomain(&ip)	
+	return ReverseLookupDomain(&ip)
 }

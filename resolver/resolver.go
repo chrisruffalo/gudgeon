@@ -8,12 +8,12 @@ import (
 
 type ResolutionContext struct {
 	ResolverMap ResolverMap // pointer to the resolvermap that started resolution, can be nil
-	Visited []string // list of visited resolver names
+	Visited     []string    // list of visited resolver names
 }
 
 func DefaultContext() *ResolutionContext {
 	context := new(ResolutionContext)
-	context.Visited = make([]string, 0) 
+	context.Visited = make([]string, 0)
 	return context
 }
 
@@ -118,7 +118,6 @@ func (resolverMap *resolverMap) Answer(resolverName string, request *dns.Msg) (*
 	return resolverMap.answerWithContext(resolverName, nil, request)
 }
 
-
 // base answer function for full resolver map
 func (resolverMap *resolverMap) answerWithContext(resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// if no named resolver in map, return
@@ -135,5 +134,3 @@ func (resolverMap *resolverMap) answerWithContext(resolverName string, context *
 	// return answer
 	return resolver.Answer(context, request)
 }
-
-

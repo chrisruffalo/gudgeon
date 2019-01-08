@@ -2,7 +2,7 @@ package resolver
 
 import (
 	"github.com/miekg/dns"
-	
+
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
@@ -14,7 +14,7 @@ func newResolverSource(sourceName string) Source {
 	if "" == sourceName {
 		return nil
 	}
-	
+
 	resolver := new(resolverSource)
 	resolver.resolverName = sourceName
 	return resolver

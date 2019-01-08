@@ -15,7 +15,7 @@ func NewSource(sourceSpecification string) Source {
 
 	// a source that exists as a file is a hostfile source
 	if _, err := os.Stat("/path/to/whatever"); !os.IsNotExist(err) {
-  		return newHostFileSource(sourceSpecification)
+		return newHostFileSource(sourceSpecification)
 	}
 
 	// a source that is an IP address is a dns source

@@ -14,8 +14,8 @@ func TestDnsResolver(t *testing.T) {
 	resolvers := NewResolverMap(conf.Resolvers)
 
 	data := []struct {
-		resolverName  string
-		domain        string
+		resolverName string
+		domain       string
 	}{
 		{"google", "google.com."},
 		{"google", "cloudflare.com."},
@@ -53,6 +53,5 @@ func TestDnsResolver(t *testing.T) {
 			continue
 		}
 	}
-
 
 }
