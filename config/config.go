@@ -47,7 +47,9 @@ type GudgeonGroup struct {
 	Name string `yaml:"name"`
 	// inherit: list of groups to copy settings from
 	Inherit []string `yaml:"inherit"`
-	// blocklists: names of blocklists to use
+	// resolvers: resolvers to use for this group
+	Resolvers []string `yaml:"resolvers"`
+	// lists: names of blocklists to apply
 	Lists []string `yaml:"lists"`
 	// tags: tags to use for tag-based matching
 	Tags []string `yaml:"tags"`

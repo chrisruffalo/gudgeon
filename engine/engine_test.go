@@ -80,7 +80,7 @@ func TestConsumerMatching(t *testing.T) {
 
 	// check data
 	for _, value := range data {
-		groupnames := testEngine.(*engine).consumerGroups(net.ParseIP(value.ip))
+		groupnames := testEngine.(*engine).getConsumerGroups(net.ParseIP(value.ip))
 		if len(groupnames) != len(value.expectedGroups) {
 			t.Errorf("%s >> Expected values %s does not match %s {by length}", value.ip, value.expectedGroups, groupnames)
 		} else {

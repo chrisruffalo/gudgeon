@@ -39,8 +39,10 @@ type consumer struct {
 	configConsumer *config.GundgeonConsumer
 
 	// list of parsed groups that belong to this consumer
-	groups     []*group
 	groupNames []string
+
+	// list of parsed resolvers that belong to this consumer
+	resolverNames []string
 }
 
 // stores the internals of the engine abstraction
@@ -217,27 +219,35 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		// create an active consumer
 		consumer := new(consumer)
 		consumer.engine = engine
-		consumer.groups = make([]*group, 0)
 		consumer.groupNames = make([]string, 0)
+		consumer.resolverNames = make([]string, 0)
 		consumer.configConsumer = configConsumer
 
 		// link consumer to group when the consumer's group elements contains the group name
 		for _, group := range groups {
 			if util.StringIn(group.configGroup.Name, configConsumer.Groups) {
-				consumer.groups = append(consumer.groups, group)
 				consumer.groupNames = append(consumer.groupNames, group.configGroup.Name)
+
+				// add resolvers from group too
+				if len(group.configGroup.Resolvers) > 0 {
+					consumer.resolverNames = append(consumer.resolverNames, group.configGroup.Resolvers...)
+				}
 			}
 		}
 
 		// add active consumer to list
 		consumers[index] = consumer
 	}
+
+	// process or clean up consumers
+
+	// set consumers as active on engine
 	engine.consumers = consumers
 
 	return engine, nil
 }
 
-func (engine *engine) consumerGroups(consumerIp net.IP) []string {
+func (engine *engine) getConsumerForIp(consumerIp net.IP) *consumer {
 	var foundConsumer *consumer = nil
 
 	for _, activeConsumer := range engine.consumers {
@@ -273,12 +283,30 @@ func (engine *engine) consumerGroups(consumerIp net.IP) []string {
 		}
 	}
 
+	return foundConsumer
+}
+
+func (engine *engine) getConsumerGroups(consumerIp net.IP) []string {
+	foundConsumer := engine.getConsumerForIp(consumerIp)
+
 	// return found consumer data if something was found
-	if foundConsumer != nil && len(foundConsumer.groups) > 0 {
+	if foundConsumer != nil && len(foundConsumer.groupNames) > 0 {
 		return foundConsumer.groupNames
 	}
 
 	// return the default group in the event nothing else is available
+	return []string{"default"}
+}
+
+func (engine *engine) getConsumerResolvers(consumerIp net.IP) []string {
+	foundConsumer := engine.getConsumerForIp(consumerIp)
+
+	// return found consumer data if something was found
+	if foundConsumer != nil && len(foundConsumer.resolverNames) > 0 {
+		return foundConsumer.resolverNames
+	}
+
+	// return the default resolver in the event nothing else is available
 	return []string{"default"}
 }
 
@@ -289,7 +317,7 @@ func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) bool {
 	}
 
 	// get groups applicable to consumer
-	groupNames := engine.consumerGroups(consumerIp)
+	groupNames := engine.getConsumerGroups(consumerIp)
 	result := engine.store.IsMatchAny(groupNames, domain)
 	return !(result == rule.MatchAllow || result == rule.MatchNone)
 }
@@ -318,9 +346,13 @@ func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
 		// do block logic with response
 	} else {
 		// if not blocked then actually try resolution, by grabbing the resolver names
-		// associated with each of the matched/associated groups and then resolving
-		// against each one in turn until a result is found
-
+		resolvers := engine.getConsumerResolvers(a)
+		r, err := engine.resolvers.AnswerMultiResolvers(resolvers, request)
+		if err != nil {
+			response = r
+		} else {
+			// todo: log error in resolution
+		}
 	}
 
 	// if no result is found at this point return NXDOMAIN

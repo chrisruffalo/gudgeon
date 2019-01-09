@@ -4,6 +4,7 @@ import (
 	"github.com/miekg/dns"
 
 	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 type ResolutionContext struct {
@@ -36,6 +37,7 @@ type resolverMap struct {
 
 type ResolverMap interface {
 	Answer(resolverName string, request *dns.Msg) (*dns.Msg, error)
+	AnswerMultiResolvers(resolverNames []string, request *dns.Msg) (*dns.Msg, error)
 	answerWithContext(resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
 }
 
@@ -118,6 +120,24 @@ func (resolverMap *resolverMap) Answer(resolverName string, request *dns.Msg) (*
 	return resolverMap.answerWithContext(resolverName, nil, request)
 }
 
+// answer resolvers in order
+func (resolverMap *resolverMap) AnswerMultiResolvers(resolverNames []string, request *dns.Msg) (*dns.Msg, error) {
+	context := DefaultContextWithMap(resolverMap)
+
+	for _, resolverName := range resolverNames {
+		response, err := resolverMap.answerWithContext(resolverName, context, request)
+		if err != nil {
+			// todo: log error
+			continue
+		}
+		if response != nil {
+			return response, nil
+		}
+	}
+
+	return nil, nil
+}
+
 // base answer function for full resolver map
 func (resolverMap *resolverMap) answerWithContext(resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// if no named resolver in map, return
@@ -129,6 +149,8 @@ func (resolverMap *resolverMap) answerWithContext(resolverName string, context *
 	// create context
 	if context == nil {
 		context = DefaultContextWithMap(resolverMap)
+	} else if util.StringIn(resolverName, context.Visited) { // but if context shows already visisted outright skip the resolver
+		return nil, nil
 	}
 
 	// return answer
