@@ -122,8 +122,8 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 			if strings.Contains(domain, "*") && glob.Glob(domain, qname) {
 				domainMatches = true
 				break
-			} else if domain == qname || strings.HasSuffix(qname, "." + domain) {
-			// strings that do not are raw domain/subdomain matches
+			} else if domain == qname || strings.HasSuffix(qname, "."+domain) {
+				// strings that do not are raw domain/subdomain matches
 				domainMatches = true
 				break
 			}
