@@ -18,6 +18,12 @@ func TestDnsResolver(t *testing.T) {
 		domain       string
 	}{
 		{"google", "google.com."},
+		{"google", "google.com."},
+		{"google", "google.com."},
+		{"google", "cloudflare.com."},
+		{"google", "cloudflare.com."},
+		{"google", "cloudflare.com."},
+		{"google", "cloudflare.com."},
 		{"google", "cloudflare.com."},
 	}
 
@@ -50,6 +56,16 @@ func TestDnsResolver(t *testing.T) {
 		// check response
 		if len(response.Answer) < 1 {
 			t.Errorf("No answers for question:\n%s\n-----\n%s", m, response)
+			continue
+		}
+
+		// get cache
+		cache := resolvers.Cache()
+
+		// make sure a response is found
+		_, found := cache.Query(d.resolverName, m)
+		if !found {
+			t.Errorf("Could not find an answer in resolver \"%s\" for %s in the cache", d.resolverName, m)
 			continue
 		}
 	}

@@ -19,8 +19,8 @@ type envelope struct {
 }
 
 type Cache interface {
-	Store(group string, request *dns.Msg, response *dns.Msg)
-	Query(group string, request *dns.Msg) (*dns.Msg, bool)
+	Store(partition string, request *dns.Msg, response *dns.Msg)
+	Query(partition string, request *dns.Msg) (*dns.Msg, bool)
 }
 
 type gocache struct {
@@ -34,11 +34,11 @@ func min(a uint32, b uint32) uint32 {
 	return b
 }
 
-// make string key from group + message
-func key(group string, questions []dns.Question) string {
+// make string key from partition + message
+func key(partition string, questions []dns.Question) string {
 	key := ""
 	if len(questions) > 0 {
-		key += group
+		key += partition
 		for _, question := range questions {
 			if len(key) > 0 {
 				key += delimeter
@@ -56,9 +56,9 @@ func New() Cache {
 	return gocache
 }
 
-func (gocache *gocache) Store(group string, request *dns.Msg, response *dns.Msg) {
+func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.Msg) {
 	// create key from message
-	key := key(group, request.Question)
+	key := key(partition, request.Question)
 	if "" == key {
 		return
 	}
@@ -87,9 +87,9 @@ func (gocache *gocache) Store(group string, request *dns.Msg, response *dns.Msg)
 	}
 }
 
-func (gocache *gocache) Query(group string, request *dns.Msg) (*dns.Msg, bool) {
+func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, bool) {
 	// get key
-	key := key(group, request.Question)
+	key := key(partition, request.Question)
 	if "" == key {
 		return nil, false
 	}

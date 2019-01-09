@@ -1,8 +1,12 @@
 package resolver
 
 import (
-	"github.com/miekg/dns"
+	"strings"
 
+	"github.com/miekg/dns"
+	"github.com/ryanuber/go-glob"
+
+	"github.com/chrisruffalo/gudgeon/cache"
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/util"
 )
@@ -27,11 +31,13 @@ func DefaultContextWithMap(resolverMap ResolverMap) *ResolutionContext {
 // a single resolver
 type resolver struct {
 	name    string
+	domains []string
 	sources []Source
 }
 
 // a group of resolvers
 type resolverMap struct {
+	cache     cache.Cache
 	resolvers map[string]Resolver
 }
 
@@ -39,6 +45,7 @@ type ResolverMap interface {
 	Answer(resolverName string, request *dns.Msg) (*dns.Msg, error)
 	AnswerMultiResolvers(resolverNames []string, request *dns.Msg) (*dns.Msg, error)
 	answerWithContext(resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
+	Cache() cache.Cache
 }
 
 type Resolver interface {
@@ -55,6 +62,7 @@ func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
 	// make new resolver
 	resolver := new(resolver)
 	resolver.name = configuredResolver.Name
+	resolver.domains = configuredResolver.Domains
 	resolver.sources = make([]Source, 0)
 
 	// add sources
@@ -76,6 +84,7 @@ func NewResolverMap(configuredResolvers []*config.GudgeonResolver) ResolverMap {
 
 	// empty map of resolvers
 	resolverMap.resolvers = make(map[string]Resolver, 0)
+	resolverMap.cache = cache.New()
 
 	// build resolvesrs from configuration
 	for _, resolverConfig := range configuredResolvers {
@@ -90,9 +99,41 @@ func NewResolverMap(configuredResolvers []*config.GudgeonResolver) ResolverMap {
 
 // base answer function
 func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	// guard against invalid requests or requests that don't ask anything
+	if request == nil || len(request.Question) < 1 {
+		return nil, nil
+	}
+
 	// create context if context is nil (no map)
 	if context == nil {
 		context = DefaultContext()
+	}
+
+	// don't answer if the domain doesn't match
+	if len(resolver.domains) > 0 {
+		// get the question name so we can use it to determine if the domain matches
+		qname := request.Question[0].Name
+
+		// default to "no match"
+		domainMatches := false
+
+		for _, domain := range resolver.domains {
+			// domains that contain a * are glob matches
+			if strings.Contains(domain, "*") && glob.Glob(domain, qname) {
+				domainMatches = true
+				break
+			} else if domain == qname || strings.HasSuffix(qname, "." + domain) {
+			// strings that do not are raw domain/subdomain matches
+				domainMatches = true
+				break
+			}
+		}
+
+		// the domain doesn't match any of the available domains so
+		// we bail out
+		if !domainMatches {
+			return nil, nil
+		}
 	}
 
 	// mark resolver as visited by adding the resolver name to the list of visited resolvers
@@ -153,6 +194,25 @@ func (resolverMap *resolverMap) answerWithContext(resolverName string, context *
 		return nil, nil
 	}
 
-	// return answer
-	return resolver.Answer(context, request)
+	// check cache
+	cachedResponse, found := resolverMap.cache.Query(resolverName, request)
+	if found && cachedResponse != nil {
+		return cachedResponse, nil
+	}
+
+	// get answer
+	response, err := resolver.Answer(context, request)
+	if err != nil {
+		return nil, err
+	}
+
+	// save cached answer
+	resolverMap.cache.Store(resolverName, request, response)
+
+	// return with nil error
+	return response, nil
+}
+
+func (resolverMap *resolverMap) Cache() cache.Cache {
+	return resolverMap.cache
 }
