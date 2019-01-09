@@ -13,14 +13,26 @@ import (
 
 var remoteProtocols = []string{"http:", "https:"}
 
+// interface
+type GudgeonInterface struct {
+	// the IP of the interface. The interface 0.0.0.0 means "all"
+	IP string `yaml:"ip"`
+	// The port to listen on (on the given interface), defaults to 53
+	Port int `yaml:"port"`
+	// Should this port listen on TCP? (defaults to the value of Network.TCP which defaults to true)
+	TCP bool `yaml:"tcp"`
+	// Should this port listen on UDP? (defaults to the value of Network.UDP which defaults to true)
+	UDP bool `yaml:"udp"`
+}
+
 // network: general dns network configuration
 type GudgeonNetwork struct {
-	// tcp: true when tcp is enabled (default) false otherwise
+	// tcp: true when the default for all interfaces is to use tcp
 	TCP bool `yaml:"tcp"`
-	// udp: true when udp is enabled (default) false otherwise
+	// udp: true when the default for all interfaces is to use udp
 	UDP bool `yaml:"udp"`
 	// endpoints: list of string endpoints that should have dns
-	Endpoints []string `yaml:"string"`
+	Interfaces []*GudgeonInterface `yaml:"string"`
 }
 
 type GudgeonResolver struct {
