@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"os"
 	"path"
@@ -78,7 +79,6 @@ func (engine *engine) ListPath(listType string) string {
 type Engine interface {
 	IsDomainBlocked(consumer net.IP, domain string) bool
 	Handle(dnsWriter dns.ResponseWriter, request *dns.Msg)
-	Start() error
 }
 
 // returns an array of the GudgeonLists that are assigned either by name or by tag from within the list of GudgeonLists in the config file
@@ -347,6 +347,7 @@ func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
 	} else {
 		// if not blocked then actually try resolution, by grabbing the resolver names
 		resolvers := engine.getConsumerResolvers(a)
+		fmt.Printf("Using resolvers for consumer: %s\n", resolvers)
 		r, err := engine.resolvers.AnswerMultiResolvers(resolvers, request)
 		if err != nil {
 			response = r
@@ -357,13 +358,13 @@ func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
 
 	// if no result is found at this point return NXDOMAIN
 	if response == nil {
+		response = new(dns.Msg)
+		response.SetReply(request)
 
+		// just say that the response code is that the answer wasn't found
+		response.Rcode = dns.RcodeNameError
 	}
 
 	// write response to response writer
-
-}
-
-func (engine *engine) Start() error {
-	return nil
+	dnsWriter.WriteMsg(response)
 }

@@ -18,8 +18,9 @@ gudgeon:
     tcp: true
     udp: true
     # interfaces where gudgeon will listen
-    endpoints:
-    - 0.0.0.0:53
+    interfaces:
+    - ip: 0.0.0.0
+      port: 5354
 
   resolvers:
   # at least oneresolver must be present or gudgeon will not start, if there is no
@@ -48,8 +49,8 @@ gudgeon:
     - 1.1.1.1
   - name: att 
     domains: # provide the ability to resolve specific addresses from a different dns (and only those addresses)
-    - *.att.net # match a glob style string against the domain
-    - *.apple.com
+    - "*.att.net" # match a glob style string against the domain
+    - "*.apple.com"
     - twc.com # match just the (sub) domain
     sources:
     - 192.168.1.254
@@ -99,6 +100,8 @@ gudgeon:
   # is always present it will be matched by any non-matched consumer. You cannot restrict
   # the default group by consumers.
   - name: default
+    resolvers:
+    - google
     tags:
     - ads
     - malware

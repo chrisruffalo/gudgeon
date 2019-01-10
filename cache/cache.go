@@ -57,6 +57,11 @@ func New() Cache {
 }
 
 func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.Msg) {
+	// you can't cache a nil response
+	if response == nil {
+		return
+	}
+
 	// create key from message
 	key := key(partition, request.Question)
 	if "" == key {
@@ -65,14 +70,20 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 
 	// get ttl from parts and use lowest ttl as cache value
 	ttl := dnsMaxTtl
-	for _, value := range response.Answer {
-		ttl = min(ttl, value.Header().Ttl)
+	if len(response.Answer) > 0 {
+		for _, value := range response.Answer {
+			ttl = min(ttl, value.Header().Ttl)
+		}
 	}
-	for _, value := range response.Ns {
-		ttl = min(ttl, value.Header().Ttl)
+	if len(response.Ns) > 0 {
+		for _, value := range response.Ns {
+			ttl = min(ttl, value.Header().Ttl)
+		}
 	}
-	for _, value := range response.Extra {
-		ttl = min(ttl, value.Header().Ttl)
+	if len(response.Extra) > 0 {
+		for _, value := range response.Extra {
+			ttl = min(ttl, value.Header().Ttl)
+		}
 	}
 
 	// if ttl is 0 or less then we don't need to bother to store it at all

@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
+	"github.com/chrisruffalo/gudgeon/provider"
 )
 
 // pick up version from build process
@@ -37,6 +40,15 @@ func main() {
 		fmt.Printf("%s\n", err)
 	}
 
-	// start engine
-	engine.Start()
+	// create a new provider and start hosting
+	provider := provider.NewProvider()
+	provider.Host(config, engine)
+
+	// set up things that watch config for changes maybe?
+
+	// wait for signal
+	sig := make(chan os.Signal)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	s := <-sig
+	fmt.Printf("Signal (%s) received, stopping\n", s)
 }
