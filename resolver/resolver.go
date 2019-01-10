@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -206,6 +207,7 @@ func (resolverMap *resolverMap) answerWithContext(resolverName string, context *
 	if found && cachedResponse != nil {
 		// set as stored in the context because it was found int he cache
 		context.Stored = true
+		fmt.Printf("[%s] Q << %s >> responded from cache\n", resolverName, request.Question[0].String())
 		return cachedResponse, nil
 	}
 
@@ -222,6 +224,8 @@ func (resolverMap *resolverMap) answerWithContext(resolverName string, context *
 		// save cached answer
 		resolverMap.cache.Store(resolverName, request, response)
 	}
+
+	fmt.Printf("[%s] Q << %s >> responded from resolver\n", resolverName, request.Question[0].String())
 
 	// return with nil error
 	return response, nil

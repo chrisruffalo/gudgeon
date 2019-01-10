@@ -1,0 +1,19 @@
+gudgeon:
+  home: ./.gudgeon/
+
+  network:
+    tcp: true
+    udp: true
+    interfaces:
+    - ip: 0.0.0.0
+      port: 5354
+
+  resolvers:
+  - name: default
+    sources:
+    - 8.8.8.8
+
+  groups:
+  - name: default
+    resolvers:
+    - google

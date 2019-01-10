@@ -13,6 +13,7 @@ const (
 )
 
 type dnsSource struct {
+	client        *dns.Client
 	dnsServer     string
 	port          uint
 	remoteAddress string
@@ -56,10 +57,12 @@ func (dnsSource *dnsSource) Name() string {
 
 func (dnsSource *dnsSource) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// create new client instance
-	client := new(dns.Client)
+	if dnsSource.client == nil {
+		dnsSource.client = new(dns.Client)
+	}
 
 	// forward message without interference
-	response, _, err := client.Exchange(request, dnsSource.remoteAddress)
+	response, _, err := dnsSource.client.Exchange(request, dnsSource.remoteAddress)
 
 	// return error if error
 	if err != nil {
