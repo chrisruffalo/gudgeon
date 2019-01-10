@@ -13,15 +13,23 @@ import (
 )
 
 type ResolutionContext struct {
+	// resolution tools / recursive issues
 	ResolverMap ResolverMap // pointer to the resolvermap that started resolution, can be nil
 	Visited     []string    // list of visited resolver names
 	Stored      bool        // has the result been stored already
+	// reporting on actual resolver/source
+	ResolverUsed string // the resolver that did the work
+	SourceUsed   string // actual source that did the resolution
+	Cached       bool   // was the result found by querying the Cache
 }
 
 func DefaultResolutionContext() *ResolutionContext {
 	context := new(ResolutionContext)
 	context.Visited = make([]string, 0)
 	context.Stored = false
+	context.ResolverUsed = ""
+	context.SourceUsed = ""
+	context.Cached = false
 	return context
 }
 
@@ -145,6 +153,20 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 		}
 	}
 
+	// check cache first (if available)
+	if context.ResolverMap != nil {
+		cachedResponse, found := context.ResolverMap.Cache().Query(resolver.name, request)
+		if found && cachedResponse != nil {
+			if "" == context.ResolverUsed {
+				context.ResolverUsed = resolver.name
+			}
+			// set as stored in the context because it was found int he cache
+			context.Stored = true
+			context.Cached = true
+			return cachedResponse, nil
+		}
+	}
+
 	// step through sources and return result
 	for _, source := range resolver.sources {
 		response, err := source.Answer(context, request)
@@ -155,6 +177,19 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 		}
 
 		if response != nil && (len(response.Answer) > 0 || len(response.Ns) > 0 || len(response.Extra) > 0) {
+			//  update the used resolver
+			if context != nil && "" == context.ResolverUsed {
+				context.ResolverUsed = resolver.name
+			}
+
+			// only cache non-nil response
+			if context != nil && context.ResolverMap != nil && response != nil && !context.Stored {
+				// set as stored
+				context.Stored = true
+				// save cached answer
+				context.ResolverMap.Cache().Store(resolver.name, request, response)
+			}
+
 			return response, nil
 		}
 	}
@@ -180,6 +215,13 @@ func (resolverMap *resolverMap) AnswerMultiResolvers(resolverNames []string, req
 			continue
 		}
 		if response != nil {
+			// log query
+			if context.Cached {
+				fmt.Printf("[%s] Q << %s >> from cache\n", context.ResolverUsed, request.Question[0].String())
+			} else {
+				fmt.Printf("[%s] Q << %s >> from source: '%s'\n", context.ResolverUsed, request.Question[0].String(), context.SourceUsed)
+			}
+			// then return
 			return response, nil
 		}
 	}
@@ -202,30 +244,11 @@ func (resolverMap *resolverMap) answerWithContext(resolverName string, context *
 		return nil, nil
 	}
 
-	// check cache
-	cachedResponse, found := resolverMap.cache.Query(resolverName, request)
-	if found && cachedResponse != nil {
-		// set as stored in the context because it was found int he cache
-		context.Stored = true
-		fmt.Printf("[%s] Q << %s >> responded from cache\n", resolverName, request.Question[0].String())
-		return cachedResponse, nil
-	}
-
 	// get answer
 	response, err := resolver.Answer(context, request)
 	if err != nil {
 		return nil, err
 	}
-
-	// only cache non-nil response
-	if response != nil && !context.Stored {
-		// set as stored
-		context.Stored = true
-		// save cached answer
-		resolverMap.cache.Store(resolverName, request, response)
-	}
-
-	fmt.Printf("[%s] Q << %s >> responded from resolver\n", resolverName, request.Question[0].String())
 
 	// return with nil error
 	return response, nil

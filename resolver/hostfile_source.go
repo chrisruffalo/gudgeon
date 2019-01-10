@@ -200,5 +200,10 @@ func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request
 		hostFileSource.respondToPTR(name, response)
 	}
 
+	// set source as answering source
+	if context != nil {
+		context.SourceUsed = hostFileSource.Name()
+	}
+
 	return response, nil
 }

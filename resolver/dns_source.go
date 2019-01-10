@@ -72,6 +72,11 @@ func (dnsSource *dnsSource) Answer(context *ResolutionContext, request *dns.Msg)
 	// set reply (pretty sure this is done upstream)
 	//response.SetReply(request)
 
+	// set source as answering source
+	if context != nil {
+		context.SourceUsed = dnsSource.Name()
+	}
+
 	// otherwise just return response
 	return response, nil
 }
