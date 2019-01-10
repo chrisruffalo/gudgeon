@@ -32,8 +32,8 @@ gudgeon:
              # The IP of an upstream server
              # A path to a file (like a hosts file)
              # The name of another DNS group
-    - internal
     - local
+    - internal    
     - att
     - google
     - cloudflare

@@ -4,7 +4,7 @@ require (
 	github.com/google/uuid v1.0.0
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/mattn/go-sqlite3 v1.9.0
-	github.com/miekg/dns v1.1.1
+	github.com/miekg/dns v1.1.2
 
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735

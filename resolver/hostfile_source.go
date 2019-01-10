@@ -144,8 +144,12 @@ func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Ms
 		// entries were found so we need to loop through them
 		for idx, ptr := range val {
 			// skip empty ptr
-			if "" != ptr {
+			if "" == ptr {
 				continue
+			}
+
+			if !strings.HasSuffix(ptr, ".") {
+				ptr = ptr + "."
 			}
 
 			rr := &dns.PTR{
@@ -155,6 +159,10 @@ func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Ms
 			response.Answer[idx] = rr
 		}
 	}
+}
+
+func (hostFileSource *hostFileSource) Name() string {
+	return "hostfile:" + hostFileSource.filePath
 }
 
 func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
@@ -176,10 +184,10 @@ func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request
 	// create new response message
 	response := &dns.Msg{
 		MsgHdr: dns.MsgHdr{
-			Authoritative:     true,
-			AuthenticatedData: true,
-			CheckingDisabled:  true,
-			RecursionDesired:  true,
+			Authoritative:     request.MsgHdr.Authoritative,
+			AuthenticatedData: request.MsgHdr.AuthenticatedData,
+			CheckingDisabled:  request.MsgHdr.CheckingDisabled,
+			RecursionDesired:  request.MsgHdr.RecursionDesired,
 			Opcode:            dns.OpcodeQuery,
 		},
 	}

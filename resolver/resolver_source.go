@@ -20,6 +20,10 @@ func newResolverSource(sourceName string) Source {
 	return resolver
 }
 
+func (resolverSource *resolverSource) Name() string {
+	return resolverSource.resolverName
+}
+
 func (resolverSource *resolverSource) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// bail if context is nil or resolver map is not available
 	if context == nil || context.ResolverMap == nil {

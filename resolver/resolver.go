@@ -14,16 +14,18 @@ import (
 type ResolutionContext struct {
 	ResolverMap ResolverMap // pointer to the resolvermap that started resolution, can be nil
 	Visited     []string    // list of visited resolver names
+	Stored      bool        // has the result been stored already
 }
 
-func DefaultContext() *ResolutionContext {
+func DefaultResolutionContext() *ResolutionContext {
 	context := new(ResolutionContext)
 	context.Visited = make([]string, 0)
+	context.Stored = false
 	return context
 }
 
-func DefaultContextWithMap(resolverMap ResolverMap) *ResolutionContext {
-	context := DefaultContext()
+func DefaultResolutionContextWithMap(resolverMap ResolverMap) *ResolutionContext {
+	context := DefaultResolutionContext()
 	context.ResolverMap = resolverMap
 	return context
 }
@@ -106,13 +108,19 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 
 	// create context if context is nil (no map)
 	if context == nil {
-		context = DefaultContext()
+		context = DefaultResolutionContext()
 	}
+
+	// mark resolver as visited by adding the resolver name to the list of visited resolvers
+	context.Visited = append(context.Visited, resolver.name)
 
 	// don't answer if the domain doesn't match
 	if len(resolver.domains) > 0 {
 		// get the question name so we can use it to determine if the domain matches
 		qname := request.Question[0].Name
+		if strings.HasSuffix(qname, ".") {
+			qname = qname[:len(qname)-1]
+		}
 
 		// default to "no match"
 		domainMatches := false
@@ -136,17 +144,16 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 		}
 	}
 
-	// mark resolver as visited by adding the resolver name to the list of visited resolvers
-	context.Visited = append(context.Visited, resolver.name)
-
 	// step through sources and return result
 	for _, source := range resolver.sources {
 		response, err := source.Answer(context, request)
+
 		if err != nil {
 			// todo: log error
 			continue
 		}
-		if response != nil && len(response.Answer) > 0 {
+
+		if response != nil && (len(response.Answer) > 0 || len(response.Ns) > 0 || len(response.Extra) > 0) {
 			return response, nil
 		}
 	}
@@ -163,7 +170,7 @@ func (resolverMap *resolverMap) Answer(resolverName string, request *dns.Msg) (*
 
 // answer resolvers in order
 func (resolverMap *resolverMap) AnswerMultiResolvers(resolverNames []string, request *dns.Msg) (*dns.Msg, error) {
-	context := DefaultContextWithMap(resolverMap)
+	context := DefaultResolutionContextWithMap(resolverMap)
 
 	for _, resolverName := range resolverNames {
 		response, err := resolverMap.answerWithContext(resolverName, context, request)
@@ -189,7 +196,7 @@ func (resolverMap *resolverMap) answerWithContext(resolverName string, context *
 
 	// create context
 	if context == nil {
-		context = DefaultContextWithMap(resolverMap)
+		context = DefaultResolutionContextWithMap(resolverMap)
 	} else if util.StringIn(resolverName, context.Visited) { // but if context shows already visisted outright skip the resolver
 		return nil, nil
 	}
@@ -197,6 +204,8 @@ func (resolverMap *resolverMap) answerWithContext(resolverName string, context *
 	// check cache
 	cachedResponse, found := resolverMap.cache.Query(resolverName, request)
 	if found && cachedResponse != nil {
+		// set as stored in the context because it was found int he cache
+		context.Stored = true
 		return cachedResponse, nil
 	}
 
@@ -206,8 +215,13 @@ func (resolverMap *resolverMap) answerWithContext(resolverName string, context *
 		return nil, err
 	}
 
-	// save cached answer
-	resolverMap.cache.Store(resolverName, request, response)
+	// only cache non-nil response
+	if response != nil && !context.Stored {
+		// set as stored
+		context.Stored = true
+		// save cached answer
+		resolverMap.cache.Store(resolverName, request, response)
+	}
 
 	// return with nil error
 	return response, nil

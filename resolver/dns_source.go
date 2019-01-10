@@ -50,6 +50,10 @@ func newDnsSource(sourceAddress string) Source {
 	return source
 }
 
+func (dnsSource *dnsSource) Name() string {
+	return dnsSource.remoteAddress
+}
+
 func (dnsSource *dnsSource) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// create new client instance
 	client := new(dns.Client)
@@ -62,8 +66,8 @@ func (dnsSource *dnsSource) Answer(context *ResolutionContext, request *dns.Msg)
 		return nil, err
 	}
 
-	// set reply???
-	// response.SetReply(request)
+	// set reply (pretty sure this is done upstream)
+	//response.SetReply(request)
 
 	// otherwise just return response
 	return response, nil

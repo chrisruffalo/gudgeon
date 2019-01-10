@@ -3,7 +3,6 @@ package engine
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"net"
 	"os"
 	"path"
@@ -343,16 +342,19 @@ func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
 
 	// get block status
 	if engine.IsDomainBlocked(a, domain) {
-		// do block logic with response
+		response = new(dns.Msg)
+		response.SetReply(request)
+
+		// just say that the response code is that the answer wasn't found
+		response.Rcode = dns.RcodeNameError
 	} else {
 		// if not blocked then actually try resolution, by grabbing the resolver names
 		resolvers := engine.getConsumerResolvers(a)
-		fmt.Printf("Using resolvers for consumer: %s\n", resolvers)
 		r, err := engine.resolvers.AnswerMultiResolvers(resolvers, request)
 		if err != nil {
-			response = r
-		} else {
 			// todo: log error in resolution
+		} else {
+			response = r
 		}
 	}
 

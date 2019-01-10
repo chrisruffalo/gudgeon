@@ -62,6 +62,11 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 		return
 	}
 
+	// don't store an empty response
+	if len(response.Answer) < 1 && len(response.Ns) < 1 && len(response.Extra) < 1 {
+		return
+	}
+
 	// create key from message
 	key := key(partition, request.Question)
 	if "" == key {
@@ -72,17 +77,23 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 	ttl := dnsMaxTtl
 	if len(response.Answer) > 0 {
 		for _, value := range response.Answer {
-			ttl = min(ttl, value.Header().Ttl)
+			if value != nil && value.Header() != nil {
+				ttl = min(ttl, value.Header().Ttl)
+			}
 		}
 	}
 	if len(response.Ns) > 0 {
 		for _, value := range response.Ns {
-			ttl = min(ttl, value.Header().Ttl)
+			if value != nil && value.Header() != nil {
+				ttl = min(ttl, value.Header().Ttl)
+			}
 		}
 	}
 	if len(response.Extra) > 0 {
 		for _, value := range response.Extra {
-			ttl = min(ttl, value.Header().Ttl)
+			if value != nil && value.Header() != nil {
+				ttl = min(ttl, value.Header().Ttl)
+			}
 		}
 	}
 
@@ -115,6 +126,9 @@ func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, boo
 	}
 	delta := time.Now().Sub(envelope.time)
 	message := envelope.message.Copy()
+
+	// update message id to match request id
+	message.MsgHdr.Id = request.MsgHdr.Id
 
 	// count down/change ttl values in response
 	for _, value := range envelope.message.Answer {

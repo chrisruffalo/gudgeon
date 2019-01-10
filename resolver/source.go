@@ -8,13 +8,13 @@ import (
 )
 
 type Source interface {
+	Name() string
 	Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
 }
 
 func NewSource(sourceSpecification string) Source {
-
 	// a source that exists as a file is a hostfile source
-	if _, err := os.Stat("/path/to/whatever"); !os.IsNotExist(err) {
+	if _, err := os.Stat(sourceSpecification); !os.IsNotExist(err) {
 		return newHostFileSource(sourceSpecification)
 	}
 
