@@ -43,6 +43,7 @@ func DefaultResolutionContextWithMap(resolverMap ResolverMap) *ResolutionContext
 type resolver struct {
 	name    string
 	domains []string
+	search  []string
 	sources []Source
 }
 
@@ -74,6 +75,7 @@ func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
 	resolver := new(resolver)
 	resolver.name = configuredResolver.Name
 	resolver.domains = configuredResolver.Domains
+	resolver.search = configuredResolver.Search
 	resolver.sources = make([]Source, 0)
 
 	// add sources
@@ -109,20 +111,7 @@ func NewResolverMap(configuredResolvers []*config.GudgeonResolver) ResolverMap {
 }
 
 // base answer function
-func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
-	// guard against invalid requests or requests that don't ask anything
-	if request == nil || len(request.Question) < 1 {
-		return nil, nil
-	}
-
-	// create context if context is nil (no map)
-	if context == nil {
-		context = DefaultResolutionContext()
-	}
-
-	// mark resolver as visited by adding the resolver name to the list of visited resolvers
-	context.Visited = append(context.Visited, resolver.name)
-
+func (resolver *resolver) answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// don't answer if the domain doesn't match
 	if len(resolver.domains) > 0 {
 		// get the question name so we can use it to determine if the domain matches
@@ -195,6 +184,72 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 	}
 
 	// todo, maybe return more appropriate error?
+	return nil, nil
+}
+
+func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	// guard against invalid requests or requests that don't ask anything
+	if request == nil || len(request.Question) < 1 {
+		return nil, nil
+	}
+
+	// create context if context is nil (no map)
+	if context == nil {
+		context = DefaultResolutionContext()
+	}
+
+	// mark resolver as visited by adding the resolver name to the list of visited resolvers
+	context.Visited = append(context.Visited, resolver.name)
+
+	response, err := resolver.answer(context, request)
+	if err != nil {
+		return nil, err
+	}
+
+	// if there are available search domains use them
+	if (response == nil || len(response.Question) < 1) && len(resolver.search) > 0 {
+		for _, sDomain := range resolver.search {
+			// skip empty search domains
+			if "" == sDomain {
+				continue
+			}
+
+			// create new question
+			searchRequest := request.Copy()
+
+			// determine search domain
+			searchDomain := searchRequest.Question[0].Name
+			if !strings.HasSuffix(searchDomain, ".") {
+				searchDomain = searchDomain + "."
+			}
+			searchDomain = searchDomain + sDomain
+			if !strings.HasSuffix(searchDomain, ".") {
+				searchDomain = searchDomain + "."
+			}
+
+			// update question
+			searchRequest.Question[0].Name = searchDomain
+
+			// ask new question
+			searchResponse, err := resolver.answer(context, searchRequest)
+			if err != nil {
+				// todo: log
+				continue
+			}
+
+			// if the search response is not nil, return it
+			if searchResponse != nil {
+				// but first update answers to original question domain
+				for _, answer := range searchResponse.Answer {
+					answer.Header().Name = request.Question[0].Name
+				}
+
+				// then return
+				return searchResponse, nil
+			}
+		}
+	}
+
 	return nil, nil
 }
 

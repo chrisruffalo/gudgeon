@@ -13,9 +13,8 @@ import (
 // incomplete list of not-implemented queries
 var notImplemented = map[uint16]bool{
 	dns.TypeNone: true,
-	dns.TypeTKEY: true,
-	dns.TypeTLSA: true,
-	dns.TypeTSIG: true,
+	dns.TypeIXFR: true,
+	dns.TypeAXFR: true,
 }
 
 type provider struct {

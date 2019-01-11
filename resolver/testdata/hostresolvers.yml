@@ -1,0 +1,10 @@
+---
+gudgeon:
+  resolvers:
+  - name: default
+    search: 
+    - lan
+    - other
+    - local
+    sources: 
+    - ./testdata/other.hosts

@@ -124,7 +124,12 @@ func newHostFileSource(sourceFile string) Source {
 func (hostFileSource *hostFileSource) respondToA(name string, response *dns.Msg) {
 	// if the domain is available from the host file, go through it
 	if val, ok := hostFileSource.hostEntries[name]; ok {
-		response.Answer = make([]dns.RR, len(val))
+		offset := len(response.Answer)
+		if offset > 0 {
+			response.Answer = append(response.Answer, make([]dns.RR, len(val))...)
+		} else {
+			response.Answer = make([]dns.RR, len(val))
+		}
 
 		// entries were found so we need to loop through them
 		for idx, address := range val {
@@ -142,13 +147,13 @@ func (hostFileSource *hostFileSource) respondToA(name string, response *dns.Msg)
 					Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl},
 					A:   ipV4,
 				}
-				response.Answer[idx] = rr
+				response.Answer[offset+idx] = rr
 			} else if ipV6 != nil {
 				rr := &dns.AAAA{
 					Hdr:  dns.RR_Header{Name: name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl},
 					AAAA: ipV6,
 				}
-				response.Answer[idx] = rr
+				response.Answer[offset+idx] = rr
 			}
 		}
 	}
@@ -157,7 +162,12 @@ func (hostFileSource *hostFileSource) respondToA(name string, response *dns.Msg)
 func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Msg) {
 	// if the (reverse lookup) domain is available from the host file, go through it
 	if val, ok := hostFileSource.reverseLookup[name]; ok {
-		response.Answer = make([]dns.RR, len(val))
+		offset := len(response.Answer)
+		if offset > 0 {
+			response.Answer = append(response.Answer, make([]dns.RR, len(val))...)
+		} else {
+			response.Answer = make([]dns.RR, len(val))
+		}
 
 		// entries were found so we need to loop through them
 		for idx, ptr := range val {
@@ -174,7 +184,7 @@ func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Ms
 				Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
 				Ptr: ptr,
 			}
-			response.Answer[idx] = rr
+			response.Answer[offset+idx] = rr
 		}
 	}
 }
@@ -217,7 +227,7 @@ func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request
 	qType := question.Qtype
 
 	// can only respond to A, AAAA, PTR, and CNAME questions
-	if qType != dns.TypeA && qType != dns.TypeAAAA && qType != dns.TypePTR && qType != dns.TypeCNAME {
+	if qType != dns.TypeANY && qType != dns.TypeA && qType != dns.TypeAAAA && qType != dns.TypePTR && qType != dns.TypeCNAME {
 		return nil, nil
 	}
 
@@ -234,17 +244,23 @@ func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request
 	response.SetReply(request)
 
 	// handle appropriate question type
-	if qType == dns.TypeA || qType == dns.TypeAAAA {
-		// look for cnames before looking for other names
+	if qType == dns.TypeANY || qType == dns.TypeCNAME {
 		hostFileSource.respondToCNAME(name, response)
+	}
+
+	if qType == dns.TypeANY || qType == dns.TypeA || qType == dns.TypeAAAA {
+		// look for cnames before looking for other names
+		if qType != dns.TypeANY {
+			hostFileSource.respondToCNAME(name, response)
+		}
 		// if no cnames are we can look for A/AAAA responses
-		if len(response.Answer) < 1 {
+		if qType == dns.TypeANY || len(response.Answer) < 1 {
 			hostFileSource.respondToA(name, response)
 		}
-	} else if qType == dns.TypePTR {
+	}
+
+	if qType == dns.TypeANY || qType == dns.TypePTR {
 		hostFileSource.respondToPTR(name, response)
-	} else if qType == dns.TypeCNAME {
-		hostFileSource.respondToCNAME(name, response)
 	}
 
 	// set source as answering source

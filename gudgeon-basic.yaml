@@ -1,3 +1,7 @@
+---
+# ====================================================================
+# Basic/minimal configuration
+# ====================================================================
 gudgeon:
   home: ./.gudgeon/
 
@@ -12,8 +16,3 @@ gudgeon:
   - name: default
     sources:
     - 8.8.8.8
-
-  groups:
-  - name: default
-    resolvers:
-    - google

@@ -36,8 +36,13 @@ type GudgeonNetwork struct {
 }
 
 type GudgeonResolver struct {
+	// name of the resolver
 	Name    string   `yaml:"name"`
+	// domains to operate on
 	Domains []string `yaml:"domains"`
+	// search domains, will retry resolution using these subdomains if the domain is not found
+	Search []string `yaml:"search"`
+	// sources (described via string)
 	Sources []string `yaml:"sources"`
 }
 

@@ -1,0 +1,46 @@
+---
+# ====================================================================
+# Minimal List to Mimic Pihole's out of the box blocking behavior
+# ====================================================================
+gudgeon:
+  home: ./.gudgeon/
+
+  network:
+    tcp: true
+    udp: true
+    interfaces:
+    - ip: 0.0.0.0
+      port: 53
+
+  resolvers:
+  - name: default
+    sources:
+    - 8.8.8.8
+
+  lists:
+  - name: global white list
+    source: /etc/pihole/whitelist.txt
+    type: allow
+  - name: global black list
+    source: /etc/pihole/blacklist.txt
+  - name: stephen's black list
+    source: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+  - name: malware domains
+    source: https://mirror1.malwaredomains.com/files/justdomains
+  - name: cameleon
+    source: http://sysctl.org/cameleon/hosts
+  - name: zeus tracker
+    source: https://zeustracker.abuse.ch/blocklist.php?download=domainblocklist
+  - name: disconnect.me tracking
+    source: https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt
+  - name: disconnect.me ads
+    source: https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
+  - name: hosts-file.net
+    source: https://hosts-file.net/ad_servers.txt
+
+  groups:
+  - name: default
+    tags:
+    - default
+    resolvers:
+    - default

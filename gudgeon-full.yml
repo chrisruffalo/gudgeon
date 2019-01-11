@@ -1,3 +1,7 @@
+---
+# ====================================================================
+# More full featured block list to show more features and explain them
+# ====================================================================
 gudgeon:
   # filesystem locations for gudgeon data
   home: ./.gudgeon/
