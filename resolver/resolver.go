@@ -75,6 +75,35 @@ func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
 
 // base answer function
 func (resolver *resolver) answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	// step through sources and return result
+	for _, source := range resolver.sources {
+		response, err := source.Answer(context, request)
+
+		if err != nil {
+			// todo: log error
+			continue
+		}
+
+		if response != nil && (len(response.Answer) > 0 || len(response.Ns) > 0 || len(response.Extra) > 0) {
+			//  update the used resolver
+			if context != nil && "" == context.ResolverUsed {
+				context.ResolverUsed = resolver.name
+			}
+
+			return response, nil
+		}
+	}
+
+	// todo, maybe return more appropriate error?
+	return nil, nil
+}
+
+func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	// guard against invalid requests or requests that don't ask anything
+	if request == nil || len(request.Question) < 1 {
+		return nil, nil
+	}
+
 	// don't answer if the domain doesn't match
 	if len(resolver.domains) > 0 {
 		// get the question name so we can use it to determine if the domain matches
@@ -103,7 +132,15 @@ func (resolver *resolver) answer(context *ResolutionContext, request *dns.Msg) (
 		if !domainMatches {
 			return nil, nil
 		}
+	}	
+
+	// create context if context is nil (no map)
+	if context == nil {
+		context = DefaultResolutionContext()
 	}
+
+	// mark resolver as visited by adding the resolver name to the list of visited resolvers
+	context.Visited = append(context.Visited, resolver.name)
 
 	// check cache first (if available)
 	if context.ResolverMap != nil {
@@ -118,51 +155,6 @@ func (resolver *resolver) answer(context *ResolutionContext, request *dns.Msg) (
 			return cachedResponse, nil
 		}
 	}
-
-	// step through sources and return result
-	for _, source := range resolver.sources {
-		response, err := source.Answer(context, request)
-
-		if err != nil {
-			// todo: log error
-			continue
-		}
-
-		if response != nil && (len(response.Answer) > 0 || len(response.Ns) > 0 || len(response.Extra) > 0) {
-			//  update the used resolver
-			if context != nil && "" == context.ResolverUsed {
-				context.ResolverUsed = resolver.name
-			}
-
-			// only cache non-nil response
-			if context != nil && context.ResolverMap != nil && response != nil && !context.Stored {
-				// save cached answer
-				context.ResolverMap.Cache().Store(resolver.name, request, response)
-				// set as stored
-				context.Stored = true
-			}
-
-			return response, nil
-		}
-	}
-
-	// todo, maybe return more appropriate error?
-	return nil, nil
-}
-
-func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
-	// guard against invalid requests or requests that don't ask anything
-	if request == nil || len(request.Question) < 1 {
-		return nil, nil
-	}
-
-	// create context if context is nil (no map)
-	if context == nil {
-		context = DefaultResolutionContext()
-	}
-
-	// mark resolver as visited by adding the resolver name to the list of visited resolvers
-	context.Visited = append(context.Visited, resolver.name)
 
 	response, err := resolver.answer(context, request)
 	if err != nil {
@@ -206,11 +198,21 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 				for _, answer := range searchResponse.Answer {
 					answer.Header().Name = request.Question[0].Name
 				}
+				// update reply
 				searchResponse.SetReply(request)
-				// then return
-				return searchResponse, nil
+				// pass along response
+				response = searchResponse
+				break
 			}
 		}
+	}
+
+	// only cache non-nil response
+	if context != nil && context.ResolverMap != nil && response != nil && !context.Stored {
+		// save cached answer
+		context.ResolverMap.Cache().Store(resolver.name, request, response)
+		// set as stored
+		context.Stored = true
 	}
 
 	return response, nil
