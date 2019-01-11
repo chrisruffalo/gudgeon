@@ -19,24 +19,24 @@ gudgeon:
 
   lists:
   - name: global white list
-    source: /etc/pihole/whitelist.txt
+    src: /etc/pihole/whitelist.txt
     type: allow
   - name: global black list
-    source: /etc/pihole/blacklist.txt
+    src: /etc/pihole/blacklist.txt
   - name: stephen's black list
-    source: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+    src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
   - name: malware domains
-    source: https://mirror1.malwaredomains.com/files/justdomains
+    src: https://mirror1.malwaredomains.com/files/justdomains
   - name: cameleon
-    source: http://sysctl.org/cameleon/hosts
+    src: http://sysctl.org/cameleon/hosts
   - name: zeus tracker
-    source: https://zeustracker.abuse.ch/blocklist.php?download=domainblocklist
+    src: https://zeustracker.abuse.ch/blocklist.php?download=domainblocklist
   - name: disconnect.me tracking
-    source: https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt
+    src: https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt
   - name: disconnect.me ads
-    source: https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
+    src: https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
   - name: hosts-file.net
-    source: https://hosts-file.net/ad_servers.txt
+    src: https://hosts-file.net/ad_servers.txt
 
   groups:
   - name: default

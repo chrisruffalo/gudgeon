@@ -1,7 +1,6 @@
 package rule
 
 import (
-	"runtime"
 	"strings"
 
 	"github.com/chrisruffalo/gudgeon/util"
@@ -34,9 +33,6 @@ func (store *memoryStore) Load(group string, rules []Rule) uint64 {
 			counter++
 		}
 	}
-
-	// force GC after loading map
-	runtime.GC()
 
 	return counter
 }

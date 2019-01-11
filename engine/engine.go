@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 
 	"github.com/google/uuid"
@@ -97,7 +98,12 @@ func assignedLists(listNames []string, listTags []string, lists []*config.Gudgeo
 			continue
 		}
 
-		for _, tag := range list.Tags {
+		// if there are no tags the tag is "default"
+		checkingTags := list.Tags
+		if len(checkingTags) < 1 {
+			checkingTags = []string{"default"}
+		}
+		for _, tag := range checkingTags {
 			if util.StringIn(tag, listTags) {
 				should = append(should, list)
 				break
@@ -210,6 +216,11 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 			// send rule array to engine store
 			engine.store.Load(configGroup.Name, rules)
 		}
+
+		// clean up after loading all the rules because
+		// of all the extra allocation that gets performed
+		// during the creation of the arrays and whatnot
+		runtime.GC()
 
 		// set default group on engine if found
 		if "default" == configGroup.Name {
