@@ -46,6 +46,8 @@ gudgeon:
     - 8.8.8.8
     - 8.8.8.4
   - name: local
+    search:
+    - lan
     sources:
     - /etc/hosts
   - name: cloudflare
