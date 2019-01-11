@@ -326,12 +326,13 @@ func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) bool {
 	return !(result == rule.MatchAllow || result == rule.MatchNone)
 }
 
+// handles recursive resolution of cnames
 func (engine *engine) handleCnameResolution(address net.IP, originalRequest *dns.Msg, originalResponse *dns.Msg) *dns.Msg {
 	// scope provided finding response
 	var response *dns.Msg = nil
 
 	// if the (first) response is a CNAME then repeat the question but with the cname instead
-	if len(originalResponse.Answer) > 0 && originalResponse.Answer[0].Header().Rrtype == dns.TypeCNAME && originalRequest.Question[0].Qtype != dns.TypeCNAME {
+	if len(originalResponse.Answer) > 0 && originalResponse.Answer[0].Header().Rrtype == dns.TypeCNAME && len(originalRequest.Question[0]) > 0 && originalRequest.Question[0].Qtype != dns.TypeCNAME {
 		cnameRequest := originalRequest.Copy()
 		answer := originalResponse.Answer[0]
 		newName := answer.(*dns.CNAME).Target
@@ -358,16 +359,18 @@ func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg 
 		response *dns.Msg                   = nil
 		result   *resolver.ResolutionResult = nil
 	)
+	blocked := false
 
 	// get domain name
 	domain := request.Question[0].Name
 
 	// get block status
 	if engine.IsDomainBlocked(address, domain) {
-		response = new(dns.Msg)
-		response.SetReply(request)
+		blocked = true
 
 		// just say that the response code is that the answer wasn't found
+		response = new(dns.Msg)
+		response.SetReply(request)
 		response.Rcode = dns.RcodeNameError
 	} else {
 		// if not blocked then actually try resolution, by grabbing the resolver names
@@ -389,18 +392,21 @@ func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg 
 	if response == nil {
 		response = new(dns.Msg)
 		response.SetReply(request)
-
-		// just say that the response code is that the answer wasn't found
 		response.Rcode = dns.RcodeNameError
 	}
 
 	// log result if found
+	logPrefix := fmt.Sprintf("[%s] Q: %s (%s) ->", address.String(), request.Question[0].Name, dns.Type(request.Question[0].Qtype).String())
 	if result != nil {
 		if result.Cached {
-			fmt.Printf("[%s] Q: %s (%s) -> cache", address.String(), request.Question[0].Name, dns.Type(request.Question[0].Qtype).String())
+			fmt.Printf("%s cache\n", logPrefix)
 		} else {
-			fmt.Printf("[%s] Q: %s (%s) -> resolver:[%s] -> source:[%s]\n", address.String(), request.Question[0].Name, dns.Type(request.Question[0].Qtype).String(), result.Resolver, result.Source)
+			fmt.Printf("%s resolver:[%s] -> source:[%s]\n", logPrefix, result.Resolver, result.Source)
 		}
+	} else if blocked {
+		fmt.Printf("%s BLOCKED\n", logPrefix)
+	} else {
+		fmt.Printf("%s NXDOMAIN\n", logPrefix)
 	}
 
 	return response
