@@ -243,7 +243,7 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 				for _, answer := range searchResponse.Answer {
 					answer.Header().Name = request.Question[0].Name
 				}
-
+				searchResponse.SetReply(request)
 				// then return
 				return searchResponse, nil
 			}
