@@ -20,6 +20,8 @@ func TestBasicHostFile(t *testing.T) {
 	}{
 		{"google.com.", dns.TypeA, 4},
 		{"google2.com.", dns.TypeA, 3},
+		{"docs.google.com.", dns.TypeA, 1},
+		{"unity.google.com.", dns.TypeA, 1},
 		{util.ReverseLookupDomainString("74.125.21.101"), dns.TypePTR, 2},
 		{util.ReverseLookupDomainString("2607:f8b0:4002:c09::8a"), dns.TypePTR, 3},
 		{"bing.com.", dns.TypeCNAME, 1},

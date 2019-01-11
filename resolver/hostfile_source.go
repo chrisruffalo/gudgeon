@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/miekg/dns"
+	"github.com/ryanuber/go-glob"
 
 	"github.com/chrisruffalo/gudgeon/util"
 )
@@ -89,12 +90,19 @@ func newHostFileSource(sourceFile string) Source {
 
 			// add to map
 			for _, domain := range domains {
+				// determine if domain is wild or not
+				wild := strings.Contains(domain, "*")
+
 				if !strings.HasSuffix(domain, ".") {
 					domain = domain + "."
 				}
 
 				// append value to list
-				source.hostEntries[domain] = append(source.hostEntries[domain], &parsedAddress)
+				if !wild {
+					source.hostEntries[domain] = append(source.hostEntries[domain], &parsedAddress)
+				} else {
+					source.dnsWildcards[domain] = append(source.dnsWildcards[domain], &parsedAddress)
+				}
 			}
 		} else {
 			// treat address as cname entry
@@ -121,7 +129,50 @@ func newHostFileSource(sourceFile string) Source {
 	return source
 }
 
+func (hostFileSource *hostFileSource) respondToAWildcards(name string, response *dns.Msg) {
+	// only try if there are wildcards
+	if len(hostFileSource.dnsWildcards) < 1 {
+		return
+	}
+
+	// now inspect wildcards
+	for wildDomain, addresses := range hostFileSource.dnsWildcards {
+		// move on if the wildcard doesn't match
+		if !glob.Glob(wildDomain, name) {
+			continue
+		}
+		// otherwise create and append records
+		for _, address := range addresses {
+			// skip nil addresses
+			if address == nil {
+				continue
+			}
+
+			// create response based on parsed address type (ipv6 or not)
+			ipV4 := address.To4()
+			ipV6 := address.To16()
+
+			if ipV4 != nil {
+				rr := &dns.A{
+					Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl},
+					A:   ipV4,
+				}
+				response.Answer = append(response.Answer, rr)
+			} else if ipV6 != nil {
+				rr := &dns.AAAA{
+					Hdr:  dns.RR_Header{Name: name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl},
+					AAAA: ipV6,
+				}
+				response.Answer = append(response.Answer, rr)
+			}
+		}
+	}
+}
+
 func (hostFileSource *hostFileSource) respondToA(name string, response *dns.Msg) {
+	// first respond to wildcards
+	hostFileSource.respondToAWildcards(name, response)
+
 	// if the domain is available from the host file, go through it
 	if val, ok := hostFileSource.hostEntries[name]; ok {
 		offset := len(response.Answer)

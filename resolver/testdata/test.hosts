@@ -7,6 +7,7 @@
 74.125.21.102 google.com google2.com
 74.125.21.103    google.com
 2607:f8b0:4002:c09::8a	google.com google2.com google3.com
+33.125.11.4 *.google.com
 
 # cname
 safesearch.bing.com bing.com www.bing.com
