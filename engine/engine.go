@@ -3,7 +3,6 @@ package engine
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"net"
 	"os"
 	"path"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/downloader"
+	"github.com/chrisruffalo/gudgeon/qlog"
 	"github.com/chrisruffalo/gudgeon/resolver"
 	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/util"
@@ -406,19 +406,8 @@ func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg 
 		response.Rcode = dns.RcodeNameError
 	}
 
-	// log result if found
-	logPrefix := fmt.Sprintf("[%s] Q: %s (%s) ->", address.String(), request.Question[0].Name, dns.Type(request.Question[0].Qtype).String())
-	if result != nil {
-		if result.Cached {
-			fmt.Printf("%s cache\n", logPrefix)
-		} else {
-			fmt.Printf("%s resolver:[%s] -> source:[%s]\n", logPrefix, result.Resolver, result.Source)
-		}
-	} else if blocked {
-		fmt.Printf("%s BLOCKED\n", logPrefix)
-	} else {
-		fmt.Printf("%s NXDOMAIN\n", logPrefix)
-	}
+	// goroutine log so we don't block
+	go qlog.Log(address, request, response, blocked, result)
 
 	return response
 }

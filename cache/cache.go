@@ -79,7 +79,7 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 		return
 	}
 
-	// don't store an empty response
+	// don't store an empty response (todo: get more analytical here about where it comes from)
 	if len(response.Answer) < 1 && len(response.Ns) < 1 && len(response.Extra) < 1 {
 		return
 	}
