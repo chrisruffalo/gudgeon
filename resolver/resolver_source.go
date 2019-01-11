@@ -37,5 +37,6 @@ func (resolverSource *resolverSource) Answer(context *ResolutionContext, request
 	}
 
 	// continue resolution chain
-	return context.ResolverMap.answerWithContext(resolverSource.resolverName, context, request)
+	response, _, err := context.ResolverMap.answerWithContext(resolverSource.resolverName, context, request)
+	return response, err
 }

@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"os"
 	"path"
@@ -353,7 +354,10 @@ func (engine *engine) handleCnameResolution(address net.IP, originalRequest *dns
 
 func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg {
 	// scope provided finding response
-	var response *dns.Msg = nil
+	var (
+		response *dns.Msg                   = nil
+		result   *resolver.ResolutionResult = nil
+	)
 
 	// get domain name
 	domain := request.Question[0].Name
@@ -368,11 +372,12 @@ func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg 
 	} else {
 		// if not blocked then actually try resolution, by grabbing the resolver names
 		resolvers := engine.getConsumerResolvers(address)
-		r, err := engine.resolvers.AnswerMultiResolvers(resolvers, request)
+		r, res, err := engine.resolvers.AnswerMultiResolvers(resolvers, request)
 		if err != nil {
 			// todo: log error in resolution
 		} else {
 			response = r
+			result = res
 			cnameResponse := engine.handleCnameResolution(address, request, response)
 			if cnameResponse != nil {
 				response = cnameResponse
@@ -380,13 +385,22 @@ func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg 
 		}
 	}
 
-	// if no result is found at this point return NXDOMAIN
+	// if no response is found at this point return NXDOMAIN
 	if response == nil {
 		response = new(dns.Msg)
 		response.SetReply(request)
 
 		// just say that the response code is that the answer wasn't found
 		response.Rcode = dns.RcodeNameError
+	}
+
+	// log result if found
+	if result != nil {
+		if result.Cached {
+			fmt.Printf("[%s] Q: %s (%s) -> cache", address.String(), request.Question[0].Name, dns.Type(request.Question[0].Qtype).String())
+		} else {
+			fmt.Printf("[%s] Q: %s (%s) -> resolver:[%s] -> source:[%s]\n", address.String(), request.Question[0].Name, dns.Type(request.Question[0].Qtype).String(), result.Resolver, result.Source)
+		}
 	}
 
 	return response

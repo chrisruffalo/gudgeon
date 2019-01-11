@@ -24,7 +24,7 @@ The point is to provide several different ways to change behavior away from the 
 
 ## Resolvers
 
-In Gudgeon a "resolver" is a set of configuration and sources that are used to resolve DNS queries.
+In Gudgeon a "resolver" is a set of configuration and sources that are used to resolve DNS queries. Each resolver is a description of several aspects of name resolution.
 
 ## Configuration and Examples
 
