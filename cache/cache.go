@@ -9,8 +9,9 @@ import (
 
 // key delimeter
 const (
-	delimeter = "|"
-	dnsMaxTtl = uint32(604800)
+	delimeter                 = "|"
+	dnsMaxTtl                 = uint32(604800)
+	defaultCacheScrapeMinutes = 1
 )
 
 type envelope struct {
@@ -34,6 +35,13 @@ func min(a uint32, b uint32) uint32 {
 	return b
 }
 
+func max(a uint32, b uint32) uint32 {
+	if a <= b {
+		return b
+	}
+	return a
+}
+
 // make string key from partition + message
 func key(partition string, questions []dns.Question) string {
 	key := ""
@@ -51,7 +59,7 @@ func key(partition string, questions []dns.Question) string {
 
 func New() Cache {
 	gocache := new(gocache)
-	gocache.backer = backer.New(backer.NoExpiration, 5*time.Minute)
+	gocache.backer = backer.New(backer.NoExpiration, defaultCacheScrapeMinutes*time.Minute)
 
 	return gocache
 }
@@ -75,26 +83,12 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 
 	// get ttl from parts and use lowest ttl as cache value
 	ttl := dnsMaxTtl
-	if len(response.Answer) > 0 {
-		for _, value := range response.Answer {
-			if value != nil && value.Header() != nil {
-				ttl = min(ttl, value.Header().Ttl)
-			}
-		}
+	for _, value := range response.Answer {
+		ttl = min(ttl, value.Header().Ttl)
 	}
-	if len(response.Ns) > 0 {
-		for _, value := range response.Ns {
-			if value != nil && value.Header() != nil {
-				ttl = min(ttl, value.Header().Ttl)
-			}
-		}
-	}
-	if len(response.Extra) > 0 {
-		for _, value := range response.Extra {
-			if value != nil && value.Header() != nil {
-				ttl = min(ttl, value.Header().Ttl)
-			}
-		}
+
+	for _, value := range response.Ns {
+		ttl = min(ttl, value.Header().Ttl)
 	}
 
 	// if ttl is 0 or less then we don't need to bother to store it at all
@@ -131,14 +125,27 @@ func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, boo
 	message.MsgHdr.Id = request.MsgHdr.Id
 
 	// count down/change ttl values in response
+	secondDelta := uint32(delta / time.Second)
 	for _, value := range envelope.message.Answer {
-		value.Header().Ttl = value.Header().Ttl - uint32(delta/time.Second)
+		if value.Header().Ttl > secondDelta {
+			value.Header().Ttl = value.Header().Ttl - secondDelta
+		} else {
+			value.Header().Ttl = 0
+		}
 	}
 	for _, value := range envelope.message.Ns {
-		value.Header().Ttl = value.Header().Ttl - uint32(delta/time.Second)
+		if value.Header().Ttl > secondDelta {
+			value.Header().Ttl = value.Header().Ttl - secondDelta
+		} else {
+			value.Header().Ttl = 0
+		}
 	}
 	for _, value := range envelope.message.Extra {
-		value.Header().Ttl = value.Header().Ttl - uint32(delta/time.Second)
+		if value.Header().Ttl > secondDelta {
+			value.Header().Ttl = value.Header().Ttl - secondDelta
+		} else {
+			value.Header().Ttl = 0
+		}
 	}
 
 	return message, true

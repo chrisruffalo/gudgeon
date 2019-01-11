@@ -10,6 +10,14 @@ import (
 	"github.com/chrisruffalo/gudgeon/engine"
 )
 
+// incomplete list of not-implemented queries
+var notImplemented = map[uint16]bool{
+	dns.TypeNone: true,
+	dns.TypeTKEY: true,
+	dns.TypeTLSA: true,
+	dns.TypeTSIG: true,
+}
+
 type provider struct {
 	engine engine.Engine
 }
@@ -57,6 +65,26 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 
 	// global dns handle function
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, request *dns.Msg) {
+		// drop questions that don't meet minimum requirements
+		if request == nil || len(request.Question) < 1 {
+			response := new(dns.Msg)
+			response.SetReply(request)
+			response.Rcode = dns.RcodeRefused
+			writer.WriteMsg(response)
+			return
+		}
+
+		// drop questions that aren't implemented
+		qType := request.Question[0].Qtype
+		if _, found := notImplemented[qType]; found {
+			response := new(dns.Msg)
+			response.SetReply(request)
+			response.Rcode = dns.RcodeNotImplemented
+			writer.WriteMsg(response)
+			return
+		}
+
+		// actually provide some resolution
 		if provider.engine != nil {
 			engine.Handle(writer, request)
 		} else {

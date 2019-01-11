@@ -184,10 +184,10 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 
 			// only cache non-nil response
 			if context != nil && context.ResolverMap != nil && response != nil && !context.Stored {
-				// set as stored
-				context.Stored = true
 				// save cached answer
 				context.ResolverMap.Cache().Store(resolver.name, request, response)
+				// set as stored
+				context.Stored = true
 			}
 
 			return response, nil

@@ -22,8 +22,8 @@ func TestBasicHostFile(t *testing.T) {
 		{"google2.com.", dns.TypeA, 3},
 		{util.ReverseLookupDomainString("74.125.21.101"), dns.TypePTR, 2},
 		{util.ReverseLookupDomainString("2607:f8b0:4002:c09::8a"), dns.TypePTR, 3},
-		{"google.com.", dns.TypeCNAME, 1},
-		{"www.google.com.", dns.TypeCNAME, 1},
+		{"bing.com.", dns.TypeCNAME, 1},
+		{"www.bing.com.", dns.TypeCNAME, 1},
 	}
 
 	for _, d := range data {
