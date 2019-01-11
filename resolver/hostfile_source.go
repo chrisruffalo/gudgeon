@@ -194,7 +194,7 @@ func (hostFileSource *hostFileSource) respondToCNAME(name string, response *dns.
 		}
 
 		rr := &dns.CNAME{
-			Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: ttl},
+			Hdr:    dns.RR_Header{Name: name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: ttl},
 			Target: cname,
 		}
 		response.Answer[0] = rr
