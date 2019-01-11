@@ -132,7 +132,7 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 		if !domainMatches {
 			return nil, nil
 		}
-	}	
+	}
 
 	// create context if context is nil (no map)
 	if context == nil {

@@ -32,7 +32,7 @@ func main() {
 	}
 
 	// debug print config
-	//fmt.Printf("Config:\n%s\n", config)
+	fmt.Printf("Gudgeon %s\n===============================\n", LongVersion)
 
 	// prepare engine with config options
 	engine, err := engine.New(config)
@@ -43,8 +43,6 @@ func main() {
 	// create a new provider and start hosting
 	provider := provider.NewProvider()
 	provider.Host(config, engine)
-
-	// set up things that watch config for changes maybe?
 
 	// wait for signal
 	sig := make(chan os.Signal)

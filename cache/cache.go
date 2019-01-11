@@ -22,6 +22,8 @@ type envelope struct {
 type Cache interface {
 	Store(partition string, request *dns.Msg, response *dns.Msg)
 	Query(partition string, request *dns.Msg) (*dns.Msg, bool)
+	Map() map[string]backer.Item
+	Size() uint32
 }
 
 type gocache struct {
@@ -147,4 +149,12 @@ func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, boo
 	adjustTtls(secondDelta, envelope.message.Extra)
 
 	return message, true
+}
+
+func (gocache *gocache) Size() uint32 {
+	return uint32(gocache.backer.ItemCount())
+}
+
+func (gocache *gocache) Map() map[string]backer.Item {
+	return gocache.backer.Items()
 }
