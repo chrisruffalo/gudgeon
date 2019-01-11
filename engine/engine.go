@@ -321,27 +321,41 @@ func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) bool {
 	return !(result == rule.MatchAllow || result == rule.MatchNone)
 }
 
-func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
-	var (
-		// used as address for consumer lookups
-		a net.IP = nil
-		// scope provided for loop
-		response *dns.Msg = nil
-	)
+func (engine *engine) handleCnameResolution(address net.IP, originalRequest *dns.Msg, originalResponse *dns.Msg) *dns.Msg {
+	// scope provided finding response
+	var response *dns.Msg = nil
 
-	// get consumer ip from request
-	if ip, ok := dnsWriter.RemoteAddr().(*net.UDPAddr); ok {
-		a = ip.IP
+	// if the (first) response is a CNAME then repeat the question but with the cname instead
+	if len(originalResponse.Answer) > 0 && originalResponse.Answer[0].Header().Rrtype == dns.TypeCNAME && originalRequest.Question[0].Qtype != dns.TypeCNAME {
+		cnameRequest := originalRequest.Copy()
+		answer := originalResponse.Answer[0]
+		newName := answer.(*dns.CNAME).Target
+		cnameRequest.Question[0].Name = newName
+		cnameResponse := engine.performRequest(address, cnameRequest)
+		if cnameResponse != nil && len(cnameResponse.Answer) > 0 {
+			// use response
+			response = cnameResponse
+			// update answer name
+			for _, answer := range response.Answer {
+				answer.Header().Name = originalRequest.Question[0].Name
+			}
+			// but set reply as original request
+			response.SetReply(originalRequest)
+		}
 	}
-	if ip, ok := dnsWriter.RemoteAddr().(*net.TCPAddr); ok {
-		a = ip.IP
-	}
+
+	return response
+}
+
+func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg {
+	// scope provided finding response
+	var response *dns.Msg = nil
 
 	// get domain name
 	domain := request.Question[0].Name
 
 	// get block status
-	if engine.IsDomainBlocked(a, domain) {
+	if engine.IsDomainBlocked(address, domain) {
 		response = new(dns.Msg)
 		response.SetReply(request)
 
@@ -349,12 +363,16 @@ func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
 		response.Rcode = dns.RcodeNameError
 	} else {
 		// if not blocked then actually try resolution, by grabbing the resolver names
-		resolvers := engine.getConsumerResolvers(a)
+		resolvers := engine.getConsumerResolvers(address)
 		r, err := engine.resolvers.AnswerMultiResolvers(resolvers, request)
 		if err != nil {
 			// todo: log error in resolution
 		} else {
 			response = r
+			cnameResponse := engine.handleCnameResolution(address, request, response)
+			if cnameResponse != nil {
+				response = cnameResponse
+			}
 		}
 	}
 
@@ -366,6 +384,23 @@ func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
 		// just say that the response code is that the answer wasn't found
 		response.Rcode = dns.RcodeNameError
 	}
+
+	return response
+}
+
+func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
+	// allow us to look up the consumer IP
+	var a net.IP = nil
+
+	// get consumer ip from request
+	if ip, ok := dnsWriter.RemoteAddr().(*net.UDPAddr); ok {
+		a = ip.IP
+	}
+	if ip, ok := dnsWriter.RemoteAddr().(*net.TCPAddr); ok {
+		a = ip.IP
+	}
+
+	response := engine.performRequest(a, request)
 
 	// write response to response writer
 	dnsWriter.WriteMsg(response)

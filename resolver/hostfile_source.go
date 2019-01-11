@@ -19,6 +19,7 @@ const (
 type hostFileSource struct {
 	filePath      string
 	hostEntries   map[string][]*net.IP
+	cnameEntries  map[string]string
 	reverseLookup map[string][]string
 	dnsWildcards  map[string][]*net.IP
 }
@@ -29,6 +30,7 @@ func newHostFileSource(sourceFile string) Source {
 
 	// make new map
 	source.hostEntries = make(map[string][]*net.IP)
+	source.cnameEntries = make(map[string]string)
 	source.reverseLookup = make(map[string][]string)
 	source.dnsWildcards = make(map[string][]*net.IP)
 
@@ -76,27 +78,44 @@ func newHostFileSource(sourceFile string) Source {
 		address := values[0]
 		address = strings.TrimSpace(address)
 		parsedAddress := net.ParseIP(address)
-		if parsedAddress == nil {
-			// todo: log skipping address
-			continue
-		}
 
 		// parse out list of domains
 		domains := strings.Split(values[1], " ")
 
-		// add to reverse lookup
-		ptr := util.ReverseLookupDomain(&parsedAddress)
-		source.reverseLookup[ptr] = domains
+		if parsedAddress != nil {
+			// add to reverse lookup
+			ptr := util.ReverseLookupDomain(&parsedAddress)
+			source.reverseLookup[ptr] = domains
 
-		// add to map
-		for _, domain := range domains {
-			if !strings.HasSuffix(domain, ".") {
-				domain = domain + "."
+			// add to map
+			for _, domain := range domains {
+				if !strings.HasSuffix(domain, ".") {
+					domain = domain + "."
+				}
+
+				// append value to list
+				source.hostEntries[domain] = append(source.hostEntries[domain], &parsedAddress)
+			}
+		} else {
+			// treat address as cname entry
+			// target alias alias alias alias
+			target := address
+			if !strings.HasSuffix(target, ".") {
+				target = target + "."
 			}
 
-			// append value to list
-			source.hostEntries[domain] = append(source.hostEntries[domain], &parsedAddress)
+			// add target to alias cname lookup
+			for _, alias := range domains {
+				if !strings.HasSuffix(alias, ".") {
+					alias = alias + "."
+				}
+				// only one alias per taget
+				if "" == source.cnameEntries[alias] {
+					source.cnameEntries[alias] = target
+				}
+			}
 		}
+
 	}
 
 	return source
@@ -131,13 +150,12 @@ func (hostFileSource *hostFileSource) respondToA(name string, response *dns.Msg)
 				}
 				response.Answer[idx] = rr
 			}
-
 		}
 	}
 }
 
 func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Msg) {
-	// if the domain is available from the host file, go through it
+	// if the (reverse lookup) domain is available from the host file, go through it
 	if val, ok := hostFileSource.reverseLookup[name]; ok {
 		response.Answer = make([]dns.RR, len(val))
 
@@ -161,6 +179,28 @@ func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Ms
 	}
 }
 
+func (hostFileSource *hostFileSource) respondToCNAME(name string, response *dns.Msg) {
+	// if the domain is available from the host file, go through it
+	if cname, ok := hostFileSource.cnameEntries[name]; ok {
+		response.Answer = make([]dns.RR, 1)
+
+		// skip empty ptr
+		if "" == cname {
+			return
+		}
+
+		if !strings.HasSuffix(cname, ".") {
+			cname = cname + "."
+		}
+
+		rr := &dns.CNAME{
+			Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: ttl},
+			Target: cname,
+		}
+		response.Answer[0] = rr
+	}
+}
+
 func (hostFileSource *hostFileSource) Name() string {
 	return "hostfile:" + hostFileSource.filePath
 }
@@ -176,8 +216,8 @@ func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request
 	name := question.Name
 	qType := question.Qtype
 
-	// can only respond to A, AAAA, and PTR questions
-	if qType != dns.TypeA && qType != dns.TypeAAAA && qType != dns.TypePTR {
+	// can only respond to A, AAAA, PTR, and CNAME questions
+	if qType != dns.TypeA && qType != dns.TypeAAAA && qType != dns.TypePTR && qType != dns.TypeCNAME {
 		return nil, nil
 	}
 
@@ -195,9 +235,16 @@ func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request
 
 	// handle appropriate question type
 	if qType == dns.TypeA || qType == dns.TypeAAAA {
-		hostFileSource.respondToA(name, response)
+		// look for cnames before looking for other names
+		hostFileSource.respondToCNAME(name, response)
+		// if no cnames are we can look for A/AAAA responses
+		if len(response.Answer) < 1 {
+			hostFileSource.respondToA(name, response)
+		}
 	} else if qType == dns.TypePTR {
 		hostFileSource.respondToPTR(name, response)
+	} else if qType == dns.TypeCNAME {
+		hostFileSource.respondToCNAME(name, response)
 	}
 
 	// set source as answering source

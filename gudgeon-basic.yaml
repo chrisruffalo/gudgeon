@@ -5,8 +5,8 @@ gudgeon:
     tcp: true
     udp: true
     interfaces:
-    - ip: 0.0.0.0
-      port: 5354
+    - ip: 127.0.0.1
+      port: 53
 
   resolvers:
   - name: default
