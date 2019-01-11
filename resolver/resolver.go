@@ -215,11 +215,13 @@ func (resolverMap *resolverMap) AnswerMultiResolvers(resolverNames []string, req
 			continue
 		}
 		if response != nil {
+			question := request.Question[0]
+			questionString := question.Name + "(" + dns.Type(question.Qtype).String() + ")"
 			// log query
 			if context.Cached {
-				fmt.Printf("[%s] Q << %s >> from cache\n", context.ResolverUsed, request.Question[0].String())
+				fmt.Printf("[%s] Q << %s >> from cache\n", context.ResolverUsed, questionString)
 			} else {
-				fmt.Printf("[%s] Q << %s >> from source: '%s'\n", context.ResolverUsed, request.Question[0].String(), context.SourceUsed)
+				fmt.Printf("[%s] Q << %s >> from source: '%s'\n", context.ResolverUsed, questionString, context.SourceUsed)
 			}
 			// then return
 			return response, nil

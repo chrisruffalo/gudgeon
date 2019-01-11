@@ -51,7 +51,7 @@ func key(partition string, questions []dns.Question) string {
 			if len(key) > 0 {
 				key += delimeter
 			}
-			key += question.String()
+			key += question.Name + delimeter + dns.Class(question.Qclass).String() + delimeter + dns.Type(question.Qtype).String()
 		}
 	}
 	return key
