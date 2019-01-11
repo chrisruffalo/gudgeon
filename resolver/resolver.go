@@ -250,7 +250,7 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 		}
 	}
 
-	return nil, nil
+	return response, nil
 }
 
 // base answer function for full resolver map
