@@ -332,7 +332,7 @@ func (engine *engine) handleCnameResolution(address net.IP, originalRequest *dns
 	var response *dns.Msg = nil
 
 	// if the (first) response is a CNAME then repeat the question but with the cname instead
-	if len(originalResponse.Answer) > 0 && originalResponse.Answer[0].Header().Rrtype == dns.TypeCNAME && len(originalRequest.Question[0]) > 0 && originalRequest.Question[0].Qtype != dns.TypeCNAME {
+	if len(originalResponse.Answer) > 0 && originalResponse.Answer[0].Header().Rrtype == dns.TypeCNAME && len(originalRequest.Question) > 0 && originalRequest.Question[0].Qtype != dns.TypeCNAME {
 		cnameRequest := originalRequest.Copy()
 		answer := originalResponse.Answer[0]
 		newName := answer.(*dns.CNAME).Target
