@@ -1,8 +1,10 @@
 package rule
 
 import (
-	"github.com/chrisruffalo/gudgeon/util"
+	"runtime"
 	"strings"
+
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 type memoryStore struct {
@@ -32,6 +34,9 @@ func (store *memoryStore) Load(group string, rules []Rule) uint64 {
 			counter++
 		}
 	}
+
+	// force GC after loading map
+	runtime.GC()
 
 	return counter
 }
