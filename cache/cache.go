@@ -64,6 +64,13 @@ func New() Cache {
 	return gocache
 }
 
+func minTtl(currentMin uint32, records []dns.RR) uint32 {
+	for _, value := range records {
+		currentMin = min(currentMin, value.Header().Ttl)
+	}
+	return currentMin
+}
+
 func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.Msg) {
 	// you can't cache a nil response
 	if response == nil {
@@ -82,13 +89,12 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 	}
 
 	// get ttl from parts and use lowest ttl as cache value
-	ttl := dnsMaxTtl
-	for _, value := range response.Answer {
-		ttl = min(ttl, value.Header().Ttl)
-	}
-
-	for _, value := range response.Ns {
-		ttl = min(ttl, value.Header().Ttl)
+	ttl := minTtl(dnsMaxTtl, response.Answer)
+	if len(response.Answer) < 1 {
+		ttl = minTtl(dnsMaxTtl, response.Ns)
+		if len(response.Ns) < 1 {
+			ttl = minTtl(dnsMaxTtl, response.Extra)
+		}
 	}
 
 	// if ttl is 0 or less then we don't need to bother to store it at all
@@ -100,6 +106,16 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 
 		// put in backing store key -> envelope
 		gocache.backer.Set(key, envelope, time.Duration(ttl)*time.Second)
+	}
+}
+
+func adjustTtls(timeDelta uint32, records []dns.RR) {
+	for _, value := range records {
+		if value.Header().Ttl > timeDelta {
+			value.Header().Ttl = value.Header().Ttl - timeDelta
+		} else {
+			value.Header().Ttl = 0
+		}
 	}
 }
 
@@ -126,27 +142,9 @@ func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, boo
 
 	// count down/change ttl values in response
 	secondDelta := uint32(delta / time.Second)
-	for _, value := range envelope.message.Answer {
-		if value.Header().Ttl > secondDelta {
-			value.Header().Ttl = value.Header().Ttl - secondDelta
-		} else {
-			value.Header().Ttl = 0
-		}
-	}
-	for _, value := range envelope.message.Ns {
-		if value.Header().Ttl > secondDelta {
-			value.Header().Ttl = value.Header().Ttl - secondDelta
-		} else {
-			value.Header().Ttl = 0
-		}
-	}
-	for _, value := range envelope.message.Extra {
-		if value.Header().Ttl > secondDelta {
-			value.Header().Ttl = value.Header().Ttl - secondDelta
-		} else {
-			value.Header().Ttl = 0
-		}
-	}
+	adjustTtls(secondDelta, envelope.message.Answer)
+	adjustTtls(secondDelta, envelope.message.Ns)
+	adjustTtls(secondDelta, envelope.message.Extra)
 
 	return message, true
 }
