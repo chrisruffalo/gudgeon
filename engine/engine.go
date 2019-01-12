@@ -425,8 +425,8 @@ func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg 
 		response.Rcode = dns.RcodeNameError
 	}
 
-	// goroutine log so we don't block
-	go qlog.Log(address, request, response, blocked, result)
+	// goroutine log which is async on the other side
+	qlog.Log(address, request, response, blocked, result)
 
 	return response
 }

@@ -228,9 +228,8 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 
 	// only cache non-nil response
 	if context != nil && context.ResolverMap != nil && !context.Stored {
-		context.ResolverMap.Cache().Store(resolver.name, request, response)
-		// set as stored (more, as attempted to  be stored... don't use the result of the Store() function)
-		context.Stored = true
+		// set as stored based on status of cache action
+		context.Stored = context.ResolverMap.Cache().Store(resolver.name, request, response)
 	}
 
 	return response, nil
