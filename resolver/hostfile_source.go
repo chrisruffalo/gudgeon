@@ -48,6 +48,7 @@ func newHostFileSource(sourceFile string) Source {
 	for _, d := range data {
 		// trim whitespace
 		d = strings.TrimSpace(d)
+		d = strings.ToLower(d)
 
 		// skip empty strings or strings that start with a comment
 		if "" == d || strings.HasPrefix(d, wildcard) || strings.HasPrefix(d, comment) || strings.HasPrefix(d, altComment) {
@@ -81,7 +82,7 @@ func newHostFileSource(sourceFile string) Source {
 		parsedAddress := net.ParseIP(address)
 
 		// parse out list of domains
-		domains := strings.Split(strings.ToLower(values[1]), " ")
+		domains := strings.Split(values[1], " ")
 
 		if parsedAddress != nil {
 			// add to reverse lookup
