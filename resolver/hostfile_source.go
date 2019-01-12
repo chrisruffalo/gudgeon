@@ -81,7 +81,7 @@ func newHostFileSource(sourceFile string) Source {
 		parsedAddress := net.ParseIP(address)
 
 		// parse out list of domains
-		domains := strings.Split(values[1], " ")
+		domains := strings.Split(strings.ToLower(values[1]), " ")
 
 		if parsedAddress != nil {
 			// add to reverse lookup
@@ -274,7 +274,7 @@ func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request
 
 	// get details from question
 	question := request.Question[0]
-	name := question.Name
+	name := strings.ToLower(question.Name)
 	qType := question.Qtype
 
 	// can only respond to A, AAAA, PTR, and CNAME questions
@@ -312,6 +312,11 @@ func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request
 
 	if qType == dns.TypeANY || qType == dns.TypePTR {
 		hostFileSource.respondToPTR(name, response)
+	}
+
+	// make sure case of question matches
+	for _, rr := range response.Answer {
+		rr.Header().Name = question.Name
 	}
 
 	// set source as answering source

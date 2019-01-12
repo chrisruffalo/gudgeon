@@ -17,7 +17,7 @@ func Log(address net.IP, request *dns.Msg, response *dns.Msg, blocked bool, resu
 		if len(response.Answer) > 0 {
 			logSuffix += response.Answer[0].String()[len(response.Answer[0].Header().String()):]
 			if len(response.Answer) > 1 {
-				logSuffix += fmt.Sprintf(" (+%d)", len(response.Answer))
+				logSuffix += fmt.Sprintf(" (+%d)", len(response.Answer)-1)
 			}
 		}
 
