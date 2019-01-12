@@ -101,7 +101,7 @@ func (resolverMap *resolverMap) AnswerMultiResolvers(resolverNames []string, req
 			// todo: log error
 			continue
 		}
-		if response != nil {
+		if !util.IsEmptyResponse(response) {
 			// then return
 			return response, result, nil
 		}

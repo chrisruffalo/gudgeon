@@ -400,7 +400,7 @@ func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg 
 	}
 
 	// if no response is found at this point return NXDOMAIN
-	if response == nil {
+	if util.IsEmptyResponse(response) {
 		response = new(dns.Msg)
 		response.SetReply(request)
 		response.Rcode = dns.RcodeNameError

@@ -7,6 +7,7 @@ import (
 	"github.com/ryanuber/go-glob"
 
 	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 type ResolutionContext struct {
@@ -84,7 +85,7 @@ func (resolver *resolver) answer(context *ResolutionContext, request *dns.Msg) (
 			continue
 		}
 
-		if response != nil && (len(response.Answer) > 0 || len(response.Ns) > 0 || len(response.Extra) > 0) {
+		if !util.IsEmptyResponse(response) {
 			//  update the used resolver
 			if context != nil && "" == context.ResolverUsed {
 				context.ResolverUsed = resolver.name
@@ -98,6 +99,52 @@ func (resolver *resolver) answer(context *ResolutionContext, request *dns.Msg) (
 	return nil, nil
 }
 
+func (resolver *resolver) searchDomains(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	for _, sDomain := range resolver.search {
+		// skip empty search domains
+		if "" == sDomain {
+			continue
+		}
+
+		// create new question
+		searchRequest := request.Copy()
+
+		// determine search domain
+		searchDomain := searchRequest.Question[0].Name
+		if !strings.HasSuffix(searchDomain, ".") {
+			searchDomain = searchDomain + "."
+		}
+		searchDomain = searchDomain + sDomain
+		if !strings.HasSuffix(searchDomain, ".") {
+			searchDomain = searchDomain + "."
+		}
+
+		// update question
+		searchRequest.Question[0].Name = searchDomain
+
+		// ask new question
+		searchResponse, err := resolver.answer(context, searchRequest)
+		if err != nil {
+			// todo: log
+			continue
+		}
+
+		// if the search response is not nil, return it
+		if !util.IsEmptyResponse(searchResponse) {
+			// but first update answers to original question domain
+			for _, answer := range searchResponse.Answer {
+				answer.Header().Name = request.Question[0].Name
+			}
+			// update reply
+			searchResponse.SetReply(request)
+			// pass along response
+			return searchResponse, nil
+		}
+	}
+
+	return nil, nil
+}
+
 func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// guard against invalid requests or requests that don't ask anything
 	if request == nil || len(request.Question) < 1 {
@@ -107,7 +154,7 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 	// don't answer if the domain doesn't match
 	if len(resolver.domains) > 0 {
 		// get the question name so we can use it to determine if the domain matches
-		qname := request.Question[0].Name
+		qname := strings.ToLower(request.Question[0].Name)
 		if strings.HasSuffix(qname, ".") {
 			qname = qname[:len(qname)-1]
 		}
@@ -116,6 +163,7 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 		domainMatches := false
 
 		for _, domain := range resolver.domains {
+			domain = strings.ToLower(domain)
 			// domains that contain a * are glob matches
 			if strings.Contains(domain, "*") && glob.Glob(domain, qname) {
 				domainMatches = true
@@ -162,53 +210,15 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 	}
 
 	// if there are available search domains use them
-	if (response == nil || len(response.Question) < 1) && len(resolver.search) > 0 {
-		for _, sDomain := range resolver.search {
-			// skip empty search domains
-			if "" == sDomain {
-				continue
-			}
-
-			// create new question
-			searchRequest := request.Copy()
-
-			// determine search domain
-			searchDomain := searchRequest.Question[0].Name
-			if !strings.HasSuffix(searchDomain, ".") {
-				searchDomain = searchDomain + "."
-			}
-			searchDomain = searchDomain + sDomain
-			if !strings.HasSuffix(searchDomain, ".") {
-				searchDomain = searchDomain + "."
-			}
-
-			// update question
-			searchRequest.Question[0].Name = searchDomain
-
-			// ask new question
-			searchResponse, err := resolver.answer(context, searchRequest)
-			if err != nil {
-				// todo: log
-				continue
-			}
-
-			// if the search response is not nil, return it
-			if searchResponse != nil {
-				// but first update answers to original question domain
-				for _, answer := range searchResponse.Answer {
-					answer.Header().Name = request.Question[0].Name
-				}
-				// update reply
-				searchResponse.SetReply(request)
-				// pass along response
-				response = searchResponse
-				break
-			}
+	if util.IsEmptyResponse(response) && len(resolver.search) > 0 {
+		r, err := resolver.searchDomains(context, request)
+		if err == nil && !util.IsEmptyResponse(r) {
+			response = r
 		}
 	}
 
 	// only cache non-nil response
-	if context != nil && context.ResolverMap != nil && response != nil && !context.Stored {
+	if context != nil && context.ResolverMap != nil && !util.IsEmptyResponse(response) && !context.Stored {
 		// save cached answer
 		context.ResolverMap.Cache().Store(resolver.name, request, response)
 		// set as stored
