@@ -35,12 +35,12 @@ func NewProvider() Provider {
 
 func serve(netType string, host string, port int) {
 	addr := host + ":" + strconv.Itoa(port)
+	fmt.Printf("%s server on address: %s ...\n", netType, addr)
 	server := &dns.Server{Addr: addr, Net: netType, TsigSecret: nil}
 	if err := server.ListenAndServe(); err != nil {
 		fmt.Printf("Failed starting %s server: %s\n", netType, err.Error())
 		return
 	}
-	fmt.Printf("%s server on address: %s ...\n", netType, addr)
 }
 
 func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {

@@ -25,24 +25,15 @@ type hostFileSource struct {
 	dnsWildcards  map[string][]*net.IP
 }
 
-func newHostFileSource(sourceFile string) Source {
+func newHostFileFromHostArray(data []string) Source {
 	source := new(hostFileSource)
-	source.filePath = sourceFile
+	source.filePath = "hosts"
 
 	// make new map
 	source.hostEntries = make(map[string][]*net.IP)
 	source.cnameEntries = make(map[string]string)
 	source.reverseLookup = make(map[string][]string)
 	source.dnsWildcards = make(map[string][]*net.IP)
-
-	// open file and parse each line
-	data, err := util.GetFileAsArray(sourceFile)
-
-	// on error return empty source
-	if err != nil {
-		// todo: logging
-		return source
-	}
 
 	// parse each line
 	for _, d := range data {
@@ -124,17 +115,36 @@ func newHostFileSource(sourceFile string) Source {
 				}
 			}
 		}
-
 	}
 
 	return source
 }
 
-func (hostFileSource *hostFileSource) respondToAWildcards(name string, response *dns.Msg) {
+func newHostFileSource(sourceFile string) Source {
+	// open file and parse each line
+	data, err := util.GetFileAsArray(sourceFile)
+	// on error return nil
+	if err != nil {
+		// todo: logging
+		return nil
+	}
+
+	source := newHostFileFromHostArray(data)
+	if source != nil {
+		source.(*hostFileSource).filePath = sourceFile
+	}
+
+	return source
+}
+
+func (hostFileSource *hostFileSource) respondToAWildcards(name string, request *dns.Msg, response *dns.Msg) {
 	// only try if there are wildcards
 	if len(hostFileSource.dnsWildcards) < 1 {
 		return
 	}
+
+	// get question type
+	questionType := request.Question[0].Qtype
 
 	// now inspect wildcards
 	for wildDomain, addresses := range hostFileSource.dnsWildcards {
@@ -153,13 +163,15 @@ func (hostFileSource *hostFileSource) respondToAWildcards(name string, response 
 			ipV4 := address.To4()
 			ipV6 := address.To16()
 
-			if ipV4 != nil {
+			if questionType == dns.TypeA && ipV4 != nil {
 				rr := &dns.A{
 					Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl},
 					A:   ipV4,
 				}
 				response.Answer = append(response.Answer, rr)
-			} else if ipV6 != nil {
+			}
+
+			if questionType == dns.TypeAAAA && ipV4 == nil && ipV6 != nil {
 				rr := &dns.AAAA{
 					Hdr:  dns.RR_Header{Name: name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl},
 					AAAA: ipV6,
@@ -170,21 +182,17 @@ func (hostFileSource *hostFileSource) respondToAWildcards(name string, response 
 	}
 }
 
-func (hostFileSource *hostFileSource) respondToA(name string, response *dns.Msg) {
+func (hostFileSource *hostFileSource) respondToA(name string, request *dns.Msg, response *dns.Msg) {
 	// first respond to wildcards
-	hostFileSource.respondToAWildcards(name, response)
+	hostFileSource.respondToAWildcards(name, request, response)
+
+	// get question type
+	questionType := request.Question[0].Qtype
 
 	// if the domain is available from the host file, go through it
 	if val, ok := hostFileSource.hostEntries[name]; ok {
-		offset := len(response.Answer)
-		if offset > 0 {
-			response.Answer = append(response.Answer, make([]dns.RR, len(val))...)
-		} else {
-			response.Answer = make([]dns.RR, len(val))
-		}
-
 		// entries were found so we need to loop through them
-		for idx, address := range val {
+		for _, address := range val {
 			// skip nil addresses
 			if address == nil {
 				continue
@@ -194,18 +202,20 @@ func (hostFileSource *hostFileSource) respondToA(name string, response *dns.Msg)
 			ipV4 := address.To4()
 			ipV6 := address.To16()
 
-			if ipV4 != nil {
+			if questionType == dns.TypeA && ipV4 != nil {
 				rr := &dns.A{
 					Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl},
 					A:   ipV4,
 				}
-				response.Answer[offset+idx] = rr
-			} else if ipV6 != nil {
+				response.Answer = append(response.Answer, rr)
+			}
+
+			if questionType == dns.TypeAAAA && ipV4 == nil && ipV6 != nil {
 				rr := &dns.AAAA{
 					Hdr:  dns.RR_Header{Name: name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl},
 					AAAA: ipV6,
 				}
-				response.Answer[offset+idx] = rr
+				response.Answer = append(response.Answer, rr)
 			}
 		}
 	}
@@ -214,15 +224,9 @@ func (hostFileSource *hostFileSource) respondToA(name string, response *dns.Msg)
 func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Msg) {
 	// if the (reverse lookup) domain is available from the host file, go through it
 	if val, ok := hostFileSource.reverseLookup[name]; ok {
-		offset := len(response.Answer)
-		if offset > 0 {
-			response.Answer = append(response.Answer, make([]dns.RR, len(val))...)
-		} else {
-			response.Answer = make([]dns.RR, len(val))
-		}
 
 		// entries were found so we need to loop through them
-		for idx, ptr := range val {
+		for _, ptr := range val {
 			// skip empty ptr
 			if "" == ptr {
 				continue
@@ -236,7 +240,7 @@ func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Ms
 				Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
 				Ptr: ptr,
 			}
-			response.Answer[offset+idx] = rr
+			response.Answer = append(response.Answer, rr)
 		}
 	}
 }
@@ -307,7 +311,7 @@ func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request
 		}
 		// if no cnames are we can look for A/AAAA responses
 		if qType == dns.TypeANY || len(response.Answer) < 1 {
-			hostFileSource.respondToA(name, response)
+			hostFileSource.respondToA(name, request, response)
 		}
 	}
 

@@ -3,6 +3,7 @@ package qlog
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/miekg/dns"
 
@@ -21,6 +22,18 @@ func Log(address net.IP, request *dns.Msg, response *dns.Msg, blocked bool, resu
 			}
 		}
 
+		// nothing appended so look at SOA
+		if strings.TrimSpace(logSuffix) == "->" {
+			if len(response.Ns) > 0 && response.Ns[0].Header().Rrtype == dns.TypeSOA {
+				logSuffix += response.Ns[0].(*dns.SOA).Ns
+				if len(response.Ns) > 1 {
+					logSuffix += fmt.Sprintf(" (+%d)", len(response.Ns)-1)
+				}
+			} else {
+				logSuffix += "(EMPTY)"
+			}
+		}
+
 		if result.Cached {
 			fmt.Printf("%sc:[%s]%s\n", logPrefix, result.Resolver, logSuffix)
 		} else {
@@ -28,7 +41,9 @@ func Log(address net.IP, request *dns.Msg, response *dns.Msg, blocked bool, resu
 		}
 	} else if blocked {
 		fmt.Printf("%s BLOCKED\n", logPrefix)
+	} else if response.Rcode == dns.RcodeServerFailure {
+		fmt.Printf("%s SERVFAIL:[%s]\n", logPrefix, result.Message)
 	} else {
-		fmt.Printf("%s NXDOMAIN\n", logPrefix)
+		fmt.Printf("%s RESPONSE[%s]\n", logPrefix, dns.RcodeToString[response.Rcode])
 	}
 }

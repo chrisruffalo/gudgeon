@@ -45,6 +45,27 @@ func TestIsEmpty(t *testing.T) {
 		t.Errorf("Expected empty response even with empty AAAA record")
 	}
 
+	// should still be empty even with made NS records
+	response.Ns = make([]dns.RR, 100)
+	if !IsEmptyResponse(response) {
+		t.Errorf("Expected empty response even with empty Ns records")
+	}
+
+	// should still be empty even with a full Ns record (because answer has non-full records in it)
+	response.Ns[0] = &dns.SOA{
+		Hdr:     dns.RR_Header{Name: "test.", Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: 0},
+		Ns:      "ns.soa.com",
+		Mbox:    "ns.soa.com",
+		Serial:  123394,
+		Refresh: 10000,
+		Retry:   1000,
+		Expire:  456,
+		Minttl:  300,
+	}
+	if !IsEmptyResponse(response) {
+		t.Errorf("Expected empty response even with Ns record")
+	}
+
 	// add a nil A record
 	response.Answer[2] = &dns.A{
 		Hdr: dns.RR_Header{Name: "test.", Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},

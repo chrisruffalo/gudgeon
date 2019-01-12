@@ -40,8 +40,12 @@ type GudgeonResolver struct {
 	Name string `yaml:"name"`
 	// domains to operate on
 	Domains []string `yaml:"domains"`
+	// domains to skip
+	SkipDomains []string `yaml:"skip"`
 	// search domains, will retry resolution using these subdomains if the domain is not found
 	Search []string `yaml:"search"`
+	// manual hosts
+	Hosts []string `yaml:"hosts"`
 	// sources (described via string)
 	Sources []string `yaml:"sources"`
 }

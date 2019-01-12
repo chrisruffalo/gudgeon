@@ -41,6 +41,7 @@ func DefaultResolutionContextWithMap(resolverMap ResolverMap) *ResolutionContext
 type resolver struct {
 	name    string
 	domains []string
+	skip    []string
 	search  []string
 	sources []Source
 }
@@ -60,8 +61,17 @@ func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
 	resolver := new(resolver)
 	resolver.name = configuredResolver.Name
 	resolver.domains = configuredResolver.Domains
+	resolver.skip = configuredResolver.SkipDomains
 	resolver.search = configuredResolver.Search
 	resolver.sources = make([]Source, 0)
+
+	// add literal hostfile source first source if hosts is configured
+	if len(configuredResolver.Hosts) > 0 {
+		hostfileSource := newHostFileFromHostArray(configuredResolver.Hosts)
+		if hostfileSource != nil {
+			resolver.sources = append(resolver.sources, hostfileSource)
+		}
+	}
 
 	// add sources
 	for _, configuredSource := range configuredResolver.Sources {
@@ -145,41 +155,40 @@ func (resolver *resolver) searchDomains(context *ResolutionContext, request *dns
 	return nil, nil
 }
 
+// does the domain match
+func domainMatches(questionDomain string, domainsToCheck []string) bool {
+	// don't answer if the domain doesn't match
+	if len(domainsToCheck) > 0 {
+		if strings.HasSuffix(questionDomain, ".") {
+			questionDomain = questionDomain[:len(questionDomain)-1]
+		}
+
+		for _, domain := range domainsToCheck {
+			domain = strings.ToLower(domain)
+			// domains that contain a * are glob matches
+			if strings.Contains(domain, "*") && glob.Glob(domain, questionDomain) {
+				return true
+			} else if domain == questionDomain || strings.HasSuffix(questionDomain, "."+domain) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	return true
+}
+
 func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// guard against invalid requests or requests that don't ask anything
 	if request == nil || len(request.Question) < 1 {
 		return nil, nil
 	}
 
-	// don't answer if the domain doesn't match
-	if len(resolver.domains) > 0 {
-		// get the question name so we can use it to determine if the domain matches
-		qname := strings.ToLower(request.Question[0].Name)
-		if strings.HasSuffix(qname, ".") {
-			qname = qname[:len(qname)-1]
-		}
-
-		// default to "no match"
-		domainMatches := false
-
-		for _, domain := range resolver.domains {
-			domain = strings.ToLower(domain)
-			// domains that contain a * are glob matches
-			if strings.Contains(domain, "*") && glob.Glob(domain, qname) {
-				domainMatches = true
-				break
-			} else if domain == qname || strings.HasSuffix(qname, "."+domain) {
-				// strings that do not are raw domain/subdomain matches
-				domainMatches = true
-				break
-			}
-		}
-
-		// the domain doesn't match any of the available domains so
-		// we bail out
-		if !domainMatches {
-			return nil, nil
-		}
+	// get the question name so we can use it to determine if the domain matches
+	qname := strings.ToLower(request.Question[0].Name)
+	if (len(resolver.domains) > 0 && !domainMatches(qname, resolver.domains)) || (len(resolver.skip) > 0 && domainMatches(qname, resolver.skip)) {
+		return nil, nil
 	}
 
 	// create context if context is nil (no map)
@@ -218,10 +227,9 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 	}
 
 	// only cache non-nil response
-	if context != nil && context.ResolverMap != nil && !util.IsEmptyResponse(response) && !context.Stored {
-		// save cached answer
+	if context != nil && context.ResolverMap != nil && !context.Stored {
 		context.ResolverMap.Cache().Store(resolver.name, request, response)
-		// set as stored
+		// set as stored (more, as attempted to  be stored... don't use the result of the Store() function)
 		context.Stored = true
 	}
 

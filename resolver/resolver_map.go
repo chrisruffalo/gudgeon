@@ -26,6 +26,7 @@ type ResolutionResult struct {
 	Cached   bool
 	Source   string
 	Resolver string
+	Message  string // errors/panics/context hints
 }
 
 func result(context *ResolutionContext) *ResolutionResult {

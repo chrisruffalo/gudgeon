@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"os"
 	"path"
@@ -342,8 +343,13 @@ func (engine *engine) handleCnameResolution(address net.IP, originalRequest *dns
 	// scope provided finding response
 	var response *dns.Msg = nil
 
+	// guard
+	if originalResponse == nil || len(originalResponse.Answer) < 1 || originalRequest == nil || len(originalRequest.Question) < 1 {
+		return nil
+	}
+
 	// if the (first) response is a CNAME then repeat the question but with the cname instead
-	if len(originalResponse.Answer) > 0 && originalResponse.Answer[0].Header().Rrtype == dns.TypeCNAME && len(originalRequest.Question) > 0 && originalRequest.Question[0].Qtype != dns.TypeCNAME {
+	if originalResponse.Answer[0] != nil && originalResponse.Answer[0].Header() != nil && originalResponse.Answer[0].Header().Rrtype == dns.TypeCNAME && originalRequest.Question[0].Qtype != dns.TypeCNAME {
 		cnameRequest := originalRequest.Copy()
 		answer := originalResponse.Answer[0]
 		newName := answer.(*dns.CNAME).Target
@@ -397,6 +403,19 @@ func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg 
 				response = cnameResponse
 			}
 		}
+	}
+
+	// recover and log response... this isn't the best golang paradigm but if we don't
+	// do this then dns just stops and the entire executable crashes and we stop getting
+	// resolution. if you're eating your own dogfood on this one then you lose DNS until
+	// you can find and fix the bug which is not ideal.
+	if recovery := recover(); recovery != nil {
+		response = new(dns.Msg)
+		response.SetReply(request)
+		response.Rcode = dns.RcodeServerFailure
+
+		// add panic reason to result
+		result.Message = fmt.Sprintf("%v", recovery)
 	}
 
 	// if no response is found at this point return NXDOMAIN

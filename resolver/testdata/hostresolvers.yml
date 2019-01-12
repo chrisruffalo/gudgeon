@@ -8,3 +8,16 @@ gudgeon:
     - local
     sources: 
     - ./testdata/other.hosts
+  # battery of hosts for testing
+  - name: skip
+    skip:
+    - "*.lan"
+    hosts:
+    - "10.0.10.1 skip.lan noskip"
+  - name: actual
+    hosts:
+    - "10.0.10.2 skip.lan"
+  - name: testskip
+    sources:
+    - skip
+    - actual    

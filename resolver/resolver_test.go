@@ -78,12 +78,15 @@ func TestHostnameResolver(t *testing.T) {
 	resolvers := NewResolverMap(conf.Resolvers)
 
 	data := []struct {
+		resolver  string
 		domain    string
 		expectedA string
 	}{
-		{"router.", "10.0.0.1"},
-		{"thing.", "10.0.1.2"},
-		{"db.", "10.1.1.3"},
+		{"default", "router.", "10.0.0.1"},
+		{"default", "thing.", "10.0.1.2"},
+		{"default", "db.", "10.1.1.3"},
+		{"testskip", "noskip.", "10.0.10.1"},
+		{"testskip", "skip.lan.", "10.0.10.2"},
 	}
 
 	for _, d := range data {
@@ -101,9 +104,15 @@ func TestHostnameResolver(t *testing.T) {
 		m.Question[0] = dns.Question{Name: d.domain, Qtype: dns.TypeA, Qclass: dns.ClassINET}
 
 		// use source to resolve
-		response, _, err := resolvers.Answer("default", m)
+		response, _, err := resolvers.Answer(d.resolver, m)
 		if err != nil {
 			t.Errorf("Could not resolve: %s", err)
+			continue
+		}
+
+		// make sure response is not nil
+		if response == nil {
+			t.Errorf("Nil response for question:\n%s\n-----\n%s", m, response)
 			continue
 		}
 

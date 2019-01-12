@@ -18,10 +18,12 @@ func TestBasicHostFile(t *testing.T) {
 		qType           uint16
 		expectedAnswers int
 	}{
-		{"google.com.", dns.TypeA, 4},
-		{"GOOGLE.com.", dns.TypeA, 4},
-		{"google2.com.", dns.TypeA, 3},
-		{"GOOGLE2.cOm.", dns.TypeA, 3},
+		{"google.com.", dns.TypeA, 3},
+		{"google.com.", dns.TypeAAAA, 1},
+		{"GOOGLE.com.", dns.TypeA, 3},
+		{"GOOGLE.com.", dns.TypeAAAA, 1},
+		{"google2.com.", dns.TypeA, 2},
+		{"GOOGLE2.cOm.", dns.TypeA, 2},
 		{"docs.google.com.", dns.TypeA, 1},
 		{"unity.google.com.", dns.TypeA, 1},
 		{util.ReverseLookupDomainString("74.125.21.101"), dns.TypePTR, 2},

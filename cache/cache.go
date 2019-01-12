@@ -1,10 +1,13 @@
 package cache
 
 import (
+	"strings"
 	"time"
 
 	"github.com/miekg/dns"
 	backer "github.com/patrickmn/go-cache"
+
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 // key delimeter
@@ -20,7 +23,7 @@ type envelope struct {
 }
 
 type Cache interface {
-	Store(partition string, request *dns.Msg, response *dns.Msg)
+	Store(partition string, request *dns.Msg, response *dns.Msg) bool
 	Query(partition string, request *dns.Msg) (*dns.Msg, bool)
 	Map() map[string]backer.Item
 	Size() uint32
@@ -56,7 +59,7 @@ func key(partition string, questions []dns.Question) string {
 			key += question.Name + delimeter + dns.Class(question.Qclass).String() + delimeter + dns.Type(question.Qtype).String()
 		}
 	}
-	return key
+	return strings.TrimSpace(key)
 }
 
 func New() Cache {
@@ -73,21 +76,16 @@ func minTtl(currentMin uint32, records []dns.RR) uint32 {
 	return currentMin
 }
 
-func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.Msg) {
-	// you can't cache a nil response
-	if response == nil {
-		return
-	}
-
-	// don't store an empty response (todo: get more analytical here about where it comes from)
-	if len(response.Answer) < 1 && len(response.Ns) < 1 && len(response.Extra) < 1 {
-		return
+func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.Msg) bool {
+	// you shouldn't cache an empty response
+	if util.IsEmptyResponse(response) {
+		return false
 	}
 
 	// create key from message
 	key := key(partition, request.Question)
-	if "" == key {
-		return
+	if "" == key || partition == key {
+		return false
 	}
 
 	// get ttl from parts and use lowest ttl as cache value
@@ -108,7 +106,11 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 
 		// put in backing store key -> envelope
 		gocache.backer.Set(key, envelope, time.Duration(ttl)*time.Second)
+
+		return true
 	}
+
+	return false
 }
 
 func adjustTtls(timeDelta uint32, records []dns.RR) {
@@ -124,7 +126,7 @@ func adjustTtls(timeDelta uint32, records []dns.RR) {
 func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, bool) {
 	// get key
 	key := key(partition, request.Question)
-	if "" == key {
+	if "" == key || partition == key {
 		return nil, false
 	}
 
