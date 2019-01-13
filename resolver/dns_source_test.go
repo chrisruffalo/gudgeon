@@ -10,7 +10,7 @@ func TestDnsSourceResolution(t *testing.T) {
 	data := []struct {
 		domain        string
 		serverAddress string
-		protocol 	  string
+		protocol      string
 	}{
 		// udp, regular port
 		{"google.com.", "8.8.8.8", "udp"},

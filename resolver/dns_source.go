@@ -65,7 +65,6 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 	}
 	defer co.Close()
 
-
 	// write message
 	if err := co.WriteMsg(request); err != nil {
 		return nil, err
@@ -75,12 +74,19 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 }
 
 func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	// default
+	protocol := "udp"
+	if rCon != nil {
+		protocol = rCon.Protocol
+	}
+
 	// forward message without interference
-	response, err := dnsSource.query(rCon.Protocol, request, dnsSource.remoteAddress)
+	response, err := dnsSource.query(protocol, request, dnsSource.remoteAddress)
 	if err != nil {
 		// on tcp err fall back to udp
 		if rCon.Protocol == "tcp" {
-			response, err = dnsSource.query(rCon.Protocol, request, dnsSource.remoteAddress)
+			protocol = "udp"
+			response, err = dnsSource.query(protocol, request, dnsSource.remoteAddress)
 		}
 
 		if err != nil {
@@ -93,7 +99,7 @@ func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionCont
 
 	// set source as answering source
 	if context != nil {
-		context.SourceUsed = dnsSource.Name()
+		context.SourceUsed = dnsSource.Name() + "/" + protocol
 	}
 
 	// otherwise just return

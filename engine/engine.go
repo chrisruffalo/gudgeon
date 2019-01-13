@@ -382,7 +382,6 @@ func (engine *engine) performRequest(address net.IP, protocol string, request *d
 	rCon := resolver.DefaultRequestContext()
 	rCon.Protocol = protocol
 
-
 	// get domain name
 	domain := request.Question[0].Name
 

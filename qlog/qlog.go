@@ -16,7 +16,7 @@ type logMsg struct {
 	response *dns.Msg
 	blocked  bool
 	result   *resolver.ResolutionResult
-    rCon     *resolver.RequestContext
+	rCon     *resolver.RequestContext
 }
 
 func logger(c chan *logMsg) {
@@ -27,7 +27,7 @@ func logger(c chan *logMsg) {
 		response := c.response
 		blocked := c.blocked
 		result := c.result
-        rCon := c.rCon
+		rCon := c.rCon
 
 		// log result if found
 		logPrefix := fmt.Sprintf("[%s/%s] q:|%s|%s|->", address.String(), rCon.Protocol, request.Question[0].Name, dns.Type(request.Question[0].Qtype).String())
@@ -83,6 +83,6 @@ func Log(address net.IP, request *dns.Msg, response *dns.Msg, blocked bool, rCon
 	msg.response = response
 	msg.blocked = blocked
 	msg.result = result
-    msg.rCon = rCon
+	msg.rCon = rCon
 	logChan <- msg
 }

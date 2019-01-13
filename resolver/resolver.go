@@ -11,7 +11,7 @@ import (
 )
 
 type RequestContext struct {
-	Protocol string // the protocol that the request came in with 
+	Protocol string // the protocol that the request came in with
 }
 
 func DefaultRequestContext() *RequestContext {
@@ -19,7 +19,6 @@ func DefaultRequestContext() *RequestContext {
 	reqCon.Protocol = "udp" // default to udp
 	return reqCon
 }
-
 
 type ResolutionContext struct {
 	// resolution tools / recursive issues
