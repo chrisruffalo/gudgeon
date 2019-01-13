@@ -33,11 +33,17 @@ func logger(c chan *logMsg) {
 		logPrefix := fmt.Sprintf("[%s/%s] q:|%s|%s|->", address.String(), rCon.Protocol, request.Question[0].Name, dns.Type(request.Question[0].Qtype).String())
 		if result != nil {
 			logSuffix := "->"
-			if len(response.Answer) > 0 && len(response.Answer[0].String()) > 0 {
-				logSuffix += response.Answer[0].String()[len(response.Answer[0].Header().String()):]
-				if len(response.Answer) > 1 {
-					logSuffix += fmt.Sprintf(" (+%d)", len(response.Answer)-1)
-				}
+			if len(response.Answer) > 0 {
+                responseString := strings.TrimSpace(response.Answer[0].String())
+                responseLen := len(responseString)
+                headerString := strings.TrimSpace(response.Answer[0].Header().String())
+                headerLen := len(headerString)
+                if  responseLen > 0 && headerLen < responseLen {
+    				logSuffix += responseString[headerLen:]
+    				if len(response.Answer) > 1 {
+    					logSuffix += fmt.Sprintf(" (+%d)", len(response.Answer)-1)
+    				}
+                }
 			}
 
 			// nothing appended so look at SOA
