@@ -10,6 +10,17 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
+type RequestContext struct {
+	Protocol string // the protocol that the request came in with 
+}
+
+func DefaultRequestContext() *RequestContext {
+	reqCon := new(RequestContext)
+	reqCon.Protocol = "udp" // default to udp
+	return reqCon
+}
+
+
 type ResolutionContext struct {
 	// resolution tools / recursive issues
 	ResolverMap ResolverMap // pointer to the resolvermap that started resolution, can be nil
@@ -47,7 +58,7 @@ type resolver struct {
 }
 
 type Resolver interface {
-	Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
+	Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
 }
 
 // create a new resolver
@@ -85,10 +96,10 @@ func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
 }
 
 // base answer function
-func (resolver *resolver) answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+func (resolver *resolver) answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// step through sources and return result
 	for _, source := range resolver.sources {
-		response, err := source.Answer(context, request)
+		response, err := source.Answer(rCon, context, request)
 
 		if err != nil {
 			// todo: log error
@@ -109,7 +120,7 @@ func (resolver *resolver) answer(context *ResolutionContext, request *dns.Msg) (
 	return nil, nil
 }
 
-func (resolver *resolver) searchDomains(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+func (resolver *resolver) searchDomains(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	for _, sDomain := range resolver.search {
 		// skip empty search domains
 		if "" == sDomain {
@@ -133,7 +144,7 @@ func (resolver *resolver) searchDomains(context *ResolutionContext, request *dns
 		searchRequest.Question[0].Name = searchDomain
 
 		// ask new question
-		searchResponse, err := resolver.answer(context, searchRequest)
+		searchResponse, err := resolver.answer(rCon, context, searchRequest)
 		if err != nil {
 			// todo: log
 			continue
@@ -179,7 +190,7 @@ func domainMatches(questionDomain string, domainsToCheck []string) bool {
 	return true
 }
 
-func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+func (resolver *resolver) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// guard against invalid requests or requests that don't ask anything
 	if request == nil || len(request.Question) < 1 {
 		return nil, nil
@@ -192,6 +203,9 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 	}
 
 	// create context if context is nil (no map)
+	if rCon == nil {
+		rCon = DefaultRequestContext()
+	}
 	if context == nil {
 		context = DefaultResolutionContext()
 	}
@@ -213,21 +227,21 @@ func (resolver *resolver) Answer(context *ResolutionContext, request *dns.Msg) (
 		}
 	}
 
-	response, err := resolver.answer(context, request)
+	response, err := resolver.answer(rCon, context, request)
 	if err != nil {
 		return nil, err
 	}
 
 	// if there are available search domains use them
 	if util.IsEmptyResponse(response) && len(resolver.search) > 0 {
-		r, err := resolver.searchDomains(context, request)
+		r, err := resolver.searchDomains(rCon, context, request)
 		if err == nil && !util.IsEmptyResponse(r) {
 			response = r
 		}
 	}
 
 	// only cache non-nil response
-	if context != nil && context.ResolverMap != nil && !context.Stored {
+	if context != nil && context.ResolverMap != nil && !context.Stored && response != nil && !response.MsgHdr.Truncated {
 		// set as stored based on status of cache action
 		context.Stored = context.ResolverMap.Cache().Store(resolver.name, request, response)
 	}

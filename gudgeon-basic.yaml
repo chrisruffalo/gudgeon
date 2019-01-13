@@ -10,7 +10,7 @@ gudgeon:
     udp: true
     interfaces:
     - ip: 127.0.0.1
-      port: 53
+      port: 5354
 
   resolvers:
   - name: default

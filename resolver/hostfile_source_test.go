@@ -49,7 +49,7 @@ func TestBasicHostFile(t *testing.T) {
 		m.Question[0] = dns.Question{Name: d.domain, Qtype: d.qType, Qclass: dns.ClassINET}
 
 		// use source to resolve
-		response, err := source.Answer(nil, m)
+		response, err := source.Answer(nil, nil, m)
 		if err != nil {
 			t.Errorf("Could not resolve: %s", err)
 			continue

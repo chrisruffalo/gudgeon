@@ -42,7 +42,7 @@ func TestDnsResolver(t *testing.T) {
 		m.Question[0] = dns.Question{Name: d.domain, Qtype: dns.TypeA, Qclass: dns.ClassINET}
 
 		// use source to resolve
-		response, _, err := resolvers.Answer(d.resolverName, m)
+		response, _, err := resolvers.Answer(nil, d.resolverName, m)
 		if err != nil {
 			t.Errorf("Could not resolve: %s", err)
 			continue
@@ -104,7 +104,7 @@ func TestHostnameResolver(t *testing.T) {
 		m.Question[0] = dns.Question{Name: d.domain, Qtype: dns.TypeA, Qclass: dns.ClassINET}
 
 		// use source to resolve
-		response, _, err := resolvers.Answer(d.resolver, m)
+		response, _, err := resolvers.Answer(nil, d.resolver, m)
 		if err != nil {
 			t.Errorf("Could not resolve: %s", err)
 			continue

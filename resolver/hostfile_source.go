@@ -271,7 +271,7 @@ func (hostFileSource *hostFileSource) Name() string {
 	return "hostfile:" + hostFileSource.filePath
 }
 
-func (hostFileSource *hostFileSource) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+func (hostFileSource *hostFileSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// return nil response if no question was formed
 	if len(request.Question) < 1 {
 		return nil, nil

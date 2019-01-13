@@ -1,8 +1,10 @@
 package resolver
 
 import (
+	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -13,7 +15,6 @@ const (
 )
 
 type dnsSource struct {
-	client        *dns.Client
 	dnsServer     string
 	port          uint
 	remoteAddress string
@@ -55,28 +56,46 @@ func (dnsSource *dnsSource) Name() string {
 	return dnsSource.remoteAddress
 }
 
-func (dnsSource *dnsSource) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
-	// create new client instance
-	if dnsSource.client == nil {
-		dnsSource.client = new(dns.Client)
+func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress string) (*dns.Msg, error) {
+	var err error = nil
+
+	co := new(dns.Conn)
+	if co.Conn, err = net.DialTimeout(coType, remoteAddress, 2*time.Second); err != nil {
+		return nil, err
 	}
+	defer co.Close()
 
-	// forward message without interference
-	response, _, err := dnsSource.client.Exchange(request, dnsSource.remoteAddress)
 
-	// return error if error
-	if err != nil {
+	// write message
+	if err := co.WriteMsg(request); err != nil {
 		return nil, err
 	}
 
-	// set reply
-	response.SetReply(request)
+	return co.ReadMsg()
+}
+
+func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	// forward message without interference
+	response, err := dnsSource.query(rCon.Protocol, request, dnsSource.remoteAddress)
+	if err != nil {
+		// on tcp err fall back to udp
+		if rCon.Protocol == "tcp" {
+			response, err = dnsSource.query(rCon.Protocol, request, dnsSource.remoteAddress)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// do not set reply here (doesn't seem to matter, leaving this comment so nobody decides to do it in the future without cause)
+	// response.SetReply(request)
 
 	// set source as answering source
 	if context != nil {
 		context.SourceUsed = dnsSource.Name()
 	}
 
-	// otherwise just return response
+	// otherwise just return
 	return response, nil
 }

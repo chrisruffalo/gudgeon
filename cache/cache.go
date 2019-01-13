@@ -77,8 +77,8 @@ func minTtl(currentMin uint32, records []dns.RR) uint32 {
 }
 
 func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.Msg) bool {
-	// you shouldn't cache an empty response
-	if util.IsEmptyResponse(response) {
+	// you shouldn't cache an empty response (or a truncated response)
+	if util.IsEmptyResponse(response) || response.MsgHdr.Truncated {
 		return false
 	}
 

@@ -15,9 +15,9 @@ type resolverMap struct {
 }
 
 type ResolverMap interface {
-	Answer(resolverName string, request *dns.Msg) (*dns.Msg, *ResolutionResult, error)
-	AnswerMultiResolvers(resolverNames []string, request *dns.Msg) (*dns.Msg, *ResolutionResult, error)
-	answerWithContext(resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, *ResolutionResult, error)
+	Answer(rCon *RequestContext, resolverName string, request *dns.Msg) (*dns.Msg, *ResolutionResult, error)
+	AnswerMultiResolvers(rCon *RequestContext, resolverNames []string, request *dns.Msg) (*dns.Msg, *ResolutionResult, error)
+	answerWithContext(rCon *RequestContext, resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, *ResolutionResult, error)
 	Cache() cache.Cache
 }
 
@@ -62,7 +62,7 @@ func NewResolverMap(configuredResolvers []*config.GudgeonResolver) ResolverMap {
 }
 
 // base answer function for full resolver map
-func (resolverMap *resolverMap) answerWithContext(resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, *ResolutionResult, error) {
+func (resolverMap *resolverMap) answerWithContext(rCon *RequestContext, resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, *ResolutionResult, error) {
 	// if no named resolver in map, return
 	resolver, ok := resolverMap.resolvers[resolverName]
 	if !ok {
@@ -77,7 +77,7 @@ func (resolverMap *resolverMap) answerWithContext(resolverName string, context *
 	}
 
 	// get answer
-	response, err := resolver.Answer(context, request)
+	response, err := resolver.Answer(rCon, context, request)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -87,17 +87,20 @@ func (resolverMap *resolverMap) answerWithContext(resolverName string, context *
 }
 
 // base answer function for full resolver map
-func (resolverMap *resolverMap) Answer(resolverName string, request *dns.Msg) (*dns.Msg, *ResolutionResult, error) {
+func (resolverMap *resolverMap) Answer(rCon *RequestContext, resolverName string, request *dns.Msg) (*dns.Msg, *ResolutionResult, error) {
 	// return answer with context
-	return resolverMap.answerWithContext(resolverName, nil, request)
+	return resolverMap.answerWithContext(rCon, resolverName, nil, request)
 }
 
 // answer resolvers in order
-func (resolverMap *resolverMap) AnswerMultiResolvers(resolverNames []string, request *dns.Msg) (*dns.Msg, *ResolutionResult, error) {
+func (resolverMap *resolverMap) AnswerMultiResolvers(rCon *RequestContext, resolverNames []string, request *dns.Msg) (*dns.Msg, *ResolutionResult, error) {
 	context := DefaultResolutionContextWithMap(resolverMap)
+	if rCon == nil {
+		rCon = DefaultRequestContext()
+	}
 
 	for _, resolverName := range resolverNames {
-		response, result, err := resolverMap.answerWithContext(resolverName, context, request)
+		response, result, err := resolverMap.answerWithContext(rCon, resolverName, context, request)
 		if err != nil {
 			// todo: log error
 			continue

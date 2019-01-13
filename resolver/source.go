@@ -9,7 +9,7 @@ import (
 
 type Source interface {
 	Name() string
-	Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
+	Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
 }
 
 func NewSource(sourceSpecification string) Source {

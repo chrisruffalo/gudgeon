@@ -16,6 +16,7 @@ type logMsg struct {
 	response *dns.Msg
 	blocked  bool
 	result   *resolver.ResolutionResult
+    rCon     *resolver.RequestContext
 }
 
 func logger(c chan *logMsg) {
@@ -26,9 +27,10 @@ func logger(c chan *logMsg) {
 		response := c.response
 		blocked := c.blocked
 		result := c.result
+        rCon := c.rCon
 
 		// log result if found
-		logPrefix := fmt.Sprintf("[%s] q:|%s|%s|->", address.String(), request.Question[0].Name, dns.Type(request.Question[0].Qtype).String())
+		logPrefix := fmt.Sprintf("[%s/%s] q:|%s|%s|->", address.String(), rCon.Protocol, request.Question[0].Name, dns.Type(request.Question[0].Qtype).String())
 		if result != nil {
 			logSuffix := "->"
 			if len(response.Answer) > 0 && len(response.Answer[0].String()) > 0 {
@@ -68,7 +70,7 @@ func logger(c chan *logMsg) {
 // create emtpy chan
 var logChan chan *logMsg = nil
 
-func Log(address net.IP, request *dns.Msg, response *dns.Msg, blocked bool, result *resolver.ResolutionResult) {
+func Log(address net.IP, request *dns.Msg, response *dns.Msg, blocked bool, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
 	if logChan == nil {
 		logChan = make(chan *logMsg)
 		go logger(logChan)
@@ -81,5 +83,6 @@ func Log(address net.IP, request *dns.Msg, response *dns.Msg, blocked bool, resu
 	msg.response = response
 	msg.blocked = blocked
 	msg.result = result
+    msg.rCon = rCon
 	logChan <- msg
 }

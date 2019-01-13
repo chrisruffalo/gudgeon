@@ -339,7 +339,7 @@ func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) bool {
 }
 
 // handles recursive resolution of cnames
-func (engine *engine) handleCnameResolution(address net.IP, originalRequest *dns.Msg, originalResponse *dns.Msg) *dns.Msg {
+func (engine *engine) handleCnameResolution(address net.IP, protocol string, originalRequest *dns.Msg, originalResponse *dns.Msg) *dns.Msg {
 	// scope provided finding response
 	var response *dns.Msg = nil
 
@@ -354,7 +354,7 @@ func (engine *engine) handleCnameResolution(address net.IP, originalRequest *dns
 		answer := originalResponse.Answer[0]
 		newName := answer.(*dns.CNAME).Target
 		cnameRequest.Question[0].Name = newName
-		cnameResponse := engine.performRequest(address, cnameRequest)
+		cnameResponse := engine.performRequest(address, protocol, cnameRequest)
 		if cnameResponse != nil && len(cnameResponse.Answer) > 0 {
 			// use response
 			response = cnameResponse
@@ -370,13 +370,18 @@ func (engine *engine) handleCnameResolution(address net.IP, originalRequest *dns
 	return response
 }
 
-func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg {
+func (engine *engine) performRequest(address net.IP, protocol string, request *dns.Msg) *dns.Msg {
 	// scope provided finding response
 	var (
 		response *dns.Msg                   = nil
 		result   *resolver.ResolutionResult = nil
 	)
 	blocked := false
+
+	// create context
+	rCon := resolver.DefaultRequestContext()
+	rCon.Protocol = protocol
+
 
 	// get domain name
 	domain := request.Question[0].Name
@@ -392,13 +397,13 @@ func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg 
 	} else {
 		// if not blocked then actually try resolution, by grabbing the resolver names
 		resolvers := engine.getConsumerResolvers(address)
-		r, res, err := engine.resolvers.AnswerMultiResolvers(resolvers, request)
+		r, res, err := engine.resolvers.AnswerMultiResolvers(rCon, resolvers, request)
 		if err != nil {
 			// todo: log error in resolution
 		} else {
 			response = r
 			result = res
-			cnameResponse := engine.handleCnameResolution(address, request, response)
+			cnameResponse := engine.handleCnameResolution(address, protocol, request, response)
 			if cnameResponse != nil {
 				response = cnameResponse
 			}
@@ -426,7 +431,7 @@ func (engine *engine) performRequest(address net.IP, request *dns.Msg) *dns.Msg 
 	}
 
 	// goroutine log which is async on the other side
-	qlog.Log(address, request, response, blocked, result)
+	qlog.Log(address, request, response, blocked, rCon, result)
 
 	return response
 }
@@ -436,14 +441,17 @@ func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
 	var a net.IP = nil
 
 	// get consumer ip from request
+	protocol := ""
 	if ip, ok := dnsWriter.RemoteAddr().(*net.UDPAddr); ok {
 		a = ip.IP
+		protocol = "udp"
 	}
 	if ip, ok := dnsWriter.RemoteAddr().(*net.TCPAddr); ok {
 		a = ip.IP
+		protocol = "tcp"
 	}
 
-	response := engine.performRequest(a, request)
+	response := engine.performRequest(a, protocol, request)
 
 	// write response to response writer
 	dnsWriter.WriteMsg(response)

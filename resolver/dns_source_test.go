@@ -10,12 +10,13 @@ func TestDnsSourceResolution(t *testing.T) {
 	data := []struct {
 		domain        string
 		serverAddress string
+		protocol 	  string
 	}{
 		// udp, regular port
-		{"google.com.", "8.8.8.8"},
-		{"cloudflare.com.", "1.1.1.1"},
+		{"google.com.", "8.8.8.8", "udp"},
+		{"cloudflare.com.", "1.1.1.1", "udp"},
 		// udp, alternate ports
-		{"google.com.", "208.67.222.222:5353"},
+		{"google.com.", "208.67.222.222:5353", "udp"},
 	}
 
 	for _, d := range data {
@@ -36,7 +37,9 @@ func TestDnsSourceResolution(t *testing.T) {
 		source := newDnsSource(d.serverAddress)
 
 		// use source to resolve
-		response, err := source.Answer(nil, m)
+		rCon := DefaultRequestContext()
+		rCon.Protocol = d.protocol
+		response, err := source.Answer(rCon, nil, m)
 		if err != nil {
 			t.Errorf("Could not resolve: %s", err)
 			continue

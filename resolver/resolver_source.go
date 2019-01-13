@@ -24,7 +24,7 @@ func (resolverSource *resolverSource) Name() string {
 	return resolverSource.resolverName
 }
 
-func (resolverSource *resolverSource) Answer(context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+func (resolverSource *resolverSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// bail if context is nil or resolver map is not available
 	if context == nil || context.ResolverMap == nil {
 		return nil, nil
@@ -37,6 +37,6 @@ func (resolverSource *resolverSource) Answer(context *ResolutionContext, request
 	}
 
 	// continue resolution chain
-	response, _, err := context.ResolverMap.answerWithContext(resolverSource.resolverName, context, request)
+	response, _, err := context.ResolverMap.answerWithContext(rCon, resolverSource.resolverName, context, request)
 	return response, err
 }
