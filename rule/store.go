@@ -36,8 +36,12 @@ func CreateStore(backingStoreType string) RuleStore {
 	}
 
 	// create appropriate backing store
-	backingStore := new(memoryStore)
-	//backingStore := new(radixStore)
+	var backingStore RuleStore
+	if "radix" == backingStoreType {
+		backingStore = new(radixStore)
+	} else {
+		backingStore = new(memoryStore)
+	}
 
 	// set backing store
 	store.backingStore = backingStore
