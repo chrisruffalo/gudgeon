@@ -5,6 +5,8 @@ require (
 	github.com/google/uuid v1.0.0
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/miekg/dns v1.1.2
+	github.com/mitchellh/gox v0.4.0 // indirect
+	github.com/mitchellh/iochan v1.0.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
 	golang.org/x/crypto v0.0.0-20190103213133-ff983b9c42bc // indirect

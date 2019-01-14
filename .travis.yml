@@ -19,7 +19,8 @@ notifications:
 deploy:
   provider: releases
   api_key: "$GITHUB_OAUTH_TOKEN"
-  file: "build/gudgeon"
+  file_glob: true
+  file: build/*
   skip_cleanup: true
   overwrite: true
   on:
