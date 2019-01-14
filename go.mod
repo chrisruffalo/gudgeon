@@ -1,6 +1,7 @@
 module github.com/chrisruffalo/gudgeon
 
 require (
+	github.com/armon/go-radix v1.0.0
 	github.com/google/uuid v1.0.0
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/miekg/dns v1.1.2

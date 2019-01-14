@@ -23,7 +23,7 @@ var ruleApplyOrder = []uint8{ALLOW, BLOCK}
 
 // creates whatever gudgeon considers to be the default store
 func CreateDefaultStore() RuleStore {
-	return CreateStore("mem")
+	return CreateStore("")
 }
 
 func CreateStore(backingStoreType string) RuleStore {
@@ -36,10 +36,8 @@ func CreateStore(backingStoreType string) RuleStore {
 	}
 
 	// create appropriate backing store
-	var backingStore RuleStore
-	if "mem" == backingStoreType || "memory" == backingStoreType || "" == backingStoreType {
-		backingStore = new(memoryStore)
-	}
+	backingStore := new(memoryStore)
+	//backingStore := new(radixStore)
 
 	// set backing store
 	store.backingStore = backingStore

@@ -24,3 +24,25 @@ func TestReverseLookup(t *testing.T) {
 		}
 	}
 }
+
+func TestReverseDomain(t *testing.T) {
+	data := []struct {
+		input    string
+		expected string
+	}{
+		{"tld", "tld"},
+		{"tld.", "tld"},
+		{"thing.tld", "tld.thing"},
+		{"two.one.thing.tld.", "tld.thing.one.two"},
+		{"              five.four.three.two.one.thing.tld.", "tld.thing.one.two.three.four.five"},
+		{"", ""},
+		{"thing", "thing"},
+	}
+
+	for _, d := range data {
+		output := ReverseDomainTree(d.input)
+		if output != d.expected {
+			t.Errorf("Reverse domain expected '%s' but got '%s'", d.expected, output)
+		}
+	}
+}

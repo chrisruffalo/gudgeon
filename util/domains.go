@@ -72,3 +72,33 @@ func ReverseLookupDomainString(ipString string) string {
 	}
 	return ReverseLookupDomain(&ip)
 }
+
+// take a domain like "sub.main.top.tld" and transform to "tld.top.main.sub"
+func ReverseDomainTree(domain string) string {
+	domain = strings.TrimSpace(domain)
+	if "" == domain || !strings.Contains(domain, ".") {
+		return domain
+	}
+
+	if strings.HasSuffix(domain, ".") {
+		domain = domain[:len(domain)-1]
+	}
+
+	// split into segments
+	parts := strings.Split(domain, ".")
+
+	// return domain if less than two parts are found
+	if len(parts) < 2 {
+		return domain
+	}
+
+	// start at the back of the parts with the builder and add to output string
+	var builder strings.Builder
+	for idx := len(parts) - 1; idx >= 0; idx-- {
+		builder.WriteString(parts[idx])
+		if idx != 0 {
+			builder.WriteString(".")
+		}
+	}
+	return builder.String()
+}

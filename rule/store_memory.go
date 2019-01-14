@@ -7,12 +7,23 @@ import (
 )
 
 type memoryStore struct {
-	rules map[string]map[string]bool
+	rules    map[string]map[uint]bool
+	groupMap map[string]uint
+	groupIdx uint
 }
 
 func (store *memoryStore) Load(group string, rules []Rule) uint64 {
+	if store.groupMap == nil {
+		store.groupMap = make(map[string]uint, 0)
+	}
+	if _, found := store.groupMap[group]; !found {
+		store.groupIdx++
+		store.groupMap[group] = store.groupIdx
+	}
+	groupIdx := store.groupMap[group]
+
 	if store.rules == nil {
-		store.rules = make(map[string]map[string]bool)
+		store.rules = make(map[string]map[uint]bool)
 	}
 
 	// categorize and put rules
@@ -24,12 +35,12 @@ func (store *memoryStore) Load(group string, rules []Rule) uint64 {
 
 		lower := strings.ToLower(rule.Text())
 		if store.rules[lower] == nil {
-			store.rules[lower] = make(map[string]bool)
+			store.rules[lower] = make(map[uint]bool)
 		}
 
 		// you can't overwrite an ALLOW because that takes precedence
-		if !store.rules[lower][group] {
-			store.rules[lower][group] = ALLOW == rule.RuleType()
+		if !store.rules[lower][groupIdx] {
+			store.rules[lower][groupIdx] = ALLOW == rule.RuleType()
 			counter++
 		}
 	}
@@ -60,7 +71,8 @@ func (store *memoryStore) IsMatchAny(groups []string, domain string) Match {
 			// if any group has ALLOW (true) as a value
 			// then return false immediately according to
 			// the whitelist behavior
-			val, found := store.rules[domain][group]
+			groupIdx := store.groupMap[group]
+			val, found := store.rules[domain][groupIdx]
 			if found && val {
 				return MatchAllow
 				// otherwise if a value was found it must be false

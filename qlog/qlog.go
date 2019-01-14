@@ -34,16 +34,16 @@ func logger(c chan *logMsg) {
 		if result != nil {
 			logSuffix := "->"
 			if len(response.Answer) > 0 {
-                responseString := strings.TrimSpace(response.Answer[0].String())
-                responseLen := len(responseString)
-                headerString := strings.TrimSpace(response.Answer[0].Header().String())
-                headerLen := len(headerString)
-                if  responseLen > 0 && headerLen < responseLen {
-    				logSuffix += responseString[headerLen:]
-    				if len(response.Answer) > 1 {
-    					logSuffix += fmt.Sprintf(" (+%d)", len(response.Answer)-1)
-    				}
-                }
+				responseString := strings.TrimSpace(response.Answer[0].String())
+				responseLen := len(responseString)
+				headerString := strings.TrimSpace(response.Answer[0].Header().String())
+				headerLen := len(headerString)
+				if responseLen > 0 && headerLen < responseLen {
+					logSuffix += responseString[headerLen:]
+					if len(response.Answer) > 1 {
+						logSuffix += fmt.Sprintf(" (+%d)", len(response.Answer)-1)
+					}
+				}
 			}
 
 			// nothing appended so look at SOA
