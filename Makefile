@@ -9,8 +9,8 @@ UPXCMD=upx
 BUILD_DIR=build
 BINARY_NAME=gudgeon
 
-VERSION:=$(shell git rev-parse --abbrev-ref HEAD)
-GITHASH:=$(shell git rev-parse HEAD | head -c6)
+VERSION?=$(shell git rev-parse --abbrev-ref HEAD)
+GITHASH?=$(shell git rev-parse HEAD | head -c6)
 
 all: test build minimize
 .PHONY: all test build clean minimize
