@@ -87,10 +87,6 @@ type Engine interface {
 func assignedLists(listNames []string, listTags []string, lists []*config.GudgeonList) []*config.GudgeonList {
 	// empty list
 	should := []*config.GudgeonList{}
-	// a list with no tags has the "default" tag
-	if len(listTags) < 1 {
-		listTags = []string{"default"}
-	}
 
 	// check names
 	for _, list := range lists {

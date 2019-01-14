@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	bloomRate = 0.001 // basically a 0.1% chance of a false positive from the filter, which would necessitate going to another source to check
+	bloomRate = 0.0001 // basically a 0.01% chance of a false positive from the filter, which would necessitate going to another source to check
 )
 
 type bloomStore struct {
