@@ -55,6 +55,7 @@ func CreateRule(rule string, ruleType uint8) Rule {
 	if strings.HasPrefix(rule, comment) || strings.HasPrefix(rule, altComment) {
 		return nil
 	}
+	rule = strings.TrimSpace(rule)
 
 	var createdRule Rule = nil
 

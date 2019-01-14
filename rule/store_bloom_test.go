@@ -1,7 +1,11 @@
 package rule
 
 import (
+    "os"
 	"testing"
+
+    "github.com/chrisruffalo/gudgeon/downloader"
+    "github.com/chrisruffalo/gudgeon/testutil"
 )
 
 func TestBloomRuleStore(t *testing.T) {
@@ -18,4 +22,27 @@ func TestBloomRuleStore(t *testing.T) {
 
 func BenchmarkBloomRuleStore(b *testing.B) {
 	benchNonComplexStore(func() RuleStore { return CreateStore("bloom") }, b)
+}
+
+func TestIsInListFile(t *testing.T) {
+    config := testutil.Conf(t, "testdata/listinfile.yml")
+    defer os.RemoveAll(config.Home)
+    list := config.Lists[0]
+    downloader.Download(config, list)
+
+    data := []struct{
+        domain string
+        expected bool
+    }{
+        {"z.zeroredirect.com", true},
+        {"google.com", false},
+        {"zeroredirect", false},
+    }
+
+    for _, d := range data {
+        result := isInListFile(d.domain, config, list)
+        if result != d.expected {
+            t.Errorf("error with %s search expected:%v but got:%v", d.domain, d.expected, result)
+        }
+    }
 }

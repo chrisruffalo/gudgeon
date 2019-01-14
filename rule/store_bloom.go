@@ -2,8 +2,8 @@ package rule
 
 import (
 	"bufio"
-	"bytes"
 	"os"
+	"strings"
 
 	"github.com/willf/bloom"
 
@@ -100,10 +100,24 @@ func isInListFile(text string, conf *config.GudgeonConfig, list *config.GudgeonL
 		return true // we can't open the file
 	}
 	defer f.Close()
-	check := []byte(text)
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		if bytes.Contains(scanner.Bytes(), check) {
+		line := scanner.Text()
+
+		// don't look inside comments
+		if strings.HasPrefix(line, comment) || strings.HasPrefix(line, altComment) {
+			continue
+		}
+
+		// if there is space in the rule then drop everything after the first space
+		// which is good enough to get rid of IPs at the start of the line
+		split := strings.Split(line, " ")
+		if len(split) > 1 {
+			line = strings.Join(split[1:], "")
+			line = strings.TrimSpace(line)
+		}
+
+		if strings.EqualFold(text, line) {
 			return true
 		}
 	}
