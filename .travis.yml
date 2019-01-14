@@ -1,0 +1,10 @@
+language: go
+
+go:
+- '1.11'
+
+git:
+  depth: 1
+
+notifications:
+  email: false
