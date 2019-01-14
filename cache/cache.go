@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,7 +31,9 @@ type Cache interface {
 }
 
 type gocache struct {
-	backer *backer.Cache
+	backer          *backer.Cache
+	partitionIdx    int
+	partitionIdxMap map[string]int
 }
 
 func min(a uint32, b uint32) uint32 {
@@ -47,25 +50,11 @@ func max(a uint32, b uint32) uint32 {
 	return a
 }
 
-// make string key from partition + message
-func key(partition string, questions []dns.Question) string {
-	key := ""
-	if len(questions) > 0 {
-		key += partition
-		for _, question := range questions {
-			if len(key) > 0 {
-				key += delimeter
-			}
-			key += question.Name + delimeter + dns.Class(question.Qclass).String() + delimeter + dns.Type(question.Qtype).String()
-		}
-	}
-	return strings.TrimSpace(key)
-}
-
 func New() Cache {
 	gocache := new(gocache)
 	gocache.backer = backer.New(backer.NoExpiration, defaultCacheScrapeMinutes*time.Minute)
-
+	gocache.partitionIdx = 0
+	gocache.partitionIdxMap = make(map[string]int, 0)
 	return gocache
 }
 
@@ -76,6 +65,27 @@ func minTtl(currentMin uint32, records []dns.RR) uint32 {
 	return currentMin
 }
 
+// make string key from partition + message
+func (gocache *gocache) key(partition string, questions []dns.Question) string {
+	if _, found := gocache.partitionIdxMap[partition]; !found {
+		gocache.partitionIdx++
+		gocache.partitionIdxMap[partition] = gocache.partitionIdx
+	}
+
+	key := ""
+	if len(questions) > 0 {
+		partitionIdx := strconv.Itoa(gocache.partitionIdxMap[partition])
+		key += partitionIdx
+		for _, question := range questions {
+			if len(key) > 0 {
+				key += delimeter
+			}
+			key += question.Name + delimeter + dns.Class(question.Qclass).String() + delimeter + dns.Type(question.Qtype).String()
+		}
+	}
+	return strings.TrimSpace(key)
+}
+
 func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.Msg) bool {
 	// you shouldn't cache an empty response (or a truncated response)
 	if util.IsEmptyResponse(response) || response.MsgHdr.Truncated {
@@ -83,8 +93,8 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 	}
 
 	// create key from message
-	key := key(partition, request.Question)
-	if "" == key || partition == key {
+	key := gocache.key(partition, request.Question)
+	if "" == key {
 		return false
 	}
 
@@ -125,8 +135,8 @@ func adjustTtls(timeDelta uint32, records []dns.RR) {
 
 func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, bool) {
 	// get key
-	key := key(partition, request.Question)
-	if "" == key || partition == key {
+	key := gocache.key(partition, request.Question)
+	if "" == key {
 		return nil, false
 	}
 

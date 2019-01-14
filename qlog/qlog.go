@@ -39,7 +39,7 @@ func logger(c chan *logMsg) {
 				headerString := strings.TrimSpace(response.Answer[0].Header().String())
 				headerLen := len(headerString)
 				if responseLen > 0 && headerLen < responseLen {
-					logSuffix += responseString[headerLen:]
+					logSuffix += strings.TrimSpace(responseString[headerLen:])
 					if len(response.Answer) > 1 {
 						logSuffix += fmt.Sprintf(" (+%d)", len(response.Answer)-1)
 					}
