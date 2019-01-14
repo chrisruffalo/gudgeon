@@ -102,3 +102,20 @@ func ReverseDomainTree(domain string) string {
 	}
 	return builder.String()
 }
+
+// based on a domain name ("sub.google.com") returns a slice of domains that
+// should be matched EXACTLY against ["sub.google.com", "google.com", "com"]
+func DomainList(domain string) []string {
+	if "" == strings.TrimSpace(domain) {
+		return []string{}
+	}
+
+	domains := []string{}
+	check := strings.ToLower(strings.TrimSpace(domain))
+	for len(check) > 0 {
+		domains = append(domains, check)
+		split := strings.Split(check, ".")
+		check = strings.Join(split[1:], ".")
+	}
+	return domains
+}

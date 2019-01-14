@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestMemoryRuleStore(t *testing.T) {
+func TestBloomRuleStore(t *testing.T) {
 
 	ruleData := []ruleList{
 		// whitelist checks are inverted but force a return without going through BLACK or BLOCK lists
@@ -13,9 +13,9 @@ func TestMemoryRuleStore(t *testing.T) {
 		{group: "default", rule: "bonkers.com", ruleType: BLOCK, blocked: []string{"text.bonkers.com", "bonkers.com"}, nomatch: []string{"argument.com", "boop.com", "krunch.io", "bonk.com", "bonkerss.com"}},
 	}
 
-	testStore(ruleData, func() RuleStore { return CreateStore("mem") }, t)
+	testStore(ruleData, func() RuleStore { return CreateStore("bloom") }, t)
 }
 
-func BenchmarkMemoryRuleStore(b *testing.B) {
-	benchNonComplexStore(func() RuleStore { return CreateStore("mem") }, b)
+func BenchmarkBloomRuleStore(b *testing.B) {
+	benchNonComplexStore(func() RuleStore { return CreateStore("bloom") }, b)
 }

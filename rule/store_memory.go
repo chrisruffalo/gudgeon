@@ -3,6 +3,7 @@ package rule
 import (
 	"strings"
 
+	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
@@ -12,7 +13,7 @@ type memoryStore struct {
 	groupIdx uint
 }
 
-func (store *memoryStore) Load(group string, rules []Rule) uint64 {
+func (store *memoryStore) Load(group string, rules []Rule, conf *config.GudgeonConfig, list *config.GudgeonList) uint64 {
 	if store.groupMap == nil {
 		store.groupMap = make(map[string]uint, 0)
 	}

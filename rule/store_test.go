@@ -4,12 +4,13 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/testutil"
 )
 
 const (
 	// how many rules to benchmark with
-	benchRules = 1000000
+	benchRules = 500000
 )
 
 type ruleList struct {
@@ -27,12 +28,17 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 
 	for _, data := range ruleData {
 		// create rule and rule list
+		ruleType := "block"
+		if data.ruleType == ALLOW {
+			ruleType = "allow"
+		}
+
 		rule := CreateRule(data.rule, data.ruleType)
 		rules := []Rule{rule}
 
 		// load rules into target store
 		store := createRuleStore()
-		store.Load(data.group, rules)
+		store.Load(data.group, rules, nil, &config.GudgeonList{Name: "Test List", Type: ruleType})
 
 		// check blocked
 		for _, expectedBlock := range data.blocked {
@@ -65,11 +71,11 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 	printMemUsage("before load", b)
 
 	// create rules
-	rules := make([]Rule, benchRules)
-	ruleType := ALLOW
-	for idx := range rules {
-		if idx >= benchRules/2 {
-			ruleType = BLOCK
+	rules := make([]Rule, benchRules*2)
+	ruleType := BLOCK
+	for idx := 0; idx < benchRules*2; idx++ {
+		if idx >= benchRules {
+			ruleType = ALLOW
 		}
 		rules[idx] = CreateRule(testutil.RandomDomain(), ruleType)
 	}
@@ -79,7 +85,8 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 
 	// load rules into store for each group
 	for _, group := range groups {
-		store.Load(group, rules)
+		store.Load(group, rules[:benchRules], nil, &config.GudgeonList{Type: "block"})
+		store.Load(group, rules[benchRules:], nil, &config.GudgeonList{Type: "allow"})
 	}
 
 	// create list of queries

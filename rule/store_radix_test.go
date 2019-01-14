@@ -13,9 +13,9 @@ func TestRadixRuleStore(t *testing.T) {
 		{group: "default", rule: "bonkers.com", ruleType: BLOCK, blocked: []string{"text.bonkers.com", "bonkers.com"}, nomatch: []string{"argument.com", "boop.com", "krunch.io", "bonk.com", "bonkerss.com"}},
 	}
 
-	testStore(ruleData, func() RuleStore { return new(radixStore) }, t)
+	testStore(ruleData, func() RuleStore { return CreateStore("radix") }, t)
 }
 
 func BenchmarkRadixRuleStore(b *testing.B) {
-	benchNonComplexStore(func() RuleStore { return new(radixStore) }, b)
+	benchNonComplexStore(func() RuleStore { return CreateStore("radix") }, b)
 }

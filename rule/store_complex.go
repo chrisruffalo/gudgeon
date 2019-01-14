@@ -1,11 +1,15 @@
 package rule
 
+import (
+	"github.com/chrisruffalo/gudgeon/config"
+)
+
 type complexStore struct {
 	backingStore RuleStore
 	complexRules map[uint8]map[string][]Rule
 }
 
-func (store *complexStore) Load(group string, rules []Rule) uint64 {
+func (store *complexStore) Load(group string, rules []Rule, conf *config.GudgeonConfig, list *config.GudgeonList) uint64 {
 	// make decisions based on the rule type
 	counter := uint64(0)
 	for idx, rule := range rules {
@@ -33,7 +37,7 @@ func (store *complexStore) Load(group string, rules []Rule) uint64 {
 
 	// backing store load is handled
 	if store.backingStore != nil {
-		return counter + store.backingStore.Load(group, rules)
+		return counter + store.backingStore.Load(group, rules, conf, list)
 	}
 
 	return counter

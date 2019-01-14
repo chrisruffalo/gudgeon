@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	iradix "github.com/armon/go-radix"
+
+	"github.com/chrisruffalo/gudgeon/config"
 	//"github.com/chrisruffalo/gudgeon/util"
 )
 
@@ -13,7 +15,7 @@ type radixStore struct {
 	groupIdx uint
 }
 
-func (store *radixStore) Load(group string, rules []Rule) uint64 {
+func (store *radixStore) Load(group string, rules []Rule, conf *config.GudgeonConfig, list *config.GudgeonList) uint64 {
 	if store.groupMap == nil {
 		store.groupMap = make(map[string]uint, 0)
 	}

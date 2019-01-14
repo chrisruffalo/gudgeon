@@ -215,7 +215,7 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 			}
 
 			// send rule array to engine store
-			engine.store.Load(configGroup.Name, rules)
+			engine.store.Load(configGroup.Name, rules, conf, list)
 		}
 
 		// clean up after loading all the rules because

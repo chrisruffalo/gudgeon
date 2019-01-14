@@ -2,6 +2,7 @@ package util
 
 import (
 	"net"
+	"reflect"
 	"testing"
 )
 
@@ -42,6 +43,25 @@ func TestReverseDomain(t *testing.T) {
 	for _, d := range data {
 		output := ReverseDomainTree(d.input)
 		if output != d.expected {
+			t.Errorf("Reverse domain expected '%s' but got '%s'", d.expected, output)
+		}
+	}
+}
+
+func TestDomainList(t *testing.T) {
+	data := []struct {
+		input    string
+		expected []string
+	}{
+		{"", []string{}},
+		{"com", []string{"com"}},
+		{"google.com", []string{"google.com", "com"}},
+		{"           three.two.one.google.com          ", []string{"three.two.one.google.com", "two.one.google.com", "one.google.com", "google.com", "com"}},
+	}
+
+	for _, d := range data {
+		output := DomainList(d.input)
+		if !reflect.DeepEqual(output, d.expected) {
 			t.Errorf("Reverse domain expected '%s' but got '%s'", d.expected, output)
 		}
 	}

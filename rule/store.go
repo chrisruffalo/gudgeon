@@ -1,5 +1,9 @@
 package rule
 
+import (
+	"github.com/chrisruffalo/gudgeon/config"
+)
+
 // a match can be:
 // allow (don't block, override/bypass block)
 // block (explicit block)
@@ -13,7 +17,7 @@ const (
 )
 
 type RuleStore interface {
-	Load(group string, rules []Rule) uint64
+	Load(group string, rules []Rule, conf *config.GudgeonConfig, list *config.GudgeonList) uint64
 	IsMatch(group string, domain string) Match
 	IsMatchAny(group []string, domain string) Match
 }
@@ -23,7 +27,7 @@ var ruleApplyOrder = []uint8{ALLOW, BLOCK}
 
 // creates whatever gudgeon considers to be the default store
 func CreateDefaultStore() RuleStore {
-	return CreateStore("")
+	return CreateStore("bloom")
 }
 
 func CreateStore(backingStoreType string) RuleStore {
@@ -36,15 +40,17 @@ func CreateStore(backingStoreType string) RuleStore {
 	}
 
 	// create appropriate backing store
-	var backingStore RuleStore
+	var delegate RuleStore
 	if "radix" == backingStoreType {
-		backingStore = new(radixStore)
+		delegate = new(radixStore)
+	} else if "bloom" == backingStoreType {
+		delegate = new(bloomStore)
 	} else {
-		backingStore = new(memoryStore)
+		delegate = new(memoryStore)
 	}
 
 	// set backing store
-	store.backingStore = backingStore
+	store.backingStore = delegate
 
 	// finalize and return store
 	return store

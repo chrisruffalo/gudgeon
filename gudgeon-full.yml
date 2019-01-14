@@ -96,6 +96,10 @@ gudgeon:
   # the privacy list has no tags so can only be matched explicitly
   - name: privacy
     src: https://v.firebog.net/hosts/Easyprivacy.txt
+  - name: adult
+    src: https://raw.githubusercontent.com/chadmayfield/my-pihole-blocklists/master/lists/pi_blocklist_porn_all.list
+    tags:
+    - default
 
   # these are groups that tie hosts to the specific set of blocklists
   # that they are supposed to use
