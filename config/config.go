@@ -133,6 +133,9 @@ func (list *GudgeonList) path(cachePath string) string {
 }
 
 func (config *GudgeonConfig) PathToList(list *GudgeonList) string {
+	if list == nil {
+		return ""
+	}
 	return list.path(config.CacheRoot())
 }
 

@@ -214,11 +214,6 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 			engine.store.Load(configGroup.Name, rules, conf, list)
 		}
 
-		// clean up after loading all the rules because
-		// of all the extra allocation that gets performed
-		// during the creation of the arrays and whatnot
-		runtime.GC()
-
 		// set default group on engine if found
 		if "default" == configGroup.Name {
 			engine.defaultGroup = engineGroup
@@ -255,6 +250,11 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 
 	// set consumers as active on engine
 	engine.consumers = consumers
+
+	// force GC after loading the engine because
+	// of all the extra allocation that gets performed
+	// during the creation of the arrays and whatnot
+	runtime.GC()
 
 	return engine, nil
 }

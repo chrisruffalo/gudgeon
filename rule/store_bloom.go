@@ -1,6 +1,10 @@
 package rule
 
 import (
+	"bufio"
+	"bytes"
+	"os"
+
 	"github.com/willf/bloom"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -12,6 +16,7 @@ const (
 )
 
 type bloomStore struct {
+	conf            *config.GudgeonConfig
 	groupAllowMap   map[string]*[]*config.GudgeonList // a list that defines what allow lists belong to the given group
 	groupBlockMap   map[string]*[]*config.GudgeonList // a list that defines what block lists belong to the given group
 	backingStoreMap map[string]*RuleStore             // if we want to do more concrete checking forward to a backing store, per list
@@ -20,6 +25,9 @@ type bloomStore struct {
 
 func (store *bloomStore) Load(group string, rules []Rule, conf *config.GudgeonConfig, list *config.GudgeonList) uint64 {
 	// lazy make
+	if store.conf == nil {
+		store.conf = conf
+	}
 	if store.groupAllowMap == nil {
 		store.groupAllowMap = make(map[string]*[]*config.GudgeonList, 0)
 	}
@@ -80,6 +88,31 @@ func (store *bloomStore) Load(group string, rules []Rule, conf *config.GudgeonCo
 	return counter
 }
 
+func isInListFile(text string, conf *config.GudgeonConfig, list *config.GudgeonList) bool {
+	path := conf.PathToList(list)
+	if "" == path {
+		return true // there is no file
+	}
+
+	// from petegrep here: https://stackoverflow.com/a/26716116
+	f, err := os.Open(path)
+	if err != nil {
+		return true // we can't open the file
+	}
+	defer f.Close()
+	check := []byte(text)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		if bytes.Contains(scanner.Bytes(), check) {
+			return true
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return false
+	}
+	return false
+}
+
 func (store *bloomStore) IsMatchAny(groups []string, domain string) Match {
 	// get list of domains that should be checked
 	domains := util.DomainList(domain)
@@ -99,7 +132,7 @@ func (store *bloomStore) IsMatchAny(groups []string, domain string) Match {
 	for _, list := range allowLists {
 		filter := store.bloomFilters[list.CanonicalName()]
 		for _, c := range domains {
-			if filter.TestString(c) {
+			if filter.TestString(c) && (store.conf == nil || isInListFile(c, store.conf, list)) {
 				return MatchAllow
 			}
 		}
@@ -108,7 +141,7 @@ func (store *bloomStore) IsMatchAny(groups []string, domain string) Match {
 	for _, list := range blockLists {
 		filter := store.bloomFilters[list.CanonicalName()]
 		for _, c := range domains {
-			if filter.TestString(c) {
+			if filter.TestString(c) && (store.conf == nil || isInListFile(c, store.conf, list)) {
 				return MatchBlock
 			}
 		}
