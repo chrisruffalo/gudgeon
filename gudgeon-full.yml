@@ -96,6 +96,8 @@ gudgeon:
   # the privacy list has no tags so a "default" tag will be added
   - name: privacy
     src: https://v.firebog.net/hosts/Easyprivacy.txt
+  - name: adult
+    src: https://raw.githubusercontent.com/chadmayfield/my-pihole-blocklists/master/lists/pi_blocklist_porn_all.list
 
   # these are groups that tie hosts to the specific set of blocklists
   # that they are supposed to use
@@ -109,6 +111,7 @@ gudgeon:
     resolvers:
     - google
     tags:
+    - default
     - ads
     - malware
   # here we define an extra group for use by specific users/machines that provides

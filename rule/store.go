@@ -17,9 +17,8 @@ const (
 )
 
 type RuleStore interface {
-	Load(group string, rules []Rule, conf *config.GudgeonConfig, list *config.GudgeonList) uint64
-	IsMatch(group string, domain string) Match
-	IsMatchAny(group []string, domain string) Match
+	Load(conf *config.GudgeonConfig, list *config.GudgeonList, rules []Rule) uint64
+	FindMatch(lists []*config.GudgeonList, domain string) Match
 }
 
 // order of applying/creating/using rules
@@ -27,27 +26,16 @@ var ruleApplyOrder = []uint8{ALLOW, BLOCK}
 
 // creates whatever gudgeon considers to be the default store
 func CreateDefaultStore() RuleStore {
-	return CreateStore("bloom")
+	return CreateStore("mem")
 }
 
 func CreateStore(backingStoreType string) RuleStore {
-
 	// first create the complex rule store wrapper
 	store := new(complexStore)
-	store.complexRules = make(map[uint8]map[string][]Rule)
-	for _, element := range ruleApplyOrder {
-		store.complexRules[element] = make(map[string][]Rule)
-	}
 
 	// create appropriate backing store
 	var delegate RuleStore
-	if "radix" == backingStoreType {
-		delegate = new(radixStore)
-	} else if "bloom" == backingStoreType {
-		delegate = new(bloomStore)
-	} else {
-		delegate = new(memoryStore)
-	}
+	delegate = new(memoryStore)
 
 	// set backing store
 	store.backingStore = delegate

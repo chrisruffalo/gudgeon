@@ -72,8 +72,8 @@ func CreateRule(rule string, ruleType uint8) Rule {
 		// wildcard rules have wildcards in them (only * is supported)
 		createdRule = createWildcardMatchRule(rule, ruleType)
 	} else {
-		// all other rules are straight text match
-		createdRule = createTextMatchRule(rule, ruleType)
+		// all other rules are straight text case insensitive match
+		createdRule = createTextMatchRule(strings.ToLower(rule), ruleType)
 	}
 
 	// return rule

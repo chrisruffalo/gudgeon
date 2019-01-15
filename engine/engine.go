@@ -30,6 +30,8 @@ type group struct {
 	engine *engine
 
 	configGroup *config.GudgeonGroup
+
+	lists []*config.GudgeonList
 }
 
 // represents a parsed "consumer" type that
@@ -46,6 +48,9 @@ type consumer struct {
 
 	// list of parsed resolvers that belong to this consumer
 	resolverNames []string
+
+	// applicable lists
+	lists []*config.GudgeonList
 }
 
 // stores the internals of the engine abstraction
@@ -59,6 +64,9 @@ type engine struct {
 
 	// consumers that have been parsed
 	consumers []*consumer
+
+	// default consumer
+	defaultConsumer *consumer
 
 	// the default group (used to ensure we have one)
 	defaultGroup *group
@@ -159,6 +167,26 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		}
 	}
 
+	// load list rules into stores
+	for _, list := range conf.Lists {
+		path := conf.PathToList(list)
+		array, err := util.GetFileAsArray(path)
+		if err != nil {
+			continue
+		}
+
+		// now parse the array by creating rules and storing them
+		parsedType := rule.ParseType(list.Type)
+		rules := make([]rule.Rule, len(array))
+		for idx, ruleText := range array {
+			rules[idx] = rule.CreateRule(ruleText, parsedType)
+		}
+
+		// send rule array to engine store
+		count := engine.store.Load(conf, list, rules)
+		fmt.Printf("Loaded %d rules from %s\n", count, list.CanonicalName())
+	}
+
 	// empty groups list of size equal to available groups
 	workingGroups := append([]*config.GudgeonGroup{}, conf.Groups...)
 
@@ -184,40 +212,33 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 
 	// process groups
 	for idx, configGroup := range workingGroups {
-
 		// create active group for gorup name
 		engineGroup := new(group)
 		engineGroup.engine = engine
 		engineGroup.configGroup = configGroup
-		// add created engine group to list of groups
-		groups[idx] = engineGroup
 
 		// determine which lists belong to this group
-		lists := assignedLists(configGroup.Lists, configGroup.Tags, conf.Lists)
+		engineGroup.lists = assignedLists(configGroup.Lists, configGroup.Tags, conf.Lists)
 
-		// open the file, read each line, parse to rules
-		for _, list := range lists {
-			path := conf.PathToList(list)
-			array, err := util.GetFileAsArray(path)
-			if err != nil {
-				continue
-			}
-
-			// now parse the array by creating rules and storing them
-			parsedType := rule.ParseType(list.Type)
-			rules := make([]rule.Rule, len(array))
-			for idx, ruleText := range array {
-				rules[idx] = rule.CreateRule(ruleText, parsedType)
-			}
-
-			// send rule array to engine store
-			engine.store.Load(configGroup.Name, rules, conf, list)
-		}
+		// add created engine group to list of groups
+		groups[idx] = engineGroup
 
 		// set default group on engine if found
 		if "default" == configGroup.Name {
 			engine.defaultGroup = engineGroup
 		}
+	}
+
+	// look for and add default consumer if none exists
+	foundDefaultConsumer := false
+	for _, configConsumer := range conf.Consumers {
+		if strings.EqualFold(configConsumer.Name, "default") {
+			foundDefaultConsumer = true
+			break
+		}
+	}
+	if !foundDefaultConsumer {
+		conf.Consumers = append(conf.Consumers, &config.GundgeonConsumer{Name: "default", Groups: []string{"default"}})
 	}
 
 	// attach groups to consumers
@@ -229,6 +250,12 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		consumer.groupNames = make([]string, 0)
 		consumer.resolverNames = make([]string, 0)
 		consumer.configConsumer = configConsumer
+		consumer.lists = make([]*config.GudgeonList, 0)
+
+		// set as default consumer
+		if strings.EqualFold(configConsumer.Name, "default") {
+			engine.defaultConsumer = consumer
+		}
 
 		// link consumer to group when the consumer's group elements contains the group name
 		for _, group := range groups {
@@ -238,6 +265,20 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 				// add resolvers from group too
 				if len(group.configGroup.Resolvers) > 0 {
 					consumer.resolverNames = append(consumer.resolverNames, group.configGroup.Resolvers...)
+				}
+
+				// add lists if they aren't already in the consumer lists
+				for _, newList := range group.lists {
+					listFound := false
+					for _, currentList := range consumer.lists {
+						if currentList.CanonicalName() == newList.CanonicalName() {
+							listFound = true
+							break
+						}
+					}
+					if !listFound {
+						consumer.lists = append(consumer.lists, newList)
+					}
 				}
 			}
 		}
@@ -295,6 +336,11 @@ func (engine *engine) getConsumerForIp(consumerIp net.IP) *consumer {
 		}
 	}
 
+	// return default consumer
+	if foundConsumer == nil {
+		foundConsumer = engine.defaultConsumer
+	}
+
 	return foundConsumer
 }
 
@@ -328,9 +374,12 @@ func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) bool {
 		domain = domain[:len(domain)-1]
 	}
 
-	// get groups applicable to consumer
-	groupNames := engine.getConsumerGroups(consumerIp)
-	result := engine.store.IsMatchAny(groupNames, domain)
+	// get consumer
+	consumer := engine.getConsumerForIp(consumerIp)
+
+	// look in lists for match
+	result := engine.store.FindMatch(consumer.lists, domain)
+
 	return !(result == rule.MatchAllow || result == rule.MatchNone)
 }
 

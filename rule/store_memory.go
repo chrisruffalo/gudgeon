@@ -1,54 +1,115 @@
 package rule
 
 import (
+	"sort"
 	"strings"
+
+	"github.com/akutz/sortfold"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
 type memoryStore struct {
-	rules    map[string]map[uint]bool
-	groupMap map[string]uint
-	groupIdx uint
+	rules map[string][]string
 }
 
-func (store *memoryStore) Load(group string, rules []Rule, conf *config.GudgeonConfig, list *config.GudgeonList) uint64 {
-	if store.groupMap == nil {
-		store.groupMap = make(map[string]uint, 0)
+func (store *memoryStore) Load(conf *config.GudgeonConfig, list *config.GudgeonList, rules []Rule) uint64 {
+	// need some actual rules
+	if len(rules) < 1 {
+		return 0
 	}
-	if _, found := store.groupMap[group]; !found {
-		store.groupIdx++
-		store.groupMap[group] = store.groupIdx
-	}
-	groupIdx := store.groupMap[group]
 
 	if store.rules == nil {
-		store.rules = make(map[string]map[uint]bool)
+		store.rules = make(map[string][]string)
 	}
 
-	// categorize and put rules
+	// filter through rules
 	counter := uint64(0)
-	for _, rule := range rules {
-		if rule == nil {
+	for _, r := range rules {
+		if r == nil {
 			continue
 		}
-
-		lower := strings.ToLower(rule.Text())
-		if store.rules[lower] == nil {
-			store.rules[lower] = make(map[uint]bool)
-		}
-
-		// you can't overwrite an ALLOW because that takes precedence
-		if !store.rules[lower][groupIdx] {
-			store.rules[lower][groupIdx] = ALLOW == rule.RuleType()
-			counter++
-		}
+		counter++
 	}
+	idx := 0
+	stringRules := make([]string, counter)
+	for _, r := range rules {
+		if r == nil {
+			continue
+		}
+		stringRules[idx] = r.Text()
+		idx++
+	}
+
+	// case insensitive string/rule sort
+	sort.Slice(stringRules, func(i, j int) bool {
+		return sortfold.CompareFold(stringRules[i], stringRules[j]) < 0
+	})
+
+	// save rules
+	store.rules[list.CanonicalName()] = stringRules
 
 	return counter
 }
 
+func foundInList(rules []string, domain string) bool {
+	// search for the domain
+	idx := sort.Search(len(rules), func(i int) bool {
+		return sortfold.CompareFold(rules[i], domain) >= 0
+	})
+
+	// check that search found what we expected and return true if found
+	if idx < len(rules) && strings.EqualFold(rules[idx], domain) {
+		return true
+	}
+
+	// otherwise return false
+	return false
+}
+
+func (store *memoryStore) FindMatch(lists []*config.GudgeonList, domain string) Match {
+	// allow and block split
+	allowLists := make([]*config.GudgeonList, 0)
+	blockLists := make([]*config.GudgeonList, 0)
+	for _, l := range lists {
+		if ParseType(l.Type) == ALLOW {
+			allowLists = append(allowLists, l)
+		} else {
+			blockLists = append(blockLists, l)
+		}
+	}
+
+	domains := util.DomainList(domain)
+
+	for _, list := range allowLists {
+		rules, found := store.rules[list.CanonicalName()]
+		if !found {
+			continue
+		}
+		for _, d := range domains {
+			if foundInList(rules, d) {
+				return MatchAllow
+			}
+		}
+	}
+
+	for _, list := range blockLists {
+		rules, found := store.rules[list.CanonicalName()]
+		if !found {
+			continue
+		}
+		for _, d := range domains {
+			if foundInList(rules, d) {
+				return MatchBlock
+			}
+		}
+	}
+
+	return MatchNone
+}
+
+/*
 func (store *memoryStore) IsMatchAny(groups []string, domain string) Match {
 	// if we don't know about rules exit
 	if store.rules == nil {
@@ -101,3 +162,4 @@ func (store *memoryStore) IsMatchAny(groups []string, domain string) Match {
 func (store *memoryStore) IsMatch(group string, domain string) Match {
 	return store.IsMatchAny([]string{group}, domain)
 }
+*/
