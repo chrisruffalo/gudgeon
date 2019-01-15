@@ -9,6 +9,7 @@ require (
 	github.com/mitchellh/gox v0.4.0 // indirect
 	github.com/mitchellh/iochan v1.0.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
 	golang.org/x/crypto v0.0.0-20190103213133-ff983b9c42bc // indirect
 	golang.org/x/net v0.0.0-20190110200230-915654e7eabc // indirect

@@ -4,10 +4,17 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 
 	"github.com/miekg/dns"
+	metrics "github.com/rcrowley/go-metrics"
 
 	"github.com/chrisruffalo/gudgeon/resolver"
+)
+
+const (
+	loggerRoutines = 2
+	metricRoutines = 2
 )
 
 type logMsg struct {
@@ -19,8 +26,25 @@ type logMsg struct {
 	rCon     *resolver.RequestContext
 }
 
-func logger(c chan *logMsg) {
-	for c := range logChan {
+// init counters in default registry
+var queryMeter = metrics.GetOrRegisterMeter("total-queries", metrics.DefaultRegistry)
+var cachedMeter = metrics.GetOrRegisterMeter("total-cache-hits", metrics.DefaultRegistry)
+var blockedMeter = metrics.GetOrRegisterMeter("blocked-queries", metrics.DefaultRegistry)
+
+func metric(input chan *logMsg) {
+	for c := range input {
+		queryMeter.Mark(1)
+		if c.result != nil && c.result.Cached {
+			cachedMeter.Mark(1)
+		}
+		if c.blocked {
+			blockedMeter.Mark(1)
+		}
+	}
+}
+
+func logger(input chan *logMsg) {
+	for c := range input {
 		// get values
 		address := c.address
 		request := c.request
@@ -75,14 +99,32 @@ func logger(c chan *logMsg) {
 
 // create emtpy chan
 var logChan chan *logMsg = nil
+var metChan chan *logMsg = nil
 
+var mux sync.Mutex
 func Log(address net.IP, request *dns.Msg, response *dns.Msg, blocked bool, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
-	if logChan == nil {
-		logChan = make(chan *logMsg)
-		go logger(logChan)
+	// an optimization step (no need to lock in the later event that this is created)
+	if logChan == nil || metChan == nil {
+		mux.Lock()
+		// only continue if logChan is still nil
+		if logChan == nil {
+			logChan = make(chan *logMsg)
+			// add logger routines
+			for rts := 0; rts < loggerRoutines; rts++ {
+				go logger(logChan)
+			}
+		}
+		if metChan == nil {
+			metChan = make(chan *logMsg)
+			// add logger routines
+			for rts := 0; rts < metricRoutines; rts++ {
+				go metric(metChan)
+			}
+		}
+		mux.Unlock()
 	}
 
-	// create message and send
+	// create message for sending to various endpoints
 	msg := new(logMsg)
 	msg.address = &address
 	msg.request = request
@@ -90,5 +132,8 @@ func Log(address net.IP, request *dns.Msg, response *dns.Msg, blocked bool, rCon
 	msg.blocked = blocked
 	msg.result = result
 	msg.rCon = rCon
+
+	// send message to metrics and logging channels
 	logChan <- msg
+	metChan <- msg
 }

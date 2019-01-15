@@ -24,7 +24,7 @@ func (store *memoryStore) Load(conf *config.GudgeonConfig, list *config.GudgeonL
 		store.rules = make(map[string][]string)
 	}
 
-	// filter through rules
+	// filter through rules and count how many rules are in use
 	counter := uint64(0)
 	for _, r := range rules {
 		if r == nil {
@@ -32,6 +32,8 @@ func (store *memoryStore) Load(conf *config.GudgeonConfig, list *config.GudgeonL
 		}
 		counter++
 	}
+	// making the array this way saves memory for very large lists (500K - 1M+ lines)
+	// and doesn't really take any more time
 	idx := 0
 	stringRules := make([]string, counter)
 	for _, r := range rules {
