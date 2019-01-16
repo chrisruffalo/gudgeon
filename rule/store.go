@@ -18,7 +18,7 @@ const (
 
 type RuleStore interface {
 	Load(conf *config.GudgeonConfig, list *config.GudgeonList, rules []Rule) uint64
-	FindMatch(lists []*config.GudgeonList, domain string) Match
+	FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string)
 }
 
 // order of applying/creating/using rules

@@ -44,7 +44,7 @@ func (store *complexStore) Load(conf *config.GudgeonConfig, list *config.Gudgeon
 	return counter
 }
 
-func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string) Match {
+func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string) {
 	// allow and block split
 	allowLists := make([]*config.GudgeonList, 0)
 	blockLists := make([]*config.GudgeonList, 0)
@@ -64,7 +64,7 @@ func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string)
 
 		for _, rule := range rules {
 			if rule.IsMatch(domain) {
-				return MatchAllow
+				return MatchAllow, list, rule.Text()
 			}
 		}
 	}
@@ -77,7 +77,7 @@ func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string)
 
 		for _, rule := range rules {
 			if rule.IsMatch(domain) {
-				return MatchBlock
+				return MatchBlock, list, rule.Text()
 			}
 		}
 	}
@@ -87,7 +87,7 @@ func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string)
 		return store.backingStore.FindMatch(lists, domain)
 	}
 
-	return MatchNone
+	return MatchNone, nil, ""
 }
 
 /*

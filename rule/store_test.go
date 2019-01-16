@@ -43,21 +43,24 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 
 		// check blocked
 		for _, expectedBlock := range data.blocked {
-			if MatchBlock != store.FindMatch(lists, expectedBlock) {
+			result, _, _ := store.FindMatch(lists, expectedBlock)
+			if MatchBlock != result {
 				t.Errorf("Rule '%s' of type %d expected to block '%s' but did not", data.rule, data.ruleType, expectedBlock)
 			}
 		}
 
 		// check allowed
 		for _, expectedAllow := range data.allowed {
-			if MatchAllow != store.FindMatch(lists, expectedAllow) {
+			result, _, _ := store.FindMatch(lists, expectedAllow)
+			if MatchAllow != result {
 				t.Errorf("Rule '%s' of type %d expected to allow '%s' but did not", data.rule, data.ruleType, expectedAllow)
 			}
 		}
 
 		// check no match ata ll
 		for _, expectedNoMatch := range data.nomatch {
-			if MatchNone != store.FindMatch(lists, expectedNoMatch) {
+			result, _, _ := store.FindMatch(lists, expectedNoMatch)
+			if MatchNone != result {
 				t.Errorf("Rule '%s' of type %d expected to not match '%s' but did", data.rule, data.ruleType, expectedNoMatch)
 			}
 		}

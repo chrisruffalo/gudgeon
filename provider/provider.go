@@ -8,14 +8,8 @@ import (
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
+	"github.com/chrisruffalo/gudgeon/qlog"
 )
-
-// incomplete list of not-implemented queries
-var notImplemented = map[uint16]bool{
-	dns.TypeNone: true,
-	dns.TypeIXFR: true,
-	dns.TypeAXFR: true,
-}
 
 type provider struct {
 	engine engine.Engine
@@ -44,35 +38,27 @@ func serve(netType string, host string, port int) {
 }
 
 func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
-	// drop questions that don't meet minimum requirements
-	if request == nil || len(request.Question) < 1 {
-		response := new(dns.Msg)
-		response.SetReply(request)
-		response.Rcode = dns.RcodeRefused
-		writer.WriteMsg(response)
-		return
-	}
+	// define response
+	var response *dns.Msg
 
-	// drop questions that aren't implemented
-	qType := request.Question[0].Qtype
-	if _, found := notImplemented[qType]; found {
-		response := new(dns.Msg)
-		response.SetReply(request)
-		response.Rcode = dns.RcodeNotImplemented
-		writer.WriteMsg(response)
-		return
-	}
-
-	// actually provide some resolution
+	// if an engine is available actually provide some resolution
 	if provider.engine != nil {
-		provider.engine.Handle(writer, request)
+		// make query and get information back for metrics/logging
+		address, eResponse, rCon, result := provider.engine.Handle(writer, request)
+		response = eResponse
+		// goroutine log which is async on the other side
+		qlog.Log(address, request, response, rCon, result)
 	} else {
 		// when no engine defined return that there was a server failure
-		response := new(dns.Msg)
+		response = new(dns.Msg)
 		response.SetReply(request)
 		response.Rcode = dns.RcodeServerFailure
-		writer.WriteMsg(response)
+
+		// log that there is no engine to service request?
 	}
+
+	// write response to response writer
+	writer.WriteMsg(response)
 }
 
 func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine) error {

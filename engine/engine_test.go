@@ -20,10 +20,10 @@ func TestBasicEngine(t *testing.T) {
 	}
 
 	// test engine against block data (should not be blocked)
-	if engine.IsDomainBlocked(net.ParseIP("192.168.0.1"), "google.com") {
+	if blocked, _, _ := engine.IsDomainBlocked(net.ParseIP("192.168.0.1"), "google.com"); blocked {
 		t.Errorf("Domain 'google.com' should not be blocked but it is")
 	}
-	if !engine.IsDomainBlocked(net.ParseIP("192.168.0.1"), "2468.go2cloud.org") {
+	if blocked, _, _ := engine.IsDomainBlocked(net.ParseIP("192.168.0.1"), "2468.go2cloud.org"); !blocked {
 		t.Errorf("Domain '2468.go2cloud.org' should be blocked but it is not")
 	}
 }

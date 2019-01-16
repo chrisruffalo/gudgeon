@@ -15,11 +15,17 @@ import (
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/downloader"
-	"github.com/chrisruffalo/gudgeon/qlog"
 	"github.com/chrisruffalo/gudgeon/resolver"
 	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/util"
 )
+
+// incomplete list of not-implemented queries
+var notImplemented = map[uint16]bool{
+	dns.TypeNone: true,
+	dns.TypeIXFR: true,
+	dns.TypeAXFR: true,
+}
 
 // an active group is a group within the engine
 // that has been processed and is being used to
@@ -87,8 +93,8 @@ func (engine *engine) ListPath(listType string) string {
 }
 
 type Engine interface {
-	IsDomainBlocked(consumer net.IP, domain string) bool
-	Handle(dnsWriter dns.ResponseWriter, request *dns.Msg)
+	IsDomainBlocked(consumer net.IP, domain string) (bool, *config.GudgeonList, string)
+	Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) (*net.IP, *dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
 }
 
 // returns an array of the GudgeonLists that are assigned either by name or by tag from within the list of GudgeonLists in the config file
@@ -368,7 +374,8 @@ func (engine *engine) getConsumerResolvers(consumerIp net.IP) []string {
 	return []string{"default"}
 }
 
-func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) bool {
+// return if the domain is blocked, if it is blocked return the list and rule
+func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) (bool, *config.GudgeonList, string) {
 	// drop ending . if present from domain
 	if strings.HasSuffix(domain, ".") {
 		domain = domain[:len(domain)-1]
@@ -378,9 +385,9 @@ func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) bool {
 	consumer := engine.getConsumerForIp(consumerIp)
 
 	// look in lists for match
-	result := engine.store.FindMatch(consumer.lists, domain)
+	result, list, ruleText := engine.store.FindMatch(consumer.lists, domain)
 
-	return !(result == rule.MatchAllow || result == rule.MatchNone)
+	return !(result == rule.MatchAllow || result == rule.MatchNone), list, ruleText
 }
 
 // handles recursive resolution of cnames
@@ -399,7 +406,7 @@ func (engine *engine) handleCnameResolution(address net.IP, protocol string, ori
 		answer := originalResponse.Answer[0]
 		newName := answer.(*dns.CNAME).Target
 		cnameRequest.Question[0].Name = newName
-		cnameResponse := engine.performRequest(address, protocol, cnameRequest)
+		cnameResponse, _, _ := engine.performRequest(address, protocol, cnameRequest)
 		if cnameResponse != nil && len(cnameResponse.Answer) > 0 {
 			// use response
 			response = cnameResponse
@@ -415,24 +422,44 @@ func (engine *engine) handleCnameResolution(address net.IP, protocol string, ori
 	return response
 }
 
-func (engine *engine) performRequest(address net.IP, protocol string, request *dns.Msg) *dns.Msg {
+func (engine *engine) performRequest(address net.IP, protocol string, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
 	// scope provided finding response
 	var (
 		response *dns.Msg                   = nil
 		result   *resolver.ResolutionResult = nil
 	)
-	blocked := false
 
 	// create context
 	rCon := resolver.DefaultRequestContext()
 	rCon.Protocol = protocol
 
+	// drop questions that don't meet minimum requirements
+	if request == nil || len(request.Question) < 1 {
+		response = new(dns.Msg)
+		response.SetReply(request)
+		response.Rcode = dns.RcodeRefused
+		return response, rCon, result
+	}
+
+	// drop questions that aren't implemented
+	qType := request.Question[0].Qtype
+	if _, found := notImplemented[qType]; found {
+		response = new(dns.Msg)
+		response.SetReply(request)
+		response.Rcode = dns.RcodeNotImplemented
+		return response, rCon, result
+	}
+
 	// get domain name
 	domain := request.Question[0].Name
 
 	// get block status
-	if engine.IsDomainBlocked(address, domain) {
-		blocked = true
+	if blocked, list, ruleText := engine.IsDomainBlocked(address, domain); blocked {
+		// set blocked values
+		result = new(resolver.ResolutionResult)
+		result.Blocked = true
+		result.BlockedList = list
+		result.BlockedRule = ruleText
 
 		// just say that the response code is that the answer wasn't found
 		response = new(dns.Msg)
@@ -454,6 +481,13 @@ func (engine *engine) performRequest(address net.IP, protocol string, request *d
 		}
 	}
 
+	// if no response is found at this point return NXDOMAIN
+	if util.IsEmptyResponse(response) {
+		response = new(dns.Msg)
+		response.SetReply(request)
+		response.Rcode = dns.RcodeNameError
+	}
+
 	// recover and log response... this isn't the best golang paradigm but if we don't
 	// do this then dns just stops and the entire executable crashes and we stop getting
 	// resolution. if you're eating your own dogfood on this one then you lose DNS until
@@ -467,20 +501,10 @@ func (engine *engine) performRequest(address net.IP, protocol string, request *d
 		result.Message = fmt.Sprintf("%v", recovery)
 	}
 
-	// if no response is found at this point return NXDOMAIN
-	if util.IsEmptyResponse(response) {
-		response = new(dns.Msg)
-		response.SetReply(request)
-		response.Rcode = dns.RcodeNameError
-	}
-
-	// goroutine log which is async on the other side
-	qlog.Log(address, request, response, blocked, rCon, result)
-
-	return response
+	return response, rCon, result
 }
 
-func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
+func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) (*net.IP, *dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
 	// allow us to look up the consumer IP
 	var a net.IP = nil
 
@@ -495,8 +519,9 @@ func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) {
 		protocol = "tcp"
 	}
 
-	response := engine.performRequest(a, protocol, request)
+	// perform request and get details
+	response, rCon, result := engine.performRequest(a, protocol, request)
 
-	// write response to response writer
-	dnsWriter.WriteMsg(response)
+	// return results
+	return &a, response, rCon, result
 }

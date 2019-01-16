@@ -55,7 +55,7 @@ func (store *memoryStore) Load(conf *config.GudgeonConfig, list *config.GudgeonL
 	return counter
 }
 
-func foundInList(rules []string, domain string) bool {
+func foundInList(rules []string, domain string) (bool, string) {
 	// search for the domain
 	idx := sort.Search(len(rules), func(i int) bool {
 		return sortfold.CompareFold(rules[i], domain) >= 0
@@ -63,14 +63,14 @@ func foundInList(rules []string, domain string) bool {
 
 	// check that search found what we expected and return true if found
 	if idx < len(rules) && strings.EqualFold(rules[idx], domain) {
-		return true
+		return true, rules[idx]
 	}
 
 	// otherwise return false
-	return false
+	return false, ""
 }
 
-func (store *memoryStore) FindMatch(lists []*config.GudgeonList, domain string) Match {
+func (store *memoryStore) FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string) {
 	// allow and block split
 	allowLists := make([]*config.GudgeonList, 0)
 	blockLists := make([]*config.GudgeonList, 0)
@@ -90,8 +90,8 @@ func (store *memoryStore) FindMatch(lists []*config.GudgeonList, domain string) 
 			continue
 		}
 		for _, d := range domains {
-			if foundInList(rules, d) {
-				return MatchAllow
+			if found, ruleString := foundInList(rules, d); found {
+				return MatchAllow, list, ruleString
 			}
 		}
 	}
@@ -102,13 +102,13 @@ func (store *memoryStore) FindMatch(lists []*config.GudgeonList, domain string) 
 			continue
 		}
 		for _, d := range domains {
-			if foundInList(rules, d) {
-				return MatchBlock
+			if found, ruleString := foundInList(rules, d); found {
+				return MatchBlock, list, ruleString
 			}
 		}
 	}
 
-	return MatchNone
+	return MatchNone, nil, ""
 }
 
 /*

@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	metricsPrefix  = "gudgeon"
 	loggerRoutines = 2
 	metricRoutines = 2
 )
@@ -21,23 +22,21 @@ type logMsg struct {
 	address  *net.IP
 	request  *dns.Msg
 	response *dns.Msg
-	blocked  bool
 	result   *resolver.ResolutionResult
 	rCon     *resolver.RequestContext
 }
 
 // init counters in default registry
-var queryMeter = metrics.GetOrRegisterMeter("total-queries", metrics.DefaultRegistry)
-var cachedMeter = metrics.GetOrRegisterMeter("total-cache-hits", metrics.DefaultRegistry)
-var blockedMeter = metrics.GetOrRegisterMeter("blocked-queries", metrics.DefaultRegistry)
-
 func metric(input chan *logMsg) {
 	for c := range input {
+		queryMeter := metrics.GetOrRegisterMeter(metricsPrefix+"-total-queries", metrics.DefaultRegistry)
 		queryMeter.Mark(1)
 		if c.result != nil && c.result.Cached {
+			cachedMeter := metrics.GetOrRegisterMeter(metricsPrefix+"-total-cache-hits", metrics.DefaultRegistry)
 			cachedMeter.Mark(1)
 		}
-		if c.blocked {
+		if c.result != nil && c.result.Blocked {
+			blockedMeter := metrics.GetOrRegisterMeter(metricsPrefix+"-blocked-queries", metrics.DefaultRegistry)
 			blockedMeter.Mark(1)
 		}
 	}
@@ -49,7 +48,6 @@ func logger(input chan *logMsg) {
 		address := c.address
 		request := c.request
 		response := c.response
-		blocked := c.blocked
 		result := c.result
 		rCon := c.rCon
 
@@ -57,38 +55,47 @@ func logger(input chan *logMsg) {
 		logPrefix := fmt.Sprintf("[%s/%s] q:|%s|%s|->", address.String(), rCon.Protocol, request.Question[0].Name, dns.Type(request.Question[0].Qtype).String())
 		if result != nil {
 			logSuffix := "->"
-			if len(response.Answer) > 0 {
-				responseString := strings.TrimSpace(response.Answer[0].String())
-				responseLen := len(responseString)
-				headerString := strings.TrimSpace(response.Answer[0].Header().String())
-				headerLen := len(headerString)
-				if responseLen > 0 && headerLen < responseLen {
-					logSuffix += strings.TrimSpace(responseString[headerLen:])
-					if len(response.Answer) > 1 {
-						logSuffix += fmt.Sprintf(" (+%d)", len(response.Answer)-1)
-					}
+			if result.Blocked {
+				listName := "UNKNOWN"
+				if result.BlockedList != nil {
+					listName = result.BlockedList.CanonicalName()
 				}
-			}
-
-			// nothing appended so look at SOA
-			if strings.TrimSpace(logSuffix) == "->" {
-				if len(response.Ns) > 0 && response.Ns[0].Header().Rrtype == dns.TypeSOA && len(response.Ns[0].String()) > 0 {
-					logSuffix += response.Ns[0].(*dns.SOA).Ns
-					if len(response.Ns) > 1 {
-						logSuffix += fmt.Sprintf(" (+%d)", len(response.Ns)-1)
-					}
-				} else {
-					logSuffix += "(EMPTY)"
-				}
-			}
-
-			if result.Cached {
-				fmt.Printf("%sc:[%s]%s\n", logPrefix, result.Resolver, logSuffix)
+				ruleText := result.BlockedRule
+				fmt.Printf("%s BLOCKED[%s|%s]\n", logPrefix, listName, ruleText)
 			} else {
-				fmt.Printf("%sr:[%s]->s:[%s]%s\n", logPrefix, result.Resolver, result.Source, logSuffix)
+				if len(response.Answer) > 0 {
+					responseString := strings.TrimSpace(response.Answer[0].String())
+					responseLen := len(responseString)
+					headerString := strings.TrimSpace(response.Answer[0].Header().String())
+					headerLen := len(headerString)
+					if responseLen > 0 && headerLen < responseLen {
+						logSuffix += strings.TrimSpace(responseString[headerLen:])
+						if len(response.Answer) > 1 {
+							logSuffix += fmt.Sprintf(" (+%d)", len(response.Answer)-1)
+						}
+					} else {
+						logSuffix += "(EMPTY RESPONSE)"
+					}
+				}
+
+				// nothing appended so look at SOA
+				if strings.TrimSpace(logSuffix) == "->" {
+					if len(response.Ns) > 0 && response.Ns[0].Header().Rrtype == dns.TypeSOA && len(response.Ns[0].String()) > 0 {
+						logSuffix += response.Ns[0].(*dns.SOA).Ns
+						if len(response.Ns) > 1 {
+							logSuffix += fmt.Sprintf(" (+%d)", len(response.Ns)-1)
+						}
+					} else {
+						logSuffix += "(EMPTY)"
+					}
+				}
+
+				if result.Cached {
+					fmt.Printf("%sc:[%s]%s\n", logPrefix, result.Resolver, logSuffix)
+				} else {
+					fmt.Printf("%sr:[%s]->s:[%s]%s\n", logPrefix, result.Resolver, result.Source, logSuffix)
+				}
 			}
-		} else if blocked {
-			fmt.Printf("%s BLOCKED\n", logPrefix)
 		} else if response.Rcode == dns.RcodeServerFailure {
 			fmt.Printf("%s SERVFAIL:[%s]\n", logPrefix, result.Message)
 		} else {
@@ -102,7 +109,8 @@ var logChan chan *logMsg = nil
 var metChan chan *logMsg = nil
 
 var mux sync.Mutex
-func Log(address net.IP, request *dns.Msg, response *dns.Msg, blocked bool, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
+
+func Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
 	// an optimization step (no need to lock in the later event that this is created)
 	if logChan == nil || metChan == nil {
 		mux.Lock()
@@ -126,10 +134,9 @@ func Log(address net.IP, request *dns.Msg, response *dns.Msg, blocked bool, rCon
 
 	// create message for sending to various endpoints
 	msg := new(logMsg)
-	msg.address = &address
+	msg.address = address
 	msg.request = request
 	msg.response = response
-	msg.blocked = blocked
 	msg.result = result
 	msg.rCon = rCon
 

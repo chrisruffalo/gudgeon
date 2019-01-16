@@ -29,6 +29,10 @@ type ResolutionContext struct {
 	ResolverUsed string // the resolver that did the work
 	SourceUsed   string // actual source that did the resolution
 	Cached       bool   // was the result found by querying the Cache
+	// reporting on blocks
+	Blocked     bool
+	BlockedList *config.GudgeonList // name of blocked list
+	BlockedRule string              // name of actual rule
 }
 
 func DefaultResolutionContext() *ResolutionContext {
@@ -38,6 +42,8 @@ func DefaultResolutionContext() *ResolutionContext {
 	context.ResolverUsed = ""
 	context.SourceUsed = ""
 	context.Cached = false
+	context.Blocked = false
+	context.BlockedRule = ""
 	return context
 }
 

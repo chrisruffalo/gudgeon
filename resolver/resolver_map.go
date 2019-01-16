@@ -27,6 +27,11 @@ type ResolutionResult struct {
 	Source   string
 	Resolver string
 	Message  string // errors/panics/context hints
+
+	// reporting on blocks
+	Blocked     bool
+	BlockedList *config.GudgeonList // name of blocked list
+	BlockedRule string              // name of actual rule
 }
 
 func result(context *ResolutionContext) *ResolutionResult {
