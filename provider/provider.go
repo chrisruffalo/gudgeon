@@ -59,6 +59,12 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 
 	// write response to response writer
 	writer.WriteMsg(response)
+
+	// we were having some errors during write that we need to figure out
+	// and this is a good(??) way to try and find them out.
+	if recovery := recover(); recovery != nil {
+		fmt.Printf("recovered from error: %v\n", recovery)
+	}
 }
 
 func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine) error {
