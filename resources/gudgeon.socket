@@ -1,0 +1,6 @@
+[Unit]
+Description=Gudgeon Socket
+
+[Socket]
+ListenStream=53
+NoDelay=true

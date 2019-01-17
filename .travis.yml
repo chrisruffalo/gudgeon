@@ -7,8 +7,10 @@ env:
 - GO111MODULE=on
 
 before_install:
-  - sudo apt-get install -y upx-ucl
+  - sudo apt-get install -y upx-ucl ruby ruby-dev rubygems build-essential
+  - gem install --no-ri --no-rdoc fpm
   - export VERSION=${TRAVIS_TAG:$(shell git rev-parse --abbrev-ref HEAD)}
+  - export NUMBER=${VERSION:1}
 
 git:
   depth: 1
@@ -16,11 +18,21 @@ git:
 notifications:
   email: false
 
+script:
+  - make test
+  - make minimize
+  - OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make rpm
+  - OS_BIN_ARCH=386 OS_ARCH=x86 make rpm
+  - OS_BIN_ARCH=arm OS_ARCH=arm make rpm
+  - OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make deb
+  - OS_BIN_ARCH=386 OS_ARCH=i386 make deb
+  - OS_BIN_ARCH=arm OS_ARCH=armhf make deb
+
 deploy:
   provider: releases
   api_key: "$GITHUB_OAUTH_TOKEN"
   file_glob: true
-  file: build/*
+  file: build/gudgeon*
   skip_cleanup: true
   overwrite: true
   on:

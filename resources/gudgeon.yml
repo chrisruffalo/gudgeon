@@ -1,0 +1,46 @@
+---
+# ====================================================================
+# Default configuration that mimic's Pihole out of the box
+# ====================================================================
+gudgeon:
+  home: /var/lib/gudgeon
+
+  network:
+    tcp: true
+    udp: true
+    interfaces:
+    - ip: 0.0.0.0
+      port: 5354
+
+  resolvers:
+  - name: default
+    sources:
+    - 8.8.8.8
+
+  lists:
+  - name: global white list
+    src: /etc/gudgeon/whitelist.txt
+    type: allow
+  - name: global black list
+    src: /etc/gudgeon/blacklist.txt
+  - name: stephen's black list
+    src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+  - name: malware domains
+    src: https://mirror1.malwaredomains.com/files/justdomains
+  - name: cameleon
+    src: http://sysctl.org/cameleon/hosts
+  - name: zeus tracker
+    src: https://zeustracker.abuse.ch/blocklist.php?download=domainblocklist
+  - name: disconnect.me tracking
+    src: https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt
+  - name: disconnect.me ads
+    src: https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
+  - name: hosts-file.net
+    src: https://hosts-file.net/ad_servers.txt
+
+  groups:
+  - name: default
+    tags:
+    - default
+    resolvers:
+    - default

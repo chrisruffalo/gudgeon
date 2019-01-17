@@ -1,0 +1,14 @@
+[Unit]
+Description=Gudgeon Service
+Requires=gudgeon.socket
+After=network.service
+
+[Service]
+User=gudgeon
+Group=gudgeon
+WorkingDirectory=/var/lib/gudgeon
+ExecStart=/usr/bin/gudgeon -c /etc/gudgeon/gudgeon.yml
+
+
+[Install]
+WantedBy=default.target
