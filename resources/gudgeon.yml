@@ -8,9 +8,8 @@ gudgeon:
   network:
     tcp: true
     udp: true
-    interfaces:
-    - ip: 0.0.0.0
-      port: 5354
+    # use systemd listeners
+    systemd: true 
 
   resolvers:
   - name: default

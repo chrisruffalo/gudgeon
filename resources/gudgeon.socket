@@ -1,6 +1,8 @@
 [Unit]
 Description=Gudgeon Socket
+PartOf=gudgeon.service
 
 [Socket]
-ListenStream=53
+ListenStream=0.0.0.0:53
+ListenDatagram=0.0.0.0:53
 NoDelay=true

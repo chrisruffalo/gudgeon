@@ -2,6 +2,7 @@ module github.com/chrisruffalo/gudgeon
 
 require (
 	github.com/akutz/sortfold v0.2.1
+	github.com/coreos/go-systemd v0.0.0-20181031085051-9002847aa142
 	github.com/google/uuid v1.0.0
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/miekg/dns v1.1.2

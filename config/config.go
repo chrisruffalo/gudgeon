@@ -31,6 +31,8 @@ type GudgeonNetwork struct {
 	TCP bool `yaml:"tcp"`
 	// udp: true when the default for all interfaces is to use udp
 	UDP bool `yaml:"udp"`
+	// systemd: also accept listeners request from systemd
+	Systemd bool `yaml:"systemd"`
 	// endpoints: list of string endpoints that should have dns
 	Interfaces []*GudgeonInterface `yaml:"interfaces"`
 }

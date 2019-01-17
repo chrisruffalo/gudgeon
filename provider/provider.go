@@ -2,8 +2,10 @@ package provider
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 
+	"github.com/coreos/go-systemd/activation"
 	"github.com/miekg/dns"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -27,12 +29,31 @@ func NewProvider() Provider {
 	return provider
 }
 
-func serve(netType string, host string, port int) {
-	addr := host + ":" + strconv.Itoa(port)
-	fmt.Printf("%s server on address: %s ...\n", netType, addr)
-	server := &dns.Server{Addr: addr, Net: netType, TsigSecret: nil}
+func serve(netType string, addr string) {
+	fmt.Printf("Server %s on address: %s ...\n", netType, addr)
+	server := &dns.Server{Addr: addr, Net: netType}
 	if err := server.ListenAndServe(); err != nil {
 		fmt.Printf("Failed starting %s server: %s\n", netType, err.Error())
+		return
+	}
+}
+
+func listen(listener net.Listener, packetConn net.PacketConn) {
+	server := &dns.Server{}
+	if packetConn != nil {
+		if t, ok := packetConn.(*net.UDPConn); ok && t != nil {
+			fmt.Printf("Listen on datagram: %s\n", t.LocalAddr().String())
+		} else {
+			fmt.Printf("Listen on unspecified datagram\n")
+		}
+		server.PacketConn = packetConn
+	} else if listener != nil {
+		fmt.Printf("Listen on stream: %s\n", listener.Addr().String())
+		server.Listener = listener
+	}
+
+	if err := server.ActivateAndServe(); err != nil {
+		fmt.Printf("Failed to listen: %s\n", err.Error())
 		return
 	}
 }
@@ -75,10 +96,15 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 		return nil
 	}
 
+	// file descriptors from systemd
+	fileSockets := activation.Files(true)
+
 	// interfaces
 	interfaces := netConf.Interfaces
-	if interfaces == nil || len(interfaces) < 1 {
-		// todo: log no interfaces
+
+	// if no interfaces and either systemd isn't enabled or 
+	if (interfaces == nil || len(interfaces) < 1) && (netConf.Systemd && len(fileSockets) < 1) {
+		fmt.Printf("No interfaces provided through configuration file or systemd(enabled=%t)\n", netConf.Systemd)
 		return nil
 	}
 
@@ -92,12 +118,31 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 
 	defaultTcp := true
 	defaultUdp := true
-	for _, iface := range interfaces {
-		if defaultTcp {
-			go serve("tcp", iface.IP, iface.Port)
+
+	if netConf.Systemd && len(fileSockets) > 0 {
+		fmt.Printf("Using [%d] systemd listeners...\n", len(fileSockets))
+		for _, f := range fileSockets {
+			// check if udp
+			if pc, err := net.FilePacketConn(f); err == nil {
+				go listen(nil, pc)			
+				f.Close()
+			} else if pc, err := net.FileListener(f); err == nil { // then check if tcp
+				go listen(pc, nil)
+				f.Close()
+			}
 		}
-		if defaultUdp {
-			go serve("udp", iface.IP, iface.Port)
+	}
+
+	if len(interfaces) > 0 {
+		fmt.Printf("Using [%d] configured interfaces...\n", len(interfaces))
+		for _, iface := range interfaces {
+			addr := iface.IP + ":" + strconv.Itoa(iface.Port)
+			if defaultTcp {
+				go serve("tcp", addr)
+			}
+			if defaultUdp {
+				go serve("udp", addr)
+			}
 		}
 	}
 
