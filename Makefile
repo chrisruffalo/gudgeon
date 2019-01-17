@@ -17,8 +17,10 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 
-# upx command
+# upx command (minimizes/compresses binaries)
 UPXCMD=upx
+
+# fpm command (gem for creating packages)
 FPMCMD=fpm
 
 # the build targets
