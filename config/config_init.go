@@ -1,5 +1,9 @@
 package config
 
+func boolPointer(b bool) *bool {
+	return &b
+}
+
 // encapsulate logic to make it easier to read in this file
 func (config *GudgeonConfig) verifyAndInit() error {
 
@@ -11,6 +15,7 @@ func (config *GudgeonConfig) verifyAndInit() error {
 		}
 	} else {
 		config.Network = &GudgeonNetwork{}
+		config.Network.verifyAndInit()
 	}
 
 	return nil
@@ -19,10 +24,13 @@ func (config *GudgeonConfig) verifyAndInit() error {
 func (network *GudgeonNetwork) verifyAndInit() error {
 	// set default values for tcp and udp if nil
 	if network.TCP == nil {
-		network.TCP = func(b bool) *bool { return &b }(true)
+		network.TCP = boolPointer(true)
 	}
 	if network.UDP == nil {
-		network.UDP = func(b bool) *bool { return &b }(true)
+		network.UDP = boolPointer(true)
+	}
+	if network.Systemd == nil {
+		network.Systemd = boolPointer(true)
 	}
 
 	// do the same for all configured interfaces

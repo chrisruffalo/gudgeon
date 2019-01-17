@@ -11,13 +11,13 @@ For all of these reasons Gudgeon has been created to allow more flexibility in h
 ## Features
 
 * Go Routines for non-blocking request handling enables high-througput especially with simultaneous requests
+* Systemd Integration to run as non-root user (with access to priveleged ports through Systemd sockets)
 * Configure upstream DNS types (tcp-tls/dns-over-tls, tcp, and udp) explicitly
 * Using regular expressions and wildcards to block DNS names
 * Matching an address (or subnet, or subnet range) to a user and determining what blocklists to use
-* Having resolvers for certain subnets
-* Inline host files
-* Wildcard resolution from host files
-* CNAME/PTR records in host files
+* Having resolvers for certain/specific subnets based on matching incoming connections
+* Inline host file entries in configuration file
+* Enhanced (and backwards-compatible) hostname format supports wildcard names, CNAME/PTR entries, and reverse lookups
 
 ## Concept of Operations
 

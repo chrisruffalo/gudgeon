@@ -104,8 +104,8 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 	interfaces := netConf.Interfaces
 
 	// if no interfaces and either systemd isn't enabled or
-	if (interfaces == nil || len(interfaces) < 1) && (netConf.Systemd && len(fileSockets) < 1) {
-		fmt.Printf("No interfaces provided through configuration file or systemd(enabled=%t)\n", netConf.Systemd)
+	if (interfaces == nil || len(interfaces) < 1) && (*netConf.Systemd && len(fileSockets) < 1) {
+		fmt.Printf("No interfaces provided through configuration file or systemd(enabled=%t)\n", *netConf.Systemd)
 		return nil
 	}
 
@@ -116,7 +116,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 
 	// global dns handle function
 	dns.HandleFunc(".", provider.handle)
-	if netConf.Systemd && len(fileSockets) > 0 {
+	if *netConf.Systemd && len(fileSockets) > 0 {
 		fmt.Printf("Using [%d] systemd listeners...\n", len(fileSockets))
 		for _, f := range fileSockets {
 			// check if udp
