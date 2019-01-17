@@ -74,7 +74,7 @@ rpm: ## Build target linux/redhat RPM for $OS_BIN_ARCH/$OS_ARCH
 		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)-VERSION.ARCH.rpm" -t rpm -a $(OS_ARCH) -n $(BINARY_NAME) -v $(NUMBER) --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --directories="/etc/$(BINARY_NAME)" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --before-install ./resources/before_install.sh --after-install ./resources/after_install.sh --prefix / -C $(BUILD_DIR)/pkgtmp
 		rm -rf $(BUILD_DIR)/pkgtmp
 
-deb: ## Build deb file
+deb: ## Build deb file for $OS_BIN_ARCH/$OS_ARCH
 		rm -rf $(BUILD_DIR)/pkgtmp
 		rm -rf $(BUILD_DIR)/$(BINARY_NAME)*$(OS_ARCH)*.deb
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)
