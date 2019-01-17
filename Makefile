@@ -39,7 +39,7 @@ OS_BIN_ARCH?=amd64
 OS_ARCH?=x86_64
 
 # common FPM commands
-FPMCOMMON=-a $(OS_ARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration $(GITHASH) --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --before-install ./resources/before_install.sh --after-install ./resources/after_install.sh --after-upgrade ./resources/after_upgrade.sh --prefix / -C $(BUILD_DIR)/pkgtmp
+FPMCOMMON=-a $(OS_ARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration $(GITHASH) --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --before-install ./resources/before_install.sh --after-install ./resources/after_install.sh --prefix / -C $(BUILD_DIR)/pkgtmp
 
 all: test build minimize
 .PHONY: all test build clean minimize rpm
