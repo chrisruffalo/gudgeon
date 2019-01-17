@@ -9,7 +9,7 @@ env:
 before_install:
   - sudo apt-get install -y upx-ucl ruby ruby-dev build-essential
   - gem install --no-ri --no-rdoc fpm
-  - export VERSION=${TRAVIS_TAG:$(shell git rev-parse --abbrev-ref HEAD)}
+  - export VERSION=${TRAVIS_TAG:$(git rev-parse --abbrev-ref HEAD)}
   - export NUMBER=${VERSION:1}
 
 git:
