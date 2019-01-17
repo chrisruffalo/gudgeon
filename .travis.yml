@@ -24,7 +24,7 @@ script:
 before_deploy:
   - make minimize
   - OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make rpm
-  - OS_BIN_ARCH=386 OS_ARCH=x86 make rpm
+  - OS_BIN_ARCH=386 OS_ARCH=i686 make rpm
   - OS_BIN_ARCH=arm OS_ARCH=arm make rpm
   - OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make deb
   - OS_BIN_ARCH=386 OS_ARCH=i386 make deb
