@@ -38,6 +38,9 @@ OS_VERSION?=7
 OS_BIN_ARCH?=amd64
 OS_ARCH?=x86_64
 
+# common FPM commands
+FPMCOMMON=-a $(OS_ARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration $(GITHASH) --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --before-install ./resources/before_install.sh --after-install ./resources/after_install.sh --after-upgrade ./resources/after_upgrade.sh --prefix / -C $(BUILD_DIR)/pkgtmp
+
 all: test build minimize
 .PHONY: all test build clean minimize rpm
 
@@ -71,7 +74,7 @@ rpm: ## Build target linux/redhat RPM for $OS_BIN_ARCH/$OS_ARCH
 		cp ./resources/gudgeon.socket $(BUILD_DIR)/pkgtmp/lib/systemd/system/gudgeon.socket
 		cp ./resources/gudgeon.service $(BUILD_DIR)/pkgtmp/lib/systemd/system/gudgeon.service
 		cp ./resources/gudgeon.yml $(BUILD_DIR)/pkgtmp/etc/gudgeon/gudgeon.yml
-		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)-VERSION-$(GITHASH).ARCH.rpm" -t rpm -a $(OS_ARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration $(GITHASH) --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --before-install ./resources/before_install.sh --after-install ./resources/after_install.sh --prefix / -C $(BUILD_DIR)/pkgtmp
+		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)-VERSION-$(GITHASH).ARCH.rpm" -t rpm $(FPMCOMMON)
 		rm -rf $(BUILD_DIR)/pkgtmp
 
 deb: ## Build deb file for $OS_BIN_ARCH/$OS_ARCH
@@ -87,5 +90,5 @@ deb: ## Build deb file for $OS_BIN_ARCH/$OS_ARCH
 		cp ./resources/gudgeon.socket $(BUILD_DIR)/pkgtmp/lib/systemd/system/gudgeon.socket
 		cp ./resources/gudgeon.service $(BUILD_DIR)/pkgtmp/lib/systemd/system/gudgeon.service
 		cp ./resources/gudgeon.yml $(BUILD_DIR)/pkgtmp/etc/gudgeon/gudgeon.yml
-		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)_VERSION-$(GITHASH)_ARCH.deb" -t deb -a $(OS_ARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration $(GITHASH) --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --before-install ./resources/before_install.sh --after-install ./resources/after_install.sh --prefix / -C $(BUILD_DIR)/pkgtmp
+		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)_VERSION-$(GITHASH)_ARCH.deb" -t deb $(FPMCOMMON)
 		rm -rf $(BUILD_DIR)/pkgtmp	
