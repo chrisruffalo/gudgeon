@@ -10,9 +10,8 @@ For all of these reasons Gudgeon has been created to allow more flexibility in h
 
 ## Features
 
-Gudgeon is primarily designed as a blocking/caching DNS proxy. Blocking and block lists are treated as first-order tasks and entities. What this means is that it isn't just taking in a big list of redirects or invalid IPs as a block list but instead it is written with the concept of blocking DNS queries in mind.
-
-In addition to that Gudgeon has the following other features:
+* Go Routines for non-blocking request handling enables high-througput especially with simultaneous requests
+* Configure upstream DNS types (tcp-tls/dns-over-tls, tcp, and udp) explicitly
 * Using regular expressions and wildcards to block DNS names
 * Matching an address (or subnet, or subnet range) to a user and determining what blocklists to use
 * Having resolvers for certain subnets
@@ -48,7 +47,7 @@ Many people reading this are going to point to Pi-Hole or at least Dnsmasq. Thos
 
 The first is always the reason that comes up with Open Source Software: I wanted to do it myself. I have some small experience with DNS manipulation in Go and I [really enjoyed it](https://github.com/chrisruffalo/gyip) so I wanted to do something with a little more complexity.
 
-The other reason is that neither of those solutions will have the right feature set for me without a significant amount of tweaking. They also provide a lot more *DNS* features than Gudgeon ever will. Gudgeon aims to focus on the classification of consumers and what to allow, block, or redirect based on that classification. It does not aim to provide a completely comprehensive DNS proxy.
+The other reason is that neither of those solutions will have the right feature set for me without a significant amount of tweaking. They also provide a lot more **DNS** features than Gudgeon ever will. Gudgeon aims to focus on the classification of consumers and what to allow, block, or redirect based on that classification. It does not aim to provide a completely comprehensive DNS proxy or more than a small subset of DNS features.
 
 Finally I wanted to build something that is a little more self-contained and easier to deploy. In the end I expect Gudgeon to be a small container-based solution or a single deployable binary with minimal configuration required.
 
