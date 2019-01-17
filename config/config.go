@@ -13,24 +13,32 @@ import (
 
 var remoteProtocols = []string{"http:", "https:"}
 
-// interface
+type GudgeonTLS struct {
+	Enabled bool `yaml:"enabled"`
+}
+
+// network interface information
 type GudgeonInterface struct {
 	// the IP of the interface. The interface 0.0.0.0 means "all"
 	IP string `yaml:"ip"`
 	// The port to listen on (on the given interface), defaults to 53
 	Port int `yaml:"port"`
 	// Should this port listen on TCP? (defaults to the value of Network.TCP which defaults to true)
-	TCP bool `yaml:"tcp"`
+	TCP *bool `yaml:"tcp"`
 	// Should this port listen on UDP? (defaults to the value of Network.UDP which defaults to true)
-	UDP bool `yaml:"udp"`
+	UDP *bool `yaml:"udp"`
+	// TLS settings
+	TLS *GudgeonTLS `yaml:"tls"`
 }
 
 // network: general dns network configuration
 type GudgeonNetwork struct {
+	// Global TLS settings
+	TLS *GudgeonTLS `yaml:"tls"`
 	// tcp: true when the default for all interfaces is to use tcp
-	TCP bool `yaml:"tcp"`
+	TCP *bool `yaml:"tcp"`
 	// udp: true when the default for all interfaces is to use udp
-	UDP bool `yaml:"udp"`
+	UDP *bool `yaml:"udp"`
 	// systemd: also accept listeners request from systemd
 	Systemd bool `yaml:"systemd"`
 	// endpoints: list of string endpoints that should have dns
@@ -147,10 +155,6 @@ func (config *GudgeonConfig) SessionRoot() string {
 
 func (config *GudgeonConfig) CacheRoot() string {
 	return path.Join(config.Home, "cache")
-}
-
-func (config *GudgeonConfig) verifyAndInit() error {
-	return nil
 }
 
 func Load(filename string) (*GudgeonConfig, error) {

@@ -1,29 +1,47 @@
 package resolver
 
 import (
+	"crypto/tls"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/miekg/dns"
+
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 const (
-	defaultPort   = uint(53)
-	portDelimeter = ":"
+	defaultPort    = uint(53)
+	defaultTlsPort = uint(853)
+	portDelimeter  = ":"
+	protoDelimeter = "/"
 )
+
+var validProtocols = []string{"udp", "tcp", "tcp-tls"}
 
 type dnsSource struct {
 	dnsServer     string
 	port          uint
 	remoteAddress string
+	protocol      string
 }
 
 func newDnsSource(sourceAddress string) Source {
 	source := new(dnsSource)
 	source.port = 0
-	source.dnsServer = sourceAddress
+	source.dnsServer = ""
+	source.protocol = ""
+
+	// determine first if there is an attached protocol
+	if strings.Contains(sourceAddress, protoDelimeter) {
+		split := strings.Split(sourceAddress, protoDelimeter)
+		if len(split) > 1 && util.StringIn(strings.ToLower(split[1]), validProtocols) {
+			sourceAddress = split[0]
+			source.protocol = strings.ToLower(split[1])
+		}
+	}
 
 	// need to determine if a port comes along with the address and parse it out once
 	if strings.Contains(sourceAddress, portDelimeter) {
@@ -39,11 +57,17 @@ func newDnsSource(sourceAddress string) Source {
 				source.port = uint(parsePort)
 			}
 		}
+	} else {
+		source.dnsServer = sourceAddress
 	}
 
 	// recover from parse errors or use default port in event port wasn't set
 	if source.port == 0 {
-		source.port = defaultPort
+		if "tcp-tls" == source.protocol {
+			source.port = defaultTlsPort
+		} else {
+			source.port = defaultPort
+		}
 	}
 
 	// save/parse remote address once
@@ -60,8 +84,16 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 	var err error = nil
 
 	co := new(dns.Conn)
-	if co.Conn, err = net.DialTimeout(coType, remoteAddress, 2*time.Second); err != nil {
-		return nil, err
+	if coType == "tcp-tls" {
+		dialer := &net.Dialer{}
+		dialer.Timeout = 2 * time.Second
+		if co.Conn, err = tls.DialWithDialer(dialer, "tcp", remoteAddress, nil); err != nil {
+			return nil, err
+		}
+	} else {
+		if co.Conn, err = net.DialTimeout(coType, remoteAddress, 2*time.Second); err != nil {
+			return nil, err
+		}
 	}
 	defer co.Close()
 
@@ -75,23 +107,17 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 
 func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	// default
-	protocol := "udp"
-	if rCon != nil {
+	protocol := dnsSource.protocol
+	if protocol == "" && rCon != nil {
 		protocol = rCon.Protocol
+	} else if protocol == "" {
+		protocol = "udp"
 	}
 
 	// forward message without interference
 	response, err := dnsSource.query(protocol, request, dnsSource.remoteAddress)
 	if err != nil {
-		// on tcp err fall back to udp
-		if rCon.Protocol == "tcp" {
-			protocol = "udp"
-			response, err = dnsSource.query(protocol, request, dnsSource.remoteAddress)
-		}
-
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	// do not set reply here (doesn't seem to matter, leaving this comment so nobody decides to do it in the future without cause)

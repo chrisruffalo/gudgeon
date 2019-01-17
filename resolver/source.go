@@ -3,6 +3,7 @@ package resolver
 import (
 	"net"
 	"os"
+	"strings"
 
 	"github.com/miekg/dns"
 )
@@ -18,8 +19,8 @@ func NewSource(sourceSpecification string) Source {
 		return newHostFileSource(sourceSpecification)
 	}
 
-	// a source that is an IP address is a dns source
-	if ip := net.ParseIP(sourceSpecification); ip != nil {
+	// a source that is an IP or that has other hallmarks of an address is a dns source
+	if ip := net.ParseIP(sourceSpecification); ip != nil || strings.Contains(sourceSpecification, ":") || strings.Contains(sourceSpecification, "/") {
 		return newDnsSource(sourceSpecification)
 	}
 

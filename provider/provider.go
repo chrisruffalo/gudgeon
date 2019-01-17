@@ -116,10 +116,6 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 
 	// global dns handle function
 	dns.HandleFunc(".", provider.handle)
-
-	defaultTcp := true
-	defaultUdp := true
-
 	if netConf.Systemd && len(fileSockets) > 0 {
 		fmt.Printf("Using [%d] systemd listeners...\n", len(fileSockets))
 		for _, f := range fileSockets {
@@ -138,10 +134,10 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 		fmt.Printf("Using [%d] configured interfaces...\n", len(interfaces))
 		for _, iface := range interfaces {
 			addr := iface.IP + ":" + strconv.Itoa(iface.Port)
-			if defaultTcp {
+			if *iface.TCP {
 				go serve("tcp", addr)
 			}
-			if defaultUdp {
+			if *iface.UDP {
 				go serve("udp", addr)
 			}
 		}

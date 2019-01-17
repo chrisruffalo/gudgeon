@@ -15,6 +15,11 @@ func IsEmptyResponse(response *dns.Msg) bool {
 		return true
 	}
 
+	// NXDOMAIN is pretty much empty
+	if response.Rcode == dns.RcodeNameError {
+		return true
+	}
+
 	// guard against basic issues
 	if len(response.Answer) < 1 && len(response.Ns) < 1 && len(response.Extra) < 1 {
 		return true

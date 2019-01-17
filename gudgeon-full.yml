@@ -43,8 +43,8 @@ gudgeon:
     - cloudflare
   - name: google
     sources:
-    - 8.8.8.8
-    - 8.8.8.4
+    - 8.8.8.8/tcp-tls # force tcp-tls
+    - 8.8.4.4/tcp # next try tcp
   - name: local
     search:
     - lan
