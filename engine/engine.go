@@ -294,7 +294,7 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		// send rule array to engine store
 		count := engine.store.Load(conf, list, rules)
 		fmt.Printf("Loaded %d rules from %s\n", count, list.CanonicalName())
-	}	
+	}
 
 	// process or clean up consumers
 

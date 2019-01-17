@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	urls "net/url"
 	"os"
 	paths "path"
 	"strings"
@@ -53,38 +52,33 @@ func downloadFile(engine Engine, path string, url string) error {
 
 	// if we can't resolve the url normally we might need to use the configured resolvers to find it... eek
 	if engine != nil {
-		// parse out url
-		parsedUrl, urlErr := urls.Parse(url)
-		if urlErr == nil {
-			hostname := parsedUrl.Hostname()
-
-			// if we can resolve the IP we continue with the resolution substitution
-			resolvedIP, err := engine.Resolve(hostname)
-			if err == nil && "" != resolvedIP {
-				// create dialer
-			    dialer := &net.Dialer{
-			        Timeout:   5 * time.Second,
-			        KeepAlive: 5 * time.Second,
-			        DualStack: true,
-			    }
-
-				// create transport
-				tr := &http.Transport {}
-
-				// update the dial context in the client which allows us to replace the dialed address
-				// with the one that we create here
-				tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-					// replace the dial with the resolved dial
-    				if strings.HasPrefix(addr, hostname + ":")  {
-        				addr = strings.Replace(addr, hostname, resolvedIP, 1)
-    				}
-    				return dialer.DialContext(ctx, network, addr)					
-    			}
-
-				// set transport on client
-				client.Transport = tr
-			}
+		// create dialer
+		dialer := &net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 5 * time.Second,
+			DualStack: true,
 		}
+
+		// create transport
+		tr := &http.Transport{}
+
+		// update the dial context in the client which allows us to replace the dialed address
+		// with the one that we create here
+		tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			// manually resolve address if it is not an ip
+			split := strings.Split(addr, ":")
+			if len(split) > 1 && net.ParseIP(split[0]) == nil {
+				resolvedIP, err := engine.Resolve(split[0])
+				if err == nil && "" != resolvedIP {
+					addr = resolvedIP + ":" + split[1]
+				}
+			}
+			// chain the dialer into the default context either using the new address or the original address if no resolution happened
+			return dialer.DialContext(ctx, network, addr)
+		}
+
+		// set transport on client
+		client.Transport = tr
 	}
 
 	resp, err := client.Get(url)
