@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	"github.com/coreos/go-systemd/activation"
 	"github.com/miekg/dns"
@@ -30,7 +31,7 @@ func NewProvider() Provider {
 }
 
 func serve(netType string, addr string) {
-	fmt.Printf("Server %s on address: %s ...\n", netType, addr)
+	fmt.Printf("%s on address: %s\n", strings.ToUpper(netType), addr)
 	server := &dns.Server{Addr: addr, Net: netType}
 	if err := server.ListenAndServe(); err != nil {
 		fmt.Printf("Failed starting %s server: %s\n", netType, err.Error())
@@ -102,7 +103,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 	// interfaces
 	interfaces := netConf.Interfaces
 
-	// if no interfaces and either systemd isn't enabled or 
+	// if no interfaces and either systemd isn't enabled or
 	if (interfaces == nil || len(interfaces) < 1) && (netConf.Systemd && len(fileSockets) < 1) {
 		fmt.Printf("No interfaces provided through configuration file or systemd(enabled=%t)\n", netConf.Systemd)
 		return nil
@@ -124,7 +125,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 		for _, f := range fileSockets {
 			// check if udp
 			if pc, err := net.FilePacketConn(f); err == nil {
-				go listen(nil, pc)			
+				go listen(nil, pc)
 				f.Close()
 			} else if pc, err := net.FileListener(f); err == nil { // then check if tcp
 				go listen(pc, nil)
