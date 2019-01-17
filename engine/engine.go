@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -14,7 +15,6 @@ import (
 	"github.com/miekg/dns"
 
 	"github.com/chrisruffalo/gudgeon/config"
-	"github.com/chrisruffalo/gudgeon/downloader"
 	"github.com/chrisruffalo/gudgeon/resolver"
 	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/util"
@@ -94,6 +94,7 @@ func (engine *engine) ListPath(listType string) string {
 
 type Engine interface {
 	IsDomainBlocked(consumer net.IP, domain string) (bool, *config.GudgeonList, string)
+	Resolve(domainName string) (string, error)
 	Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) (*net.IP, *dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
 }
 
@@ -150,51 +151,6 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	// get lists from the configuration
 	lists := conf.Lists
 
-	// load lists (from remote urls)
-	for _, list := range lists {
-		// get list path
-		path := conf.PathToList(list)
-
-		// skip non-remote lists
-		if !list.IsRemote() {
-			continue
-		}
-
-		// skip downloading, don't need to download unless
-		// certain conditions are met, which should be triggered
-		// from inside the app or similar and not every time
-		// an engine is created
-		if _, err := os.Stat(path); err == nil {
-			continue
-		}
-
-		// load/download list if required
-		err := downloader.Download(conf, list)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// load list rules into stores
-	for _, list := range conf.Lists {
-		path := conf.PathToList(list)
-		array, err := util.GetFileAsArray(path)
-		if err != nil {
-			continue
-		}
-
-		// now parse the array by creating rules and storing them
-		parsedType := rule.ParseType(list.Type)
-		rules := make([]rule.Rule, len(array))
-		for idx, ruleText := range array {
-			rules[idx] = rule.CreateRule(ruleText, parsedType)
-		}
-
-		// send rule array to engine store
-		count := engine.store.Load(conf, list, rules)
-		fmt.Printf("Loaded %d rules from %s\n", count, list.CanonicalName())
-	}
-
 	// empty groups list of size equal to available groups
 	workingGroups := append([]*config.GudgeonGroup{}, conf.Groups...)
 
@@ -226,7 +182,7 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		engineGroup.configGroup = configGroup
 
 		// determine which lists belong to this group
-		engineGroup.lists = assignedLists(configGroup.Lists, configGroup.Tags, conf.Lists)
+		engineGroup.lists = assignedLists(configGroup.Lists, configGroup.Tags, lists)
 
 		// add created engine group to list of groups
 		groups[idx] = engineGroup
@@ -294,6 +250,51 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		// add active consumer to list
 		consumers[index] = consumer
 	}
+
+	// load lists (from remote urls)
+	for _, list := range lists {
+		// get list path
+		path := conf.PathToList(list)
+
+		// skip non-remote lists
+		if !list.IsRemote() {
+			continue
+		}
+
+		// skip downloading, don't need to download unless
+		// certain conditions are met, which should be triggered
+		// from inside the app or similar and not every time
+		// an engine is created
+		if _, err := os.Stat(path); err == nil {
+			continue
+		}
+
+		// load/download list if required
+		err := Download(engine, conf, list)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// load list rules into stores
+	for _, list := range lists {
+		path := conf.PathToList(list)
+		array, err := util.GetFileAsArray(path)
+		if err != nil {
+			continue
+		}
+
+		// now parse the array by creating rules and storing them
+		parsedType := rule.ParseType(list.Type)
+		rules := make([]rule.Rule, len(array))
+		for idx, ruleText := range array {
+			rules[idx] = rule.CreateRule(ruleText, parsedType)
+		}
+
+		// send rule array to engine store
+		count := engine.store.Load(conf, list, rules)
+		fmt.Printf("Loaded %d rules from %s\n", count, list.CanonicalName())
+	}	
 
 	// process or clean up consumers
 
@@ -504,6 +505,36 @@ func (engine *engine) performRequest(address net.IP, protocol string, request *d
 	}
 
 	return response, rCon, result
+}
+
+func (engine *engine) Resolve(domainName string) (string, error) {
+	m := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Authoritative:     true,
+			AuthenticatedData: true,
+			CheckingDisabled:  true,
+			RecursionDesired:  true,
+			Opcode:            dns.OpcodeQuery,
+		},
+	}
+
+	if domainName == "" {
+		return domainName, errors.New("cannot resolve empty domain name")
+	}
+
+	if !strings.HasSuffix(domainName, ".") {
+		domainName += "."
+	}
+
+	// make question parts
+	m.Question = make([]dns.Question, 1)
+	m.Question[0] = dns.Question{Name: domainName, Qtype: dns.TypeA, Qclass: dns.ClassINET}
+
+	// get just response
+	response, _, _ := engine.performRequest(net.ParseIP("127.0.0.1"), "udp", m)
+
+	// return answer
+	return util.GetFirstAResponse(response), nil
 }
 
 func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) (*net.IP, *dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {

@@ -1,17 +1,18 @@
-package downloader
+package engine
 
 import (
-	"github.com/chrisruffalo/gudgeon/config"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/chrisruffalo/gudgeon/config"
 )
 
 // shortcut method that downloads all lists
 func downloadAll(t *testing.T, config *config.GudgeonConfig) error {
 	// go through lists
 	for _, list := range config.Lists {
-		err := Download(config, list)
+		err := Download(nil, config, list)
 		if err != nil {
 			t.Logf("Error downloading list=<< %s >>: %s", list.Name, err)
 		}

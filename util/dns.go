@@ -42,3 +42,19 @@ func IsEmptyResponse(response *dns.Msg) bool {
 
 	return true
 }
+
+func GetFirstAResponse(response *dns.Msg) string {
+	if IsEmptyResponse(response) {
+		return ""
+	}
+
+	for _, answer := range response.Answer {
+		if aRecord, ok := answer.(*dns.A); ok {
+			if aRecord != nil {
+				return aRecord.A.String()
+			}
+		}
+	}
+
+	return ""
+}
