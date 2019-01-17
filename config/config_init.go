@@ -4,9 +4,16 @@ package config
 func (config *GudgeonConfig) verifyAndInit() error {
 
 	// network verification
-	err := config.Network.verifyAndInit()
+	if config.Network != nil {
+		err := config.Network.verifyAndInit()
+		if err != nil {
+			return err
+		}
+	} else {
+		config.Network = &GudgeonNetwork{}
+	}
 
-	return err
+	return nil
 }
 
 func (network *GudgeonNetwork) verifyAndInit() error {
