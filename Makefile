@@ -61,7 +61,7 @@ minimize: build ## Binimize build
 
 rpm: ## Build target linux/redhat RPM for $OS_BIN_ARCH/$OS_ARCH
 		rm -rf $(BUILD_DIR)/pkgtmp
-		rm -rf $(BUILD_DIR)/$(BINARY_NAME)*$(OS_ARCH)*.rpm
+		rm -rf $(BUILD_DIR)/$(BINARY_NAME)*$(OS_ARCH).rpm
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)/lists
 		mkdir -p $(BUILD_DIR)/pkgtmp/usr/bin/
@@ -76,8 +76,8 @@ rpm: ## Build target linux/redhat RPM for $OS_BIN_ARCH/$OS_ARCH
 
 deb: ## Build deb file for $OS_BIN_ARCH/$OS_ARCH
 		rm -rf $(BUILD_DIR)/pkgtmp
-		rm -rf $(BUILD_DIR)/$(BINARY_NAME)*$(OS_BIN_ARCH)*.deb
-		rm -rf $(BUILD_DIR)/$(BINARY_NAME)*$(OS_ARCH)*.deb
+		rm -rf $(BUILD_DIR)/$(BINARY_NAME)*$(OS_BIN_ARCH).deb
+		rm -rf $(BUILD_DIR)/$(BINARY_NAME)*$(OS_ARCH).deb
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)/lists
 		mkdir -p $(BUILD_DIR)/pkgtmp/usr/bin/

@@ -28,8 +28,8 @@ When a request is received Gudgeon does the following:
 * Check for matching groups, if no groups are matched, use the "default" group.
 * Determine if the domain is blocked based on the lists that belong to the matched group(s)
 * Get resolvers for groups, if no resolvers are matched,  use the "default" resolver.
-* Attempt to resolve the domain using the resolvers that belonged to the groups
-* Return the result
+* Attempt to resolve the domain using the resolver sources that belonged to the groups
+* Return the result from the source or the result of a blocked request
 
 The point is to provide several different ways to change behavior away from the standard (and single-pathed) resolution heirarchy that is familiar to us from most DNS providers. The main way to do this is by assigning consumers to different groups (subnets, IPs, IP ranges) or by structuring resolvers to work in a way that more accurately reflects the needs of your site.
 
@@ -43,13 +43,15 @@ In Gudgeon a "resolver" is a set of configuration and sources that are used to r
 
 ## What About Dnsmasq and Pi-Hole?
 
-Many people reading this are going to point to Pi-Hole or at least Dnsmasq. Those projects are absolutely excellent and they are really inspirations to me as I work on Gudgeon. However, there are a few reasons why these projects are not sufficient for what I am trying to accomplish. I should also note that most people **don't want** what Gudgeon does and, frankly, that's pretty expected.
+Many people reading this are going to point to Pi-Hole or at least Dnsmasq. Those projects are absolutely excellent and they are really inspirations to me as I work on Gudgeon. However, there are a few reasons why these projects are not sufficient for what I am trying to accomplish. I should also note that most people **don't want** what Gudgeon does and, frankly, that's pretty expected. There are also people who need the extra features provided by Pi-Hole or Dnsmasq and that's fine too.
 
-The first is always the reason that comes up with Open Source Software: I wanted to do it myself. I have some small experience with DNS manipulation in Go and I [really enjoyed it](https://github.com/chrisruffalo/gyip) so I wanted to do something with a little more complexity.
+The first reason is what always comes up with Open Source Software: I wanted to do it myself. I have some small experience with DNS manipulation in Go and I [really enjoyed it](https://github.com/chrisruffalo/gyip) so I wanted to do something with a little more complexity.
 
-The other reason is that neither of those solutions will have the right feature set for me without a significant amount of tweaking. They also provide a lot more **DNS** features than Gudgeon ever will. Gudgeon aims to focus on the classification of consumers and what to allow, block, or redirect based on that classification. It does not aim to provide a completely comprehensive DNS proxy or more than a small subset of DNS features.
+The other reason is that neither of those solutions will have the right feature set for me without a significant amount of tweaking. A lot of sources say to either use firewall rules and run two instances of your DNS server or to configure each potential client individually. I feel like this is the point I came to and decided to actually do something about it because I really didn't want to run two DNS servers or manage configuration that way... so I spent hours writing a DNS proxy instead.
 
-Finally I wanted to build something that is a little more self-contained and easier to deploy. In the end I expect Gudgeon to be a small container-based solution or a single deployable binary with minimal configuration required.
+Pi-hole and Dnsmasq also provide a lot more **DNS** features than Gudgeon ever will. Gudgeon aims to focus on the classification of consumers and what to allow, block, or redirect based on that classification. It does not aim to provide a completely comprehensive DNS proxy or more than a small subset of DNS features.
+
+Finally I wanted to build something that is a little more self-contained and easier to deploy. Gudgeon is a small container-based solution or a single deployable binary with minimal configuration required.
 
 ## Building
 Prerequisites
