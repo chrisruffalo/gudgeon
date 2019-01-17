@@ -7,7 +7,7 @@ env:
 - GO111MODULE=on
 
 before_install:
-  - sudo apt-get install -y upx-ucl ruby ruby-dev build-essential
+  - sudo apt-get install -y upx-ucl ruby ruby-dev build-essential rpm
   - gem install --no-ri --no-rdoc fpm
   - export VERSION=${TRAVIS_TAG:$(git rev-parse --abbrev-ref HEAD)}
   - export NUMBER=${VERSION:1}

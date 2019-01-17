@@ -1,4 +1,4 @@
-# Gudgeon
+# Gudgeon [![Build Status](https://travis-ci.org/chrisruffalo/gudgeon.svg?branch=master)](https://travis-ci.org/chrisruffalo/gudgeon)
 
 ## Overview
 
@@ -7,6 +7,18 @@ Gudgeon is a caching/blocking DNS proxy server. What sets Gudgeon appart is the 
 Take, for example, a user who has shown persistent inability to avoid internet scams. You can assign that user's machine(s) to group(s) that block more suspicious DNS requests. On the other hand you might want to allow a device like a Google Home or Alexa unit to have full access to the internet except for tracking/advert websites. You might want to create extensive blocklists to protect kids who use the internet from their devices.
 
 For all of these reasons Gudgeon has been created to allow more flexibility in host-based DNS blocking.
+
+## Features
+
+Gudgeon is primarily designed as a blocking/caching DNS proxy. Blocking and block lists are treated as first-order tasks and entities. What this means is that it isn't just taking in a big list of redirects or invalid IPs as a block list but instead it is written with the concept of blocking DNS queries in mind.
+
+In addition to that Gudgeon has the following other features:
+* Using regular expressions and wildcards to block DNS names
+* Matching an address (or subnet, or subnet range) to a user and determining what blocklists to use
+* Having resolvers for certain subnets
+* Inline host files
+* Wildcard resolution from host files
+* CNAME/PTR records in host files
 
 ## Concept of Operations
 
@@ -30,7 +42,7 @@ In Gudgeon a "resolver" is a set of configuration and sources that are used to r
 
 **TODO**
 
-## Comparison to Dnsmasq and Pi-Hole
+## What About Dnsmasq and Pi-Hole?
 
 Many people reading this are going to point to Pi-Hole or at least Dnsmasq. Those projects are absolutely excellent and they are really inspirations to me as I work on Gudgeon. However, there are a few reasons why these projects are not sufficient for what I am trying to accomplish. I should also note that most people **don't want** what Gudgeon does and, frankly, that's pretty expected.
 
@@ -43,5 +55,8 @@ Finally I wanted to build something that is a little more self-contained and eas
 ## Building
 Prerequisites
 * Go > 1.11 (module support is *required*)
+* `upx` (for binary compression)
+* `fpm` (for building deb/rpm)
+* Docker (for building docker images)
 
 With the prerequisites you need to do to build Gudgeon is `[user@host]$ make` and the output binary will be `build/gudgeon` statically compiled for the platform you built it on. The binary is statically compiled to make it easily portable to platforms and other systems that do not have Golang compilers.
