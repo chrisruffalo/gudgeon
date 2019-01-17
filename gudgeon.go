@@ -9,6 +9,7 @@ import (
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
 	"github.com/chrisruffalo/gudgeon/provider"
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 // pick up version from build process
@@ -34,10 +35,16 @@ func main() {
 	// debug print config
 	fmt.Printf("Gudgeon %s\n===============================\n", LongVersion)
 
+	// clean out session directory
+	if "" != config.SessionRoot() {
+		util.ClearDirectory(config.SessionRoot())
+	}
+
 	// prepare engine with config options
 	engine, err := engine.New(config)
 	if err != nil {
 		fmt.Printf("%s\n", err)
+		os.Exit(1)
 	}
 
 	// create a new provider and start hosting
@@ -48,5 +55,11 @@ func main() {
 	sig := make(chan os.Signal)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	s := <-sig
+
+	// clean out session directory
+	if "" != config.SessionRoot() {
+		util.ClearDirectory(config.SessionRoot())
+	}
+
 	fmt.Printf("Signal (%s) received, stopping\n", s)
 }

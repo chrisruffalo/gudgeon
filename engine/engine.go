@@ -135,7 +135,9 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 
 	// create session key
 	uuid := uuid.New()
-	engine.session = base64.RawURLEncoding.EncodeToString([]byte(uuid.String()))
+
+	// and make a hidden session folder from  it
+	engine.session = "." + base64.RawURLEncoding.EncodeToString([]byte(uuid.String()))
 
 	// make required paths
 	os.MkdirAll(conf.Home, os.ModePerm)
