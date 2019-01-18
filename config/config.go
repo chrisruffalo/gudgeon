@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"path"
@@ -48,6 +47,7 @@ type GudgeonNetwork struct {
 	Interfaces []*GudgeonInterface `yaml:"interfaces"`
 }
 
+// a resolver is composed of a list of sources to get DNS information from
 type GudgeonResolver struct {
 	// name of the resolver
 	Name string `yaml:"name"`
@@ -182,13 +182,13 @@ func Load(filename string) (*GudgeonConfig, error) {
 
 	// return nil config object without config file (propagate error)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not load file '%s', error: %s", filename, err))
+		return nil, fmt.Errorf("Could not load file '%s', error: %s", filename, err)
 	}
 
 	// if file is read then unmarshal from data
 	yErr := yaml.Unmarshal(bytes, root)
 	if yErr != nil {
-		return nil, errors.New(fmt.Sprintf("Error unmarshaling file '%s', error: %s", filename, yErr))
+		return nil, fmt.Errorf("Error unmarshaling file '%s', error: %s", filename, yErr)
 	}
 
 	// get config

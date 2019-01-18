@@ -81,7 +81,8 @@ func (dnsSource *dnsSource) Name() string {
 }
 
 func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress string) (*dns.Msg, error) {
-	var err error = nil
+	// error collection
+	var err error
 
 	co := new(dns.Conn)
 	if coType == "tcp-tls" {

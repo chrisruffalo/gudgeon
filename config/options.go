@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"github.com/jessevdk/go-flags"
 	"os"
@@ -40,7 +39,7 @@ func Options(longVersion string) (GudgeonOptions, error) {
 		os.Exit(0)
 		// otherwise we just throw back an error
 	} else if err != nil {
-		return opts, errors.New(fmt.Sprintf("Error parsing commands: %s", err))
+		return opts, fmt.Errorf("Error parsing commands: %s", err)
 	}
 
 	return opts, nil

@@ -2,7 +2,6 @@ package engine
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"net"
 	"path"
@@ -95,7 +94,7 @@ type Engine interface {
 }
 
 func (engine *engine) getConsumerForIp(consumerIp net.IP) *consumer {
-	var foundConsumer *consumer = nil
+	var foundConsumer *consumer
 
 	for _, activeConsumer := range engine.consumers {
 		for _, match := range activeConsumer.configConsumer.Matches {
@@ -181,7 +180,7 @@ func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) (bool, *
 // handles recursive resolution of cnames
 func (engine *engine) handleCnameResolution(address net.IP, protocol string, originalRequest *dns.Msg, originalResponse *dns.Msg) *dns.Msg {
 	// scope provided finding response
-	var response *dns.Msg = nil
+	var response *dns.Msg
 
 	// guard
 	if originalResponse == nil || len(originalResponse.Answer) < 1 || originalRequest == nil || len(originalRequest.Question) < 1 {
@@ -213,8 +212,8 @@ func (engine *engine) handleCnameResolution(address net.IP, protocol string, ori
 func (engine *engine) performRequest(address net.IP, protocol string, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
 	// scope provided finding response
 	var (
-		response *dns.Msg                   = nil
-		result   *resolver.ResolutionResult = nil
+		response *dns.Msg
+		result   *resolver.ResolutionResult
 	)
 
 	// create context
@@ -303,7 +302,7 @@ func (engine *engine) Resolve(domainName string) (string, error) {
 	}
 
 	if domainName == "" {
-		return domainName, errors.New("cannot resolve empty domain name")
+		return domainName, fmt.Errorf("cannot resolve an empty domain name")
 	}
 
 	if !strings.HasSuffix(domainName, ".") {
@@ -323,7 +322,7 @@ func (engine *engine) Resolve(domainName string) (string, error) {
 
 func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) (*net.IP, *dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
 	// allow us to look up the consumer IP
-	var a net.IP = nil
+	var a net.IP
 
 	// get consumer ip from request
 	protocol := ""

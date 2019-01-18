@@ -7,8 +7,13 @@ import (
 	"github.com/ryanuber/go-glob"
 )
 
+// the constant that means ALLOW after pasring "allow" or "block"
 const ALLOW = uint8(1)
+
+// the constant that means BLOCK after pasring "allow" or "block"
 const BLOCK = uint8(0)
+
+// the string that represents "allow", all other results are treated as "block"
 const ALLOWSTRING = "allow"
 
 const (
@@ -57,7 +62,7 @@ func CreateRule(rule string, ruleType uint8) Rule {
 	}
 	rule = strings.TrimSpace(rule)
 
-	var createdRule Rule = nil
+	var createdRule Rule
 
 	// a rule that can be split on spaces is more complicated, for right now just take everything after the first space
 	split := strings.Split(rule, " ")

@@ -105,8 +105,8 @@ func logger(input chan *logMsg) {
 }
 
 // create emtpy chan
-var logChan chan *logMsg = nil
-var metChan chan *logMsg = nil
+var logChan chan *logMsg
+var metChan chan *logMsg
 
 var mux sync.Mutex
 
