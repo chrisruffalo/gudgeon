@@ -111,7 +111,7 @@ func (resolver *resolver) answer(rCon *RequestContext, context *ResolutionContex
 			continue
 		}
 
-		// if the response is not emtpy and the response is not explicitly NXDOMAIN go on to the next source
+		// if the response is not empty and the response is not explicitly NXDOMAIN go on to the next source
 		if !util.IsEmptyResponse(response) {
 			//  update the used resolver
 			if context != nil && "" == context.ResolverUsed {

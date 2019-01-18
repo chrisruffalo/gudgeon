@@ -16,7 +16,7 @@ type AppOptions struct {
 }
 
 type GudgeonOptions struct {
-	// explict app group
+	// explicit app group
 	AppOptions AppOptions `group:"Application Options"`
 
 	// emulate help flag with direct support for accessing it
