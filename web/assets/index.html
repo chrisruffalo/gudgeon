@@ -1,19 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
   <link rel="stylesheet" type="text/css" href="vendor/css/patternfly.min.css">
   <link rel="stylesheet" type="text/css" href="vendor/css/patternfly-additions.min.css">
 </head>
-<body>
-  <div class="container">
+<body class="cards-pf">
 
-    <!-- Just enjoy various PatternFly components -->
-    <div class="alert alert-success">
-      <span class="pficon pficon-ok"></span>
-      <strong>Great job!</strong> This is really working out <a href="#" class="alert-link">great for us</a>.
+  <!-- navbar / header -->
+  <nav class="navbar navbar-default navbar-pf" role="navigation">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse-1">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="/"><h3>Gudgeon</h3></a>
     </div>
+    <div class="collapse navbar-collapse navbar-collapse-1">
+      <ul class="nav navbar-nav navbar-primary">
+        <li>
+          <a href="/"><span class="fa pficon-home"></span> Home</a>
+        </li>
+      </ul>
+    </div>
+  </nav>
 
+  <!-- rules / blocked / status -->
+  <div class="container-fluid container-cards-pf" id="main">
+    <div class="row row-cards-pf">
+
+      <!-- rules card -->      
+      <div class="col-xs-12 col-sm-4 col-md-4">
+        <div class="card-pf card-pf-accented card-pf-aggregate-status card-pf-aggregate-status-mini">
+          <h2 class="card-pf-title">
+            <span class="fa pficon-route"></span>
+            <span class="card-pf-aggregate-status-count">2,300,240</span> Active Rules
+          </h2>
+          <div class="card-pf-body">
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xs-12 col-sm-4 col-md-4">
+        <div class="card-pf card-pf-accented card-pf-aggregate-status card-pf-aggregate-status-mini">
+          <h2 class="card-pf-title">
+            <span class="fa pficon-connected"></span>
+            <span class="card-pf-aggregate-status-count">2,300,240</span> Queries Served
+          </h2>
+          <div class="card-pf-body">
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xs-12 col-sm-4 col-md-4">
+        <div class="card-pf card-pf-accented card-pf-aggregate-status card-pf-aggregate-status-mini">
+          <h2 class="card-pf-title">
+            <span class="fa pficon-disconnected"></span>
+            <span class="card-pf-aggregate-status-count">230,024</span> Blocked Queries
+          </h2>
+          <div class="card-pf-body">
+            <span class="card-pf-aggregate-status-notification">10%</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 
   <script src="vendor/js/jquery.min.js"></script>

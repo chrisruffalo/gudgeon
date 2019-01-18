@@ -9,5 +9,5 @@ target
 build
 *.out
 
-# ignore binary asset packer files
+# ignore asset files from vendors
 **/vendor
