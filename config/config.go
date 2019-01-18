@@ -104,10 +104,18 @@ type GundgeonConsumer struct {
 	Matches []*GudgeonMatch `yaml:"matches"`
 }
 
+type GudgeonWeb struct {
+	Enabled bool     `yaml:"enabled"`
+	Address string  `yaml:"address"`
+	Port int        `yaml:"port"`
+}
+
 type GudgeonConfig struct {
 	Home string `yaml:"home"`
 
 	Network *GudgeonNetwork `yaml:"network"`
+
+	Web *GudgeonWeb `yaml:"web"`
 
 	Resolvers []*GudgeonResolver `yaml:"resolvers"`
 

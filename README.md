@@ -55,9 +55,13 @@ Finally I wanted to build something that is a little more self-contained and eas
 
 ## Building
 Prerequisites
+* Ability to use Makefiles (`make` command installed)
 * Go > 1.11 (module support is *required*)
 * `upx` (for binary compression)
 * `fpm` (for building deb/rpm)
 * Docker (for building docker images)
+* GLIBC for target platforms
+  * Ubuntu: libc6-dev-i386, libc6-dev
+  * Red Hat: glibc-devel.i686, glibc-devel
 
 With the prerequisites you need to do to build Gudgeon is `[user@host]$ make` and the output binary will be `build/gudgeon` statically compiled for the platform you built it on. The binary is statically compiled to make it easily portable to platforms and other systems that do not have Golang compilers.

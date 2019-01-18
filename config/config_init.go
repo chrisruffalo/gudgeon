@@ -1,21 +1,33 @@
 package config
 
+import (
+	//"errors"
+)
+
 func boolPointer(b bool) *bool {
 	return &b
 }
 
 // encapsulate logic to make it easier to read in this file
 func (config *GudgeonConfig) verifyAndInit() error {
+	// collect errors for reporting/combining into one error
+	errors := make([]error, 0)
 
 	// network verification
-	if config.Network != nil {
-		err := config.Network.verifyAndInit()
-		if err != nil {
-			return err
-		}
-	} else {
+	if config.Network == nil {
 		config.Network = &GudgeonNetwork{}
-		config.Network.verifyAndInit()
+	}	
+	if err := config.Network.verifyAndInit(); err != nil {
+		errors = append(errors, err)
+	}
+
+	// web defaults and verification
+	if config.Web == nil {
+		config.Web = &GudgeonWeb {
+			Enabled: true,
+			Address: "127.0.0.1",
+			Port: 9009,
+		}
 	}
 
 	return nil

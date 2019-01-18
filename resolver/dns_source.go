@@ -106,6 +106,11 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 }
 
 func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	// this is considered a recursive query so don't if recursion was not requested
+	if request == nil || !request.MsgHdr.RecursionDesired {
+		return nil, nil
+	}
+
 	// default
 	protocol := dnsSource.protocol
 	if protocol == "" && rCon != nil {

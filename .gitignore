@@ -8,3 +8,6 @@ go.sum
 target
 build
 *.out
+
+# ignore binary asset packer files
+**/vendor

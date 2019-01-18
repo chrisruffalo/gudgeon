@@ -10,6 +10,7 @@ import (
 	"github.com/chrisruffalo/gudgeon/engine"
 	"github.com/chrisruffalo/gudgeon/provider"
 	"github.com/chrisruffalo/gudgeon/util"
+	"github.com/chrisruffalo/gudgeon/web"
 )
 
 // pick up version from build process
@@ -33,7 +34,7 @@ func main() {
 	}
 
 	// debug print config
-	fmt.Printf("Gudgeon %s\n===============================\n", LongVersion)
+	fmt.Printf("===============================\nGudgeon %s\n===============================\n", LongVersion)
 
 	// clean out session directory
 	if "" != config.SessionRoot() {
@@ -50,6 +51,12 @@ func main() {
 	// create a new provider and start hosting
 	provider := provider.NewProvider()
 	provider.Host(config, engine)
+
+	// open web ui if web enabled
+	if config.Web.Enabled {
+		web := web.New()
+		web.Serve(config)
+	}
 
 	// wait for signal
 	sig := make(chan os.Signal)
