@@ -81,7 +81,6 @@ func (dnsSource *dnsSource) Name() string {
 }
 
 func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress string) (*dns.Msg, error) {
-	// error collection
 	var err error
 
 	co := new(dns.Conn)

@@ -104,7 +104,7 @@ func logger(input chan *logMsg) {
 	}
 }
 
-// create emtpy chan
+// create empty chan
 var logChan chan *logMsg
 var metChan chan *logMsg
 

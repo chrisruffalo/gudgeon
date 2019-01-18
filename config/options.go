@@ -35,7 +35,7 @@ func Options(longVersion string) (GudgeonOptions, error) {
 		if opts.HelpOptions.Help {
 			parser.WriteHelp(os.Stdout)
 		}
-		// and then we explicitly quit here
+		// and then we quit here after showing the help
 		os.Exit(0)
 		// otherwise we just throw back an error
 	} else if err != nil {
