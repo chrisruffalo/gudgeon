@@ -217,7 +217,7 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 
 		// store metrics for loaded list
 		totalRulesCounter.Inc(int64(count))
-		rulesCounter := metrics.GetOrRegisterCounter("gudgeon-" + list.ShortName() + "-rules", metrics.DefaultRegistry)
+		rulesCounter := metrics.GetOrRegisterCounter("gudgeon-"+list.ShortName()+"-rules", metrics.DefaultRegistry)
 		rulesCounter.Clear()
 		rulesCounter.Inc(int64(count))
 	}
