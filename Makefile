@@ -66,8 +66,8 @@ download: ## Download newest supplementary assets (todo: maybe replace with webp
 
 		mkdir -p ./web/assets/vendor/img
 		mkdir -p ./web/assets/vendor/fonts
-		cp -r ./build/vendor/$(PFPATH)/dist/img ./web/assets/vendor/img
-		cp -r ./build/vendor/$(PFPATH)/dist/fonts ./web/assets/vendor/fonts
+		cp ./build/vendor/$(PFPATH)/dist/img/* ./web/assets/vendor/img/.
+		cp ./build/vendor/$(PFPATH)/dist/fonts/* ./web/assets/vendor/fonts/.
 
 		mkdir -p ./web/assets/vendor/css
 		cp ./build/vendor/$(PFPATH)/dist/css/patternfly.min.css ./web/assets/vendor/css/patternfly.min.css
