@@ -7,6 +7,7 @@ Vue.filter('percentage', function (value, decimals) {
   return Math.round(value * Math.pow(10, decimals)) / Math.pow(10, decimals) + '%'
 })
 
+// display number as it would be in the current locale
 Vue.filter('localeNumber', function (value) {
   return Number(value).toLocaleString()
 })
@@ -40,8 +41,8 @@ var app = new Vue({
   },
   mounted () {
     this.fetchMetric("counter","gudgeon-total-rules","total_rules", 60000)
-    this.fetchMetric("meter","gudgeon-total-queries","total_queries", 750)
-    this.fetchMetric("meter","gudgeon-blocked-queries","blocked_queries", 750)
+    this.fetchMetric("meter","gudgeon-total-queries","total_queries", 1750)
+    this.fetchMetric("meter","gudgeon-blocked-queries","blocked_queries", 1750)
   },
   beforeDestroy() {
     for(var key in this.retryIntervals) {
