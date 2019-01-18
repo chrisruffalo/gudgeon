@@ -64,6 +64,8 @@ download: ## Download newest supplementary assets (todo: maybe replace with webp
 
 		rm -rf ./web/assets/vendor/*
 
+		mkdir -p ./web/assets/vendor/img
+		mkdir -p ./web/assets/vendor/fonts
 		cp -r ./build/vendor/$(PFPATH)/dist/img ./web/assets/vendor/img
 		cp -r ./build/vendor/$(PFPATH)/dist/fonts ./web/assets/vendor/fonts
 
