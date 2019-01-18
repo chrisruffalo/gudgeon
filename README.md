@@ -60,8 +60,10 @@ Prerequisites
 * `upx` (for binary compression)
 * `fpm` (for building deb/rpm)
 * Docker (for building docker images)
-* GLIBC for target platforms
-  * Ubuntu: libc6-dev-i386, libc6-dev
-  * Red Hat: glibc-devel.i686, glibc-devel
 
-With the prerequisites you need to do to build Gudgeon is `[user@host]$ make` and the output binary will be `build/gudgeon` statically compiled for the platform you built it on. The binary is statically compiled to make it easily portable to platforms and other systems that do not have Golang compilers.
+With the prerequisites installed you can build Gudgeon by...
+* Downloading vendor assets (patternfly, vue, etc) with `[]$ make download`
+* Preparing your environment with needed Go tools with `[]$ make prepare`
+* Building the binary with `[]make`
+
+The `download` target is used to download new dependencies when needed. The `prepare` target is only needed if the required Go tools change. The output of the process is a statically compiled for a few different platforms. The binary is statically compiled to make it easily portable to platforms and other systems that do not have Golang compilers.
