@@ -290,8 +290,8 @@ func (hostFileSource *hostFileSource) Answer(rCon *RequestContext, context *Reso
 	// create new response message
 	response := &dns.Msg{
 		MsgHdr: dns.MsgHdr{
-			Authoritative:     true,
-			Opcode:            dns.OpcodeQuery,
+			Authoritative: true,
+			Opcode:        dns.OpcodeQuery,
 		},
 	}
 	response.SetReply(request)

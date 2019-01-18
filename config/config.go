@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"regexp"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 
@@ -12,6 +14,7 @@ import (
 )
 
 var remoteProtocols = []string{"http:", "https:"}
+var alphaRegex, _ = regexp.Compile("[^a-zA-Z0-9]+")
 
 type GudgeonTLS struct {
 	Enabled bool `yaml:"enabled"`
@@ -105,9 +108,9 @@ type GundgeonConsumer struct {
 }
 
 type GudgeonWeb struct {
-	Enabled bool     `yaml:"enabled"`
-	Address string  `yaml:"address"`
-	Port int        `yaml:"port"`
+	Enabled bool   `yaml:"enabled"`
+	Address string `yaml:"address"`
+	Port    int    `yaml:"port"`
 }
 
 type GudgeonConfig struct {
@@ -136,6 +139,11 @@ func (list *GudgeonList) CanonicalName() string {
 		return list.Source
 	}
 	return list.Name
+}
+
+func (list *GudgeonList) ShortName() string {
+	name := strings.ToLower(list.CanonicalName())
+	return alphaRegex.ReplaceAllString(name, "")
 }
 
 func (list *GudgeonList) IsRemote() bool {

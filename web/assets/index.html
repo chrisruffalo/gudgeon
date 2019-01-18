@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-
+  <title>Gudgeon</title>
 
   <link rel="stylesheet" type="text/css" href="vendor/css/patternfly.min.css">
   <link rel="stylesheet" type="text/css" href="vendor/css/patternfly-additions.min.css">
@@ -41,7 +41,7 @@
         <div class="card-pf card-pf-accented card-pf-aggregate-status card-pf-aggregate-status-mini">
           <h2 class="card-pf-title">
             <span class="fa pficon-route"></span>
-            <span class="card-pf-aggregate-status-count">2,300,240</span> Active Rules
+            <span class="card-pf-aggregate-status-count">{{ total_rules.count }}</span> Active Rules
           </h2>
           <div class="card-pf-body">
           </div>
@@ -52,7 +52,7 @@
         <div class="card-pf card-pf-accented card-pf-aggregate-status card-pf-aggregate-status-mini">
           <h2 class="card-pf-title">
             <span class="fa pficon-connected"></span>
-            <span class="card-pf-aggregate-status-count">2,300,240</span> Queries Served
+            <span class="card-pf-aggregate-status-count">{{ total_queries.count }}</span> Queries Served
           </h2>
           <div class="card-pf-body">
           </div>
@@ -63,10 +63,10 @@
         <div class="card-pf card-pf-accented card-pf-aggregate-status card-pf-aggregate-status-mini">
           <h2 class="card-pf-title">
             <span class="fa pficon-disconnected"></span>
-            <span class="card-pf-aggregate-status-count">230,024</span> Blocked Queries
+            <span class="card-pf-aggregate-status-count">{{ blocked_queries.count }}</span> Blocked Queries
           </h2>
           <div class="card-pf-body">
-            <span class="card-pf-aggregate-status-notification">10%</span>
+            <span class="card-pf-aggregate-status-notification">{{ (blocked_queries.count / total_queries.count) * 100 }}%</span>
           </div>
         </div>
       </div>
@@ -77,5 +77,10 @@
   <script src="vendor/js/jquery.min.js"></script>
   <script src="vendor/js/bootstrap.min.js"></script>
   <script src="vendor/js/patternfly.min.js"></script>
+  <script src="vendor/js/axios.min.js"></script>
+  <script src="vendor/js/vue.min.js"></script>
+
+  <!-- gudgeon-specific -->
+  <script src="js/gudgeon.js"></script>
 </body>
 </html>

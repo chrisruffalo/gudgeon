@@ -1,7 +1,7 @@
 package config
 
 import (
-	//"errors"
+//"errors"
 )
 
 func boolPointer(b bool) *bool {
@@ -16,17 +16,17 @@ func (config *GudgeonConfig) verifyAndInit() error {
 	// network verification
 	if config.Network == nil {
 		config.Network = &GudgeonNetwork{}
-	}	
+	}
 	if err := config.Network.verifyAndInit(); err != nil {
 		errors = append(errors, err)
 	}
 
 	// web defaults and verification
 	if config.Web == nil {
-		config.Web = &GudgeonWeb {
+		config.Web = &GudgeonWeb{
 			Enabled: true,
 			Address: "127.0.0.1",
-			Port: 9009,
+			Port:    9009,
 		}
 	}
 

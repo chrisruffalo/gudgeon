@@ -56,7 +56,7 @@ prepare: ## Get all go tools
 		$(GOCMD) get -u github.com/mitchellh/gox
 		$(GOCMD) get -u github.com/GeertJohan/go.rice/rice
 
-download: ## Download newest supplementary assets
+download: ## Download newest supplementary assets (todo: maybe replace with webpack?)
 		mkdir -p ./build/download/
 		mkdir -p ./build/vendor
 		$(CURLCMD) https://github.com/patternfly/patternfly/archive/$(PFARTIFACT).tar.gz -L -o ./build/download/$(PFARTIFACT).tar.gz
@@ -72,8 +72,10 @@ download: ## Download newest supplementary assets
 		cp ./build/vendor/$(PFPATH)/dist/css/patternfly-additions.min.css ./web/assets/vendor/css/patternfly-additions.min.css
 
 		mkdir -p ./web/assets/vendor/js
-		$(CURLCMD) https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js -o ./web/assets/vendor/js/jquery.min.js
-		$(CURLCMD) https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js -o ./web/assets/vendor/js/bootstrap.min.js
+		$(CURLCMD) https://cdn.jsdelivr.net/npm/vue -L -o ./web/assets/vendor/js/vue.min.js
+		$(CURLCMD) https://unpkg.com/axios/dist/axios.min.js -L -o ./web/assets/vendor/js/axios.min.js
+		$(CURLCMD) https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js -L -o ./web/assets/vendor/js/jquery.min.js
+		$(CURLCMD) https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js -L -o ./web/assets/vendor/js/bootstrap.min.js
 		cp ./build/vendor/$(PFPATH)/dist/js/patternfly.min.js ./web/assets/vendor/js/patternfly.min.js
 		rm -rf ./build/download
 		rm -rf ./build/vendor
