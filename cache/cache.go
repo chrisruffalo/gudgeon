@@ -3,6 +3,7 @@ package cache
 import (
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -30,10 +31,14 @@ type Cache interface {
 	Size() uint32
 }
 
+// keeps a pointer to the backer as well as a map of
+// group -> int mappings that saves several bytes for
+// each key entry. (this optimization may be overkill)
 type gocache struct {
 	backer          *backer.Cache
 	partitionIdx    int
 	partitionIdxMap map[string]int
+	idMux           sync.Mutex
 }
 
 func min(a uint32, b uint32) uint32 {
@@ -67,9 +72,16 @@ func minTtl(currentMin uint32, records []dns.RR) uint32 {
 
 // make string key from partition + message
 func (gocache *gocache) key(partition string, questions []dns.Question) string {
+	// it is very likely, even at low query rates, that two threads are
+	// hitting this section from the same group and so we have to tread lightly when
+	// setting values in the map potentially at the same time
 	if _, found := gocache.partitionIdxMap[partition]; !found {
-		gocache.partitionIdx++
-		gocache.partitionIdxMap[partition] = gocache.partitionIdx
+		gocache.idMux.Lock()
+		if _, found := gocache.partitionIdxMap[partition]; !found {
+			gocache.partitionIdx++
+			gocache.partitionIdxMap[partition] = gocache.partitionIdx
+		}
+		gocache.idMux.Unlock()
 	}
 
 	key := ""
