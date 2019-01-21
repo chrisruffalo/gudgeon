@@ -1,7 +1,7 @@
 package cache
 
 import (
-	"strconv"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -86,8 +86,6 @@ func (gocache *gocache) key(partition string, questions []dns.Question) string {
 
 	key := ""
 	if len(questions) > 0 {
-		partitionIdx := strconv.Itoa(gocache.partitionIdxMap[partition])
-		key += partitionIdx
 		for _, question := range questions {
 			if len(key) > 0 {
 				key += delimeter
@@ -95,6 +93,7 @@ func (gocache *gocache) key(partition string, questions []dns.Question) string {
 			key += question.Name + delimeter + dns.Class(question.Qclass).String() + delimeter + dns.Type(question.Qtype).String()
 		}
 	}
+	key = fmt.Sprintf("%d%s%s", gocache.partitionIdxMap[partition], delimeter, key)
 	return strings.TrimSpace(key)
 }
 
