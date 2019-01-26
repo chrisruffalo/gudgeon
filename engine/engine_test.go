@@ -17,6 +17,7 @@ func TestBasicEngine(t *testing.T) {
 	engine, err := New(config)
 	if err != nil {
 		t.Errorf("Could not create a new engine: %s", err)
+		return
 	}
 
 	// test engine against block data (should not be blocked)

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	ttl        = 0 // default to never cache since this is basically a free action
+	ttl        = 300 // default to a small ttl because some things (fire tv/kodi I'm looking at you) will hammer the DNS
 	wildcard   = "*"
 	comment    = "#"
 	altComment = "//"
@@ -323,6 +323,10 @@ func (hostFileSource *hostFileSource) Answer(rCon *RequestContext, context *Reso
 
 	// set source as answering source
 	if context != nil {
+		// don't cache responses
+		context.Stored = true
+
+		// update source used
 		context.SourceUsed = hostFileSource.Name()
 	}
 

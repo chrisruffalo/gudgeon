@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -71,7 +72,7 @@ func newDnsSource(sourceAddress string) Source {
 	}
 
 	// save/parse remote address once
-	source.remoteAddress = source.dnsServer + portDelimeter + strconv.Itoa(int(source.port))
+	source.remoteAddress = fmt.Sprintf("%s%s%d", source.dnsServer, portDelimeter, source.port)
 
 	return source
 }

@@ -3,7 +3,6 @@ package provider
 import (
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 
 	"github.com/coreos/go-systemd/activation"
@@ -133,7 +132,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 	if len(interfaces) > 0 {
 		fmt.Printf("Using [%d] configured interfaces...\n", len(interfaces))
 		for _, iface := range interfaces {
-			addr := iface.IP + ":" + strconv.Itoa(iface.Port)
+			addr := fmt.Sprintf("%s:%d", iface.IP, iface.Port)
 			if *iface.TCP {
 				go serve("tcp", addr)
 			}
