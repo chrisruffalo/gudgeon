@@ -7,15 +7,12 @@ import (
 	"sync"
 
 	"github.com/miekg/dns"
-	metrics "github.com/rcrowley/go-metrics"
 
 	"github.com/chrisruffalo/gudgeon/resolver"
 )
 
 const (
-	metricsPrefix  = "gudgeon"
 	loggerRoutines = 2
-	metricRoutines = 2
 )
 
 type logMsg struct {
@@ -24,22 +21,6 @@ type logMsg struct {
 	response *dns.Msg
 	result   *resolver.ResolutionResult
 	rCon     *resolver.RequestContext
-}
-
-// init counters in default registry
-func metric(input chan *logMsg) {
-	for c := range input {
-		queryMeter := metrics.GetOrRegisterMeter(metricsPrefix+"-total-queries", metrics.DefaultRegistry)
-		queryMeter.Mark(1)
-		if c.result != nil && c.result.Cached {
-			cachedMeter := metrics.GetOrRegisterMeter(metricsPrefix+"-total-cache-hits", metrics.DefaultRegistry)
-			cachedMeter.Mark(1)
-		}
-		if c.result != nil && c.result.Blocked {
-			blockedMeter := metrics.GetOrRegisterMeter(metricsPrefix+"-blocked-queries", metrics.DefaultRegistry)
-			blockedMeter.Mark(1)
-		}
-	}
 }
 
 func logger(input chan *logMsg) {
@@ -106,13 +87,12 @@ func logger(input chan *logMsg) {
 
 // create empty chan
 var logChan chan *logMsg
-var metChan chan *logMsg
 
 var mux sync.Mutex
 
 func Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
 	// an optimization step (no need to lock in the later event that this is created)
-	if logChan == nil || metChan == nil {
+	if logChan == nil {
 		mux.Lock()
 		// only continue if logChan is still nil
 		if logChan == nil {
@@ -120,13 +100,6 @@ func Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.Re
 			// add logger routines
 			for rts := 0; rts < loggerRoutines; rts++ {
 				go logger(logChan)
-			}
-		}
-		if metChan == nil {
-			metChan = make(chan *logMsg)
-			// add logger routines
-			for rts := 0; rts < metricRoutines; rts++ {
-				go metric(metChan)
 			}
 		}
 		mux.Unlock()
@@ -140,7 +113,6 @@ func Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.Re
 	msg.result = result
 	msg.rCon = rCon
 
-	// send message to metrics and logging channels
+	// send message to logging channel
 	logChan <- msg
-	metChan <- msg
 }
