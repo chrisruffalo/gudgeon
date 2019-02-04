@@ -10,15 +10,18 @@ import (
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
+	"github.com/chrisruffalo/gudgeon/metrics"
 	"github.com/chrisruffalo/gudgeon/qlog"
+	"github.com/chrisruffalo/gudgeon/resolver"
 )
 
 type provider struct {
 	engine engine.Engine
+	metrics metrics.Metrics
 }
 
 type Provider interface {
-	Host(config *config.GudgeonConfig, engine engine.Engine) error
+	Host(config *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics) error
 	//UpdateConfig(config *GudgeonConfig) error
 	//UpdateEngine(engine *engine.Engine) error
 	//Shutdown()
@@ -60,13 +63,17 @@ func listen(listener net.Listener, packetConn net.PacketConn) {
 
 func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	// define response
-	var response *dns.Msg
+	var (
+		address *net.IP
+		response *dns.Msg
+		rCon *resolver.RequestContext
+		result *resolver.ResolutionResult
+	)
 
 	// if an engine is available actually provide some resolution
 	if provider.engine != nil {
 		// make query and get information back for metrics/logging
-		address, eResponse, rCon, result := provider.engine.Handle(writer, request)
-		response = eResponse
+		address, response, rCon, result = provider.engine.Handle(writer, request)
 		// goroutine log which is async on the other side
 		qlog.Log(address, request, response, rCon, result)
 	} else {
@@ -86,9 +93,14 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	if recovery := recover(); recovery != nil {
 		fmt.Printf("recovered from error: %v\n", recovery)
 	}
+
+	// write metrics
+	if provider.metrics != nil {
+		provider.metrics.RecordQueryMetrics(request, response, rCon, result)
+	}
 }
 
-func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine) error {
+func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics) error {
 	// get network config
 	netConf := config.Network
 	if netConf == nil {
@@ -108,13 +120,18 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 		return nil
 	}
 
-	// if no engine provided return nil
 	if engine != nil {
 		provider.engine = engine
 	}
 
+	if metrics != nil {
+		provider.metrics = metrics
+	}
+
 	// global dns handle function
 	dns.HandleFunc(".", provider.handle)
+
+	// open interface connections
 	if *netConf.Systemd && len(fileSockets) > 0 {
 		fmt.Printf("Using [%d] systemd listeners...\n", len(fileSockets))
 		for _, f := range fileSockets {

@@ -108,6 +108,7 @@ func (resolver *resolver) answer(rCon *RequestContext, context *ResolutionContex
 
 		if err != nil {
 			// todo: log error
+			//fmt.Printf("Error connecting to source %s: %s\n", source.Name(), err)
 			continue
 		}
 

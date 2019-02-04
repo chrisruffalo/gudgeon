@@ -14,7 +14,7 @@ func TestBasicEngine(t *testing.T) {
 	defer os.RemoveAll(config.Home)
 
 	// create engine from test config
-	engine, err := New(config)
+	engine, err := New(config, nil)
 	if err != nil {
 		t.Errorf("Could not create a new engine: %s", err)
 		return
@@ -34,7 +34,7 @@ func TestConsumerMatching(t *testing.T) {
 	defer os.RemoveAll(config.Home)
 
 	// create engine from test config
-	testEngine, err := New(config)
+	testEngine, err := New(config, nil)
 	if err != nil {
 		t.Errorf("Could not create a new engine: %s", err)
 	}

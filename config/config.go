@@ -19,6 +19,18 @@ type GudgeonTLS struct {
 	Enabled bool `yaml:"enabled"`
 }
 
+type GudgeonQueryLog struct {
+	Enabled *bool `yaml:"enabled"`
+	Duration string `yaml:"duration"`
+	Stdout *bool `yaml:"stdout"`
+}
+
+type GudgeonMetrics struct {
+	Enabled *bool `yaml:"enabled"`
+	Duration string `yaml:"duration"`
+	Interval string `yaml:"interval"`
+}
+
 // network interface information
 type GudgeonInterface struct {
 	// the IP of the interface. The interface 0.0.0.0 means "all"
@@ -115,6 +127,10 @@ type GudgeonWeb struct {
 
 type GudgeonConfig struct {
 	Home string `yaml:"home"`
+
+	Metrics *GudgeonMetrics `yaml:"metrics"`
+
+	QueryLog *GudgeonQueryLog `yaml:"query_log"`
 
 	Network *GudgeonNetwork `yaml:"network"`
 

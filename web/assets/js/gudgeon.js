@@ -16,20 +16,22 @@ Vue.filter('localeNumber', function (value) {
 var app = new Vue({
   el: '#main',
   data: {
-    total_queries: { "count": 0 },
-    blocked_queries: { "count": 0 },
-    total_rules: { "count": 0 },
-    retryIntervals: {}
+    metrics: {
+      'gudgeon-total-rules': { 'count': 0 },
+      'gudgeon-total-queries': { 'count': 0 },
+      'gudgeon-blocked-queries': { 'count': 0 },
+    },
+    retryIntervals: {},
   },
   methods: {
-    fetchMetric: function(metric_type, metric_name, key, retryInterval) {
+    fetchMetric: function(retryInterval) {
       axios
-        .get('/web/api/metrics/' + metric_type + '/' + metric_name)
+        .get('/api/metrics')
         .then(response => {
-          this[key] = response.data
+          this['metrics'] = response.data
           if (retryInterval > 0) {
-            this.retryIntervals[key] = window.setTimeout(function() {
-              app.fetchMetric(metric_type, metric_name, key, retryInterval)
+            this.retryIntervals['metrics'] = window.setTimeout(function() {
+              app.fetchMetric(retryInterval)
             }
             , retryInterval)
           }
@@ -40,9 +42,7 @@ var app = new Vue({
     }
   },
   mounted () {
-    this.fetchMetric("counter","gudgeon-total-rules","total_rules", 60000)
-    this.fetchMetric("meter","gudgeon-total-queries","total_queries", 1750)
-    this.fetchMetric("meter","gudgeon-blocked-queries","blocked_queries", 1750)
+    this.fetchMetric(1500)
   },
   beforeDestroy() {
     for(var key in this.retryIntervals) {

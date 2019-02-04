@@ -7,16 +7,17 @@ import (
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/gorilla/mux"
-	metrics "github.com/rcrowley/go-metrics"
 
 	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/metrics"
 )
 
 type web struct {
+	metrics metrics.Metrics
 }
 
 type Web interface {
-	Serve(conf *config.GudgeonConfig) error
+	Serve(conf *config.GudgeonConfig, metrics metrics.Metrics) error
 }
 
 func New() Web {
@@ -24,65 +25,28 @@ func New() Web {
 }
 
 // get metrics counter named in query
-func (web *web) GetCounter(w http.ResponseWriter, r *http.Request) {
-	response := make(map[string]string, 0)
-	response["count"] = "0"
-
-	params := mux.Vars(r)
-	if params["counter-name"] != "" {
-		item := metrics.DefaultRegistry.Get(params["counter-name"])
-		if counter, ok := item.(metrics.Counter); ok && counter != nil {
-			response["count"] = fmt.Sprintf("%d", counter.Count())
-		}
+func (web *web) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	if web.metrics == nil {
+		http.Error(w, "Metrics not enabled", http.StatusNotFound)
+		return
 	}
 
+	// get all available metrics
+	response := web.metrics.GetAll()
+
+	// write all metrics out to encoder
 	json.NewEncoder(w).Encode(response)
 }
 
-func (web *web) GetMeter(w http.ResponseWriter, r *http.Request) {
-	response := make(map[string]string, 0)
-	response["count"] = "0"
-	response["rate1"] = "0.0000"
-	response["rate5"] = "0.0000"
-	response["rate15"] = "0.0000"
+func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics) error {
+	// set metrics endpoint
+	web.metrics = metrics
 
-	params := mux.Vars(r)
-	if params["meter-name"] != "" {
-		item := metrics.DefaultRegistry.Get(params["meter-name"])
-		if meter, ok := item.(metrics.Meter); ok && meter != nil {
-			response["count"] = fmt.Sprintf("%d", meter.Count())
-			response["rate1"] = fmt.Sprintf("%f", meter.Rate1())
-			response["rate5"] = fmt.Sprintf("%f", meter.Rate5())
-			response["rate15"] = fmt.Sprintf("%f", meter.Rate15())
-		}
-	}
-
-	json.NewEncoder(w).Encode(response)
-}
-
-func (web *web) GetGauge(w http.ResponseWriter, r *http.Request) {
-	response := make(map[string]string, 0)
-	response["value"] = "0"
-
-	params := mux.Vars(r)
-	if params["gauge-name"] != "" {
-		item := metrics.DefaultRegistry.Get(params["gauge-name"])
-		if gauge, ok := item.(metrics.Gauge); ok && gauge != nil {
-			response["value"] = fmt.Sprintf("%d", gauge.Value())
-		}
-	}
-
-	json.NewEncoder(w).Encode(response)
-}
-
-func (web *web) Serve(conf *config.GudgeonConfig) error {
 	// create new router
 	router := mux.NewRouter()
 
 	// attach metrics
-	router.HandleFunc("/web/api/metrics/counter/{counter-name}", web.GetCounter).Methods("GET")
-	router.HandleFunc("/web/api/metrics/meter/{meter-name}", web.GetMeter).Methods("GET")
-	router.HandleFunc("/web/api/metrics/gauge/{gauge-name}", web.GetGauge).Methods("GET")
+	router.HandleFunc("/api/metrics", web.GetMetrics).Methods("GET")
 
 	// attach to static assets
 	router.PathPrefix("/").Handler(http.FileServer(rice.MustFindBox("assets").HTTPBox()))

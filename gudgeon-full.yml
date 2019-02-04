@@ -16,6 +16,18 @@ gudgeon:
                             # ENDPOINT returns the IP of the endpoint that serviced the request
                             # Setting a specific IP ("192.168.0.1", "0.0.0.0", or "127.0.0.1") will override the response for that domain
 
+  # the query log is used to log queries to disk for later inspection or revision
+  query_log:
+    enabled: true   # enabled by default, to disable query log set to "false"
+    duration: 7d    # how long to keep queries on disk, older queries are deleted
+    stdout: true    # should queries be logged to standard out
+
+  # metrics can be saved to disk for use by the ui or exported to something like prometheus
+  metrics:
+    enabled: true   # enabled by default, to disable metrics set to "false"
+    duration: 24h   # how long to save metrics for, they will be deleted/removed after this period
+    interval: 15s   # how often to write metrics to log, lowering the interval increases storage requirements
+
   # control network options
   network:
     # enable udp and tcp protocols

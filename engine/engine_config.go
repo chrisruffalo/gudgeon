@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	metrics "github.com/rcrowley/go-metrics"
 
 	"github.com/chrisruffalo/gudgeon/config"
+	gmetrics "github.com/chrisruffalo/gudgeon/metrics"
 	"github.com/chrisruffalo/gudgeon/resolver"
 	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/util"
@@ -44,7 +44,7 @@ func assignedLists(listNames []string, listTags []string, lists []*config.Gudgeo
 	return should
 }
 
-func New(conf *config.GudgeonConfig) (Engine, error) {
+func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 	// create return object
 	engine := new(engine)
 	engine.config = conf
@@ -195,8 +195,9 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 	}
 
 	// load list rules into stores
-	totalRulesCounter := metrics.GetOrRegisterCounter("gudgeon-total-rules", metrics.DefaultRegistry)
-	totalRulesCounter.Clear()
+	if metrics != nil {
+		metrics.GetCounter(gmetrics.TotalRules).Clear()
+	}
 	for _, list := range lists {
 		path := conf.PathToList(list)
 		array, err := util.GetFileAsArray(path)
@@ -216,10 +217,13 @@ func New(conf *config.GudgeonConfig) (Engine, error) {
 		fmt.Printf("Loaded %d rules from %s\n", count, list.CanonicalName())
 
 		// store metrics for loaded list
-		totalRulesCounter.Inc(int64(count))
-		rulesCounter := metrics.GetOrRegisterCounter("gudgeon-"+list.ShortName()+"-rules", metrics.DefaultRegistry)
-		rulesCounter.Clear()
-		rulesCounter.Inc(int64(count))
+		if metrics != nil {
+			totalRulesCounter := metrics.GetCounter(gmetrics.TotalRules)
+			totalRulesCounter.Inc(int64(count))
+			rulesCounter := metrics.GetCounter("rules-list-" + list.ShortName())
+			rulesCounter.Clear()
+			rulesCounter.Inc(int64(count))
+		}
 	}
 
 	// process or clean up consumers

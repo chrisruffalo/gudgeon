@@ -8,6 +8,7 @@ import (
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
+	"github.com/chrisruffalo/gudgeon/metrics"
 	"github.com/chrisruffalo/gudgeon/provider"
 	"github.com/chrisruffalo/gudgeon/util"
 	"github.com/chrisruffalo/gudgeon/web"
@@ -41,8 +42,14 @@ func main() {
 		util.ClearDirectory(config.SessionRoot())
 	}
 
+	// create metrics
+	var mets metrics.Metrics
+	if *config.Metrics.Enabled {
+		mets = metrics.New(config)
+	}
+
 	// prepare engine with config options
-	engine, err := engine.New(config)
+	engine, err := engine.New(config, mets)
 	if err != nil {
 		fmt.Printf("%s\n", err)
 		os.Exit(1)
@@ -50,12 +57,12 @@ func main() {
 
 	// create a new provider and start hosting
 	provider := provider.NewProvider()
-	provider.Host(config, engine)
+	provider.Host(config, engine, mets)
 
 	// open web ui if web enabled
 	if config.Web.Enabled {
 		web := web.New()
-		web.Serve(config)
+		web.Serve(config, mets)
 	}
 
 	// wait for signal

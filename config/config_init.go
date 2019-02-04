@@ -30,6 +30,14 @@ func (config *GudgeonConfig) verifyAndInit() error {
 		}
 	}
 
+	// query log configuration
+	if config.Metrics == nil {
+		config.Metrics = &GudgeonMetrics{}
+	}
+	if err := config.Network.verifyAndInit(); err != nil {
+		errors = append(errors, err)
+	}
+
 	return nil
 }
 
@@ -53,6 +61,22 @@ func (network *GudgeonNetwork) verifyAndInit() error {
 		if iface.UDP == nil {
 			iface.UDP = network.UDP
 		}
+	}
+
+	return nil
+}
+
+func (metrics *GudgeonMetrics) verifyAndInit() error {
+	if metrics.Enabled == nil {
+		metrics.Enabled = boolPointer(true)
+	}
+
+	if "" == metrics.Duration {
+		metrics.Duration = "7d"
+	}
+
+	if "" == metrics.Interval {
+		metrics.Interval = "15s"
 	}
 
 	return nil
