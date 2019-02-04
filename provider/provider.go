@@ -70,12 +70,21 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 		result *resolver.ResolutionResult
 	)
 
+	// get consumer ip from request
+	protocol := ""
+	if ip, ok := writer.RemoteAddr().(*net.UDPAddr); ok {
+		address = &(ip.IP)
+		protocol = "udp"
+	}
+	if ip, ok := writer.RemoteAddr().(*net.TCPAddr); ok {
+		address = &(ip.IP)
+		protocol = "tcp"
+	}
+
 	// if an engine is available actually provide some resolution
 	if provider.engine != nil {
 		// make query and get information back for metrics/logging
-		address, response, rCon, result = provider.engine.Handle(writer, request)
-		// goroutine log which is async on the other side
-		qlog.Log(address, request, response, rCon, result)
+		response, rCon, result = provider.engine.Handle(address, protocol, writer, request)
 	} else {
 		// when no engine defined return that there was a server failure
 		response = new(dns.Msg)
@@ -93,6 +102,9 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	if recovery := recover(); recovery != nil {
 		fmt.Printf("recovered from error: %v\n", recovery)
 	}
+
+	// write to query log
+	qlog.Log(address, request, response, rCon, result)
 
 	// write metrics
 	if provider.metrics != nil {

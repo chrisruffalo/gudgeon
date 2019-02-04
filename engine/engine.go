@@ -88,12 +88,12 @@ func (engine *engine) ListPath(listType string) string {
 }
 
 type Engine interface {
-	IsDomainBlocked(consumer net.IP, domain string) (bool, *config.GudgeonList, string)
+	IsDomainBlocked(consumer *net.IP, domain string) (bool, *config.GudgeonList, string)
 	Resolve(domainName string) (string, error)
-	Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) (*net.IP, *dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
+	Handle(address *net.IP, protocol string, dnsWriter dns.ResponseWriter, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
 }
 
-func (engine *engine) getConsumerForIp(consumerIp net.IP) *consumer {
+func (engine *engine) getConsumerForIp(consumerIp *net.IP) *consumer {
 	var foundConsumer *consumer
 
 	for _, activeConsumer := range engine.consumers {
@@ -116,7 +116,7 @@ func (engine *engine) getConsumerForIp(consumerIp net.IP) *consumer {
 			// test net (subnet) match
 			if foundConsumer == nil && "" != match.Net {
 				_, parsedNet, err := net.ParseCIDR(match.Net)
-				if err == nil && parsedNet != nil && parsedNet.Contains(consumerIp) {
+				if err == nil && parsedNet != nil && parsedNet.Contains(*consumerIp) {
 					foundConsumer = activeConsumer
 				}
 			}
@@ -137,7 +137,7 @@ func (engine *engine) getConsumerForIp(consumerIp net.IP) *consumer {
 	return foundConsumer
 }
 
-func (engine *engine) getConsumerGroups(consumerIp net.IP) []string {
+func (engine *engine) getConsumerGroups(consumerIp *net.IP) []string {
 	foundConsumer := engine.getConsumerForIp(consumerIp)
 
 	// return found consumer data if something was found
@@ -149,7 +149,7 @@ func (engine *engine) getConsumerGroups(consumerIp net.IP) []string {
 	return []string{"default"}
 }
 
-func (engine *engine) getConsumerResolvers(consumerIp net.IP) []string {
+func (engine *engine) getConsumerResolvers(consumerIp *net.IP) []string {
 	foundConsumer := engine.getConsumerForIp(consumerIp)
 
 	// return found consumer data if something was found
@@ -162,7 +162,7 @@ func (engine *engine) getConsumerResolvers(consumerIp net.IP) []string {
 }
 
 // return if the domain is blocked, if it is blocked return the list and rule
-func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) (bool, *config.GudgeonList, string) {
+func (engine *engine) IsDomainBlocked(consumerIp *net.IP, domain string) (bool, *config.GudgeonList, string) {
 	// drop ending . if present from domain
 	if strings.HasSuffix(domain, ".") {
 		domain = domain[:len(domain)-1]
@@ -178,7 +178,7 @@ func (engine *engine) IsDomainBlocked(consumerIp net.IP, domain string) (bool, *
 }
 
 // handles recursive resolution of cnames
-func (engine *engine) handleCnameResolution(address net.IP, protocol string, originalRequest *dns.Msg, originalResponse *dns.Msg) *dns.Msg {
+func (engine *engine) handleCnameResolution(address *net.IP, protocol string, originalRequest *dns.Msg, originalResponse *dns.Msg) *dns.Msg {
 	// scope provided finding response
 	var response *dns.Msg
 
@@ -209,7 +209,7 @@ func (engine *engine) handleCnameResolution(address net.IP, protocol string, ori
 	return response
 }
 
-func (engine *engine) performRequest(address net.IP, protocol string, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
+func (engine *engine) performRequest(address *net.IP, protocol string, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
 	// scope provided finding response
 	var (
 		response *dns.Msg
@@ -314,30 +314,14 @@ func (engine *engine) Resolve(domainName string) (string, error) {
 	m.Question[0] = dns.Question{Name: domainName, Qtype: dns.TypeA, Qclass: dns.ClassINET}
 
 	// get just response
-	response, _, _ := engine.performRequest(net.ParseIP("127.0.0.1"), "udp", m)
+	address := net.ParseIP("127.0.0.1")
+	response, _, _ := engine.performRequest(&address, "udp", m)
 
 	// return answer
 	return util.GetFirstAResponse(response), nil
 }
 
-func (engine *engine) Handle(dnsWriter dns.ResponseWriter, request *dns.Msg) (*net.IP, *dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
-	// allow us to look up the consumer IP
-	var a net.IP
-
-	// get consumer ip from request
-	protocol := ""
-	if ip, ok := dnsWriter.RemoteAddr().(*net.UDPAddr); ok {
-		a = ip.IP
-		protocol = "udp"
-	}
-	if ip, ok := dnsWriter.RemoteAddr().(*net.TCPAddr); ok {
-		a = ip.IP
-		protocol = "tcp"
-	}
-
-	// perform request and get details
-	response, rCon, result := engine.performRequest(a, protocol, request)
-
+func (engine *engine) Handle(address *net.IP, protocol string, dnsWriter dns.ResponseWriter, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
 	// return results
-	return &a, response, rCon, result
+	return engine.performRequest(address, protocol, request)
 }
