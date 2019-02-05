@@ -9,6 +9,11 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
+func parseIP(input string) *net.IP {
+	ip := net.ParseIP(input)
+	return &ip
+}
+
 func TestBasicEngine(t *testing.T) {
 	config := testutil.Conf(t, "testdata/simple.yml")
 	defer os.RemoveAll(config.Home)
@@ -21,10 +26,10 @@ func TestBasicEngine(t *testing.T) {
 	}
 
 	// test engine against block data (should not be blocked)
-	if blocked, _, _ := engine.IsDomainBlocked(net.ParseIP("192.168.0.1"), "google.com"); blocked {
+	if blocked, _, _ := engine.IsDomainBlocked(parseIP("192.168.0.1"), "google.com"); blocked {
 		t.Errorf("Domain 'google.com' should not be blocked but it is")
 	}
-	if blocked, _, _ := engine.IsDomainBlocked(net.ParseIP("192.168.0.1"), "2468.go2cloud.org"); !blocked {
+	if blocked, _, _ := engine.IsDomainBlocked(parseIP("192.168.0.1"), "2468.go2cloud.org"); !blocked {
 		t.Errorf("Domain '2468.go2cloud.org' should be blocked but it is not")
 	}
 }
@@ -81,7 +86,7 @@ func TestConsumerMatching(t *testing.T) {
 
 	// check data
 	for _, value := range data {
-		groupnames := testEngine.(*engine).getConsumerGroups(net.ParseIP(value.ip))
+		groupnames := testEngine.(*engine).getConsumerGroups(parseIP(value.ip))
 		if len(groupnames) != len(value.expectedGroups) {
 			t.Errorf("%s >> Expected values %s does not match %s {by length}", value.ip, value.expectedGroups, groupnames)
 		} else {

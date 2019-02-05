@@ -10,9 +10,11 @@ require (
 	github.com/gorilla/mux v1.6.2
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/kr/pretty v0.1.0 // indirect
+	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/miekg/dns v1.1.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
+	github.com/rubenv/sql-migrate v0.0.0-20181213081019-5a8808c14925
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
 	golang.org/x/crypto v0.0.0-20190103213133-ff983b9c42bc // indirect
 	golang.org/x/net v0.0.0-20190110200230-915654e7eabc // indirect
@@ -20,5 +22,6 @@ require (
 	golang.org/x/sys v0.0.0-20190116161447-11f53e031339 // indirect
 	golang.org/x/text v0.3.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
+	gopkg.in/gorp.v1 v1.7.2 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 )

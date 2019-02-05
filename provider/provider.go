@@ -16,12 +16,13 @@ import (
 )
 
 type provider struct {
-	engine engine.Engine
+	engine  engine.Engine
 	metrics metrics.Metrics
+	qlog    qlog.QLog
 }
 
 type Provider interface {
-	Host(config *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics) error
+	Host(config *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics, qlog qlog.QLog) error
 	//UpdateConfig(config *GudgeonConfig) error
 	//UpdateEngine(engine *engine.Engine) error
 	//Shutdown()
@@ -64,10 +65,10 @@ func listen(listener net.Listener, packetConn net.PacketConn) {
 func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	// define response
 	var (
-		address *net.IP
+		address  *net.IP
 		response *dns.Msg
-		rCon *resolver.RequestContext
-		result *resolver.ResolutionResult
+		rCon     *resolver.RequestContext
+		result   *resolver.ResolutionResult
 	)
 
 	// get consumer ip from request
@@ -103,16 +104,20 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 		fmt.Printf("recovered from error: %v\n", recovery)
 	}
 
-	// write to query log
-	qlog.Log(address, request, response, rCon, result)
+	if response != nil {
+		// write to query log
+		if provider.qlog != nil {
+			provider.qlog.Log(address, request, response, rCon, result)
+		}
 
-	// write metrics
-	if provider.metrics != nil {
-		provider.metrics.RecordQueryMetrics(request, response, rCon, result)
+		// write metrics
+		if provider.metrics != nil {
+			provider.metrics.RecordQueryMetrics(request, response, rCon, result)
+		}
 	}
 }
 
-func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics) error {
+func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics, qlog qlog.QLog) error {
 	// get network config
 	netConf := config.Network
 	if netConf == nil {
@@ -138,6 +143,10 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 
 	if metrics != nil {
 		provider.metrics = metrics
+	}
+
+	if qlog != nil {
+		provider.qlog = qlog
 	}
 
 	// global dns handle function

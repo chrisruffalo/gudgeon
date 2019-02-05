@@ -10,6 +10,7 @@ import (
 	"github.com/chrisruffalo/gudgeon/engine"
 	"github.com/chrisruffalo/gudgeon/metrics"
 	"github.com/chrisruffalo/gudgeon/provider"
+	gqlog "github.com/chrisruffalo/gudgeon/qlog"
 	"github.com/chrisruffalo/gudgeon/util"
 	"github.com/chrisruffalo/gudgeon/web"
 )
@@ -48,6 +49,16 @@ func main() {
 		mets = metrics.New(config)
 	}
 
+	// create query log
+	var qlog gqlog.QLog
+	if *config.QueryLog.Enabled {
+		qlog, err = gqlog.New(config)
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			os.Exit(1)
+		}
+	}
+
 	// prepare engine with config options
 	engine, err := engine.New(config, mets)
 	if err != nil {
@@ -57,7 +68,7 @@ func main() {
 
 	// create a new provider and start hosting
 	provider := provider.NewProvider()
-	provider.Host(config, engine, mets)
+	provider.Host(config, engine, mets, qlog)
 
 	// open web ui if web enabled
 	if config.Web.Enabled {

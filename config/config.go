@@ -20,13 +20,13 @@ type GudgeonTLS struct {
 }
 
 type GudgeonQueryLog struct {
-	Enabled *bool `yaml:"enabled"`
+	Enabled  *bool  `yaml:"enabled"`
 	Duration string `yaml:"duration"`
-	Stdout *bool `yaml:"stdout"`
+	Stdout   *bool  `yaml:"stdout"`
 }
 
 type GudgeonMetrics struct {
-	Enabled *bool `yaml:"enabled"`
+	Enabled  *bool  `yaml:"enabled"`
 	Duration string `yaml:"duration"`
 	Interval string `yaml:"interval"`
 }
@@ -187,6 +187,10 @@ func (config *GudgeonConfig) SessionRoot() string {
 
 func (config *GudgeonConfig) CacheRoot() string {
 	return path.Join(config.Home, "cache")
+}
+
+func (config *GudgeonConfig) DataRoot() string {
+	return path.Join(config.Home, "data")
 }
 
 func Load(filename string) (*GudgeonConfig, error) {

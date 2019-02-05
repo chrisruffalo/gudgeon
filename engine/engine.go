@@ -275,7 +275,7 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 		response.Rcode = dns.RcodeNameError
 	}
 
-	// recover and log response... this isn't the best golang paradigm but if we don't
+	// recover during response... this isn't the best golang paradigm but if we don't
 	// do this then dns just stops and the entire executable crashes and we stop getting
 	// resolution. if you're eating your own dogfood on this one then you lose DNS until
 	// you can find and fix the bug which is not ideal.
