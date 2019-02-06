@@ -1,10 +1,10 @@
 # Go parameters
-GOCMD=go
+GOCMD?=go
 GODOWN=$(GOCMD) mod download
 
 # use GOX to build certain architectures
 GOOS_LIST?=linux
-GARCH_LIST?=386 amd64 arm
+GOARCH_LIST?=386 amd64
 
 # information
 MAINTAINER=Chris Ruffalo
@@ -12,7 +12,7 @@ WEBSITE=https://github.com/gudgeon
 DESCRIPTION=Gudgeon is a flexible blocking DNS proxy/cache
 
 # go commands
-GOBUILD=gox -os "$(GOOS_LIST)" -arch "$(GARCH_LIST)"
+GOBUILD=gox -os "$(GOOS_LIST)" -arch "$(GOARCH_LIST)"
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
@@ -40,11 +40,9 @@ OS_TYPE?=centos
 OS_VERSION?=7
 OS_BIN_ARCH?=amd64
 OS_ARCH?=x86_64
-GO_ARM=7
 
 # build tags can change by target platform, only linux builds for now though
-#GO_BUILD_TAGS?=netgo libsqlite3 linux sqlite_json
-GO_BUILD_TAGS?=netgo linux libsqlite3
+GO_BUILD_TAGS?=netgo linux libsqlite3 sqlite_json
 
 # patternfly artifact
 PFVERSION=3.59.1
@@ -90,11 +88,10 @@ download: ## Download newest supplementary assets (todo: maybe replace with webp
 build: ## Build Binary
 		$(GODOWN)
 		rm -f $(BUILD_DIR)/$(BINARY_NAME)*
-		$(GOBUILD) -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitHash=$(GITHASH) -extldflags \"static\"" -output "$(BUILD_DIR)/$(BINARY_NAME)_{{.OS}}_{{.Arch}}_bin" -verbose
+		$(GOBUILD) -verbose -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitHash=$(GITHASH)" -output "$(BUILD_DIR)/$(BINARY_NAME)_{{.OS}}_{{.Arch}}_bin"
 		$(UPXCMD) -q $(BUILD_DIR)/$(BINARY_NAME)*
 		rm -f $(BUILD_DIR)/*.upx
-		# use rice to make "boxes" at the end of each binary file that hold the data (web, sql migrations, static resources, etc)
-		find $(BUILD_DIR) -name "$(BINARY_NAME)*_bin" | xargs -n 1 rice append -i ./web/ -i ./qlog/qlog-migrations/ -i ./metrics/metric-migrations/ --exec
+		find $(BUILD_DIR) -name "$(BINARY_NAME)*_bin" | xargs -n 1 rice append -i ./web/ -i ./qlog/ --exec
 
 test: ## Do Unit Tests
 		$(GODOWN)

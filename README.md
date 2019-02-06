@@ -57,6 +57,15 @@ Finally I wanted to build something that is a little more self-contained and eas
 Prerequisites
 * Ability to use Makefiles (`make` command installed)
 * Go > 1.11 (module support is *required*)
+* Other dependencies depending on platform and version
+  * RHEL/CentOS/Fedora:
+    * sqlite-devel (amd64)
+    * sqlite-devel.i686 (386)
+  * Debian/Ubuntu
+    * gcc-multilib
+    * g++-multilib
+    * libsqlite3-dev (amd64)
+    * libsqlite3-dev:i386 (386)
 * `upx` (for binary compression)
 * `fpm` (for building deb/rpm)
 * Docker (for building docker images)

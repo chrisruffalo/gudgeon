@@ -4,12 +4,13 @@
 CREATE TABLE query_log ( 
     consumer_ip TEXT, 
     consumer_name TEXT, 
-    consumer TEXT, 
+    consumer TEXT,
+    matched_groups TEXT,
     question_type TEXT, 
     question TEXT, 
     first_response TEXT, 
     response_count INT, 
-    whole_response BLOB, 
+    whole_response TEXT, 
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP 
 );
 -- +migrate StatementEnd
