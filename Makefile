@@ -4,7 +4,7 @@ GODOWN=$(GOCMD) mod download
 
 # use GOX to build certain architectures
 GOOS_LIST?=linux
-GOARCH_LIST?=386 amd64
+GOARCH_LIST?=386 amd64 arm
 
 # information
 MAINTAINER=Chris Ruffalo
@@ -91,7 +91,7 @@ build: ## Build Binary
 		$(GOBUILD) -verbose -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitHash=$(GITHASH)" -output "$(BUILD_DIR)/$(BINARY_NAME)_{{.OS}}_{{.Arch}}_bin"
 		$(UPXCMD) -q $(BUILD_DIR)/$(BINARY_NAME)*
 		rm -f $(BUILD_DIR)/*.upx
-		find $(BUILD_DIR) -name "$(BINARY_NAME)*_bin" | xargs -n 1 rice append -i ./web/ -i ./qlog/ --exec
+		find $(BUILD_DIR) -name "$(BINARY_NAME)*_bin" | xargs -n 1 rice append -i ./web/ --exec
 
 test: ## Do Unit Tests
 		$(GODOWN)

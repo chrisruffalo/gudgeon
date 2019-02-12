@@ -1,20 +1,13 @@
 package qlog
 
 import (
-	"database/sql"
 	"fmt"
 	"net"
-	"os"
-	"path"
 	"strings"
 
-	"github.com/GeertJohan/go.rice"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/miekg/dns"
-	"github.com/rubenv/sql-migrate"
 
 	"github.com/chrisruffalo/gudgeon/config"
-	gdb "github.com/chrisruffalo/gudgeon/db"
 	"github.com/chrisruffalo/gudgeon/resolver"
 )
 
@@ -29,7 +22,6 @@ type logInfo struct {
 
 // store database location
 type qlog struct {
-	db 			*sql.DB
 	qlConf 		*config.GudgeonQueryLog
 	logInfoChan chan *logInfo
 }
@@ -53,29 +45,10 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	go qlog.logWorker()
 
 	// get path to long-standing data ({home}/'data') and make sure it exists
-	dataDir := conf.DataRoot()
-	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
-		os.MkdirAll(dataDir, os.ModePerm)
-	}
-
-	// open database
-	dbPath := path.Join(dataDir, "gudgeon-query-log.db")
-
-	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("Could not open query log databse: %s\n", err)
-	}
-	qlog.db = db
-
-	// get migrations
-	box := rice.MustFindBox("qlog-migrations")
-	migrationSource := gdb.NewMigrationSource(box)
-
-	// do migration
-	_, err = migrate.Exec(db, "sqlite3", migrationSource, migrate.Up)
-	if err != nil {
-		return nil, fmt.Errorf("Could not complete migration: %s\n", err)
-	}
+	//dataDir := conf.DataRoot()
+	//if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+	//	os.MkdirAll(dataDir, os.ModePerm)
+	//}
 
 	return qlog, nil
 }
