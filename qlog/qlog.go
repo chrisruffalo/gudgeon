@@ -25,10 +25,10 @@ type LogInfo struct {
 	ConnectionType  string  
 	RequestDomain   string  
 	RequestType     string
-	Request  		*dns.Msg                    
-	Response 		*dns.Msg                   
-	Result   		*resolver.ResolutionResult 
-	RequestContext  *resolver.RequestContext   
+	Request  		*dns.Msg
+	Response 		*dns.Msg
+	Result   		*resolver.ResolutionResult
+	RequestContext  *resolver.RequestContext
 	Blocked         bool
 	BlockedList     string
 	BlockedRule     string

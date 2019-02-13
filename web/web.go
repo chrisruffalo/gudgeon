@@ -59,9 +59,13 @@ func (web *web) GetQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 	vals := r.URL.Query()
 
 	if limit, ok := vals["limit"]; ok && len(limit) > 0 {
-		iLimit, err := strconv.Atoi(limit[0])
-		if err == nil {
-			query.Limit = iLimit
+		if "none" == strings.ToLower(limit[0]) {
+			query.Limit = 0
+		} else {
+			iLimit, err := strconv.Atoi(limit[0])
+			if err == nil {
+				query.Limit = iLimit
+			}
 		}
 	}
 

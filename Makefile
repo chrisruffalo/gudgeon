@@ -75,13 +75,14 @@ download: ## Download newest supplementary assets (todo: maybe replace with webp
 		mkdir -p ./web/assets/vendor/css
 		cp ./build/vendor/$(PFPATH)/dist/css/patternfly.min.css ./web/assets/vendor/css/patternfly.min.css
 		cp ./build/vendor/$(PFPATH)/dist/css/patternfly-additions.min.css ./web/assets/vendor/css/patternfly-additions.min.css
+		$(CURLCMD) https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css -L -o ./web/assets/vendor/css/vuetify.min.css
 
 		mkdir -p ./web/assets/vendor/js
 		$(CURLCMD) https://cdn.jsdelivr.net/npm/vue -L -o ./web/assets/vendor/js/vue.min.js
 		$(CURLCMD) https://unpkg.com/axios/dist/axios.min.js -L -o ./web/assets/vendor/js/axios.min.js
 		$(CURLCMD) https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js -L -o ./web/assets/vendor/js/jquery.min.js
 		$(CURLCMD) https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js -L -o ./web/assets/vendor/js/bootstrap.min.js
-		$(CURLCMD) https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js -L -o ./web/assets/vendor/js/jquery.dataTables.min.js
+		$(CURLCMD) https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js -L -o ./web/assets/vendor/js/vuetify.js
 		cp ./build/vendor/$(PFPATH)/dist/js/patternfly.min.js ./web/assets/vendor/js/patternfly.min.js
 		rm -rf ./build/download
 		rm -rf ./build/vendor

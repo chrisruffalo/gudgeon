@@ -9,6 +9,8 @@
 
   <link rel="stylesheet" type="text/css" href="vendor/css/patternfly.min.css">
   <link rel="stylesheet" type="text/css" href="vendor/css/patternfly-additions.min.css">
+  <link rel="stylesheet" type="text/css" href="vendor/css/vuetify.min.css">
+  <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
 </head>
 <body class="cards-pf">
 
@@ -74,105 +76,36 @@
   </div>
 
   <!-- query log -->
-  <div class="container-fluid container-cards-pf hidden" id="qlog">
-    <div class="row row-cards-pf">
+  <div class="container-fluid container-cards-pf" id="qlog">
+
       <!-- single panel for all sizes -->
       <div class="col-xs-12 col-sm-12 col-md-12">
-        <!-- query log toolbar -->
-        <div class="row toolbar-pf table-view-pf-toolbar" id="toolbar1">
-          <div class="col-sm-12">
-            <form class="toolbar-pf-actions">
-              <div class="form-group toolbar-pf-filter">
-                <label class="sr-only" for="filter">Rendering Engine</label>
-                <div class="input-group">
-                  <div class="input-group-btn">
-                    <button type="button" class="btn btn-default dropdown-toggle" id="filter" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Client IP
-                      <span class="caret"></span>
-                    </button>
-                    <ul class="dropdown-menu">
-                      <li><a href="#" id="filter1">ClientIP</a></li>
-                      <li><a href="#" id="filter2">Question Domain</a></li>
-                      <li><a href="#" id="filter3">Question Type</a></li>
-                      <li><a href="#" id="filter4">Block List</a></li>
-                      <li><a href="#" id="filter5">Block Rule</a></li>
-                    </ul>
-                  </div>
-                  <input type="text" class="form-control" placeholder="Filter By Client IP..." autocomplete="off" id="filterInput">
-                </div>
-              </div>
-              <div class="toolbar-pf-action-right">
-                <div class="form-group toolbar-pf-find">
-                  <button class="btn btn-link btn-find" type="button">
-                    <span class="fa fa-search"></span>
-                  </button>
-                  <div class="find-pf-dropdown-container">
-                    <input type="text" class="form-control" id="find" placeholder="Find By Keyword...">
-                    <div class="find-pf-buttons">
-                      <span class="find-pf-nums">1 of 3</span>
-                      <button class="btn btn-link" type="button">
-                        <span class="fa fa-angle-up"></span>
-                      </button>
-                      <button class="btn btn-link" type="button">
-                        <span class="fa fa-angle-down"></span>
-                      </button>
-                      <button class="btn btn-link btn-find-close" type="button">
-                        <span class="pficon pficon-close"></span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>  <!-- end of toolbar -->   
         <!-- table -->
-        <table class="table table-striped table-bordered table-hover" id="table1">
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th>Client IP</th>
-              <th>Question Domain</th>
-              <th>Question Type</th>
-              <th>Response</th>
-            </tr>
-          </thead>
-        </table>       
-        <!-- bottom pagination -->
-        <form class="content-view-pf-pagination table-view-pf-pagination clearfix" id="pagination1">
-          <div class="form-group">
-            <select class="selectpicker pagination-pf-pagesize">
-              <option value="25" selected="selected">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
-            <span>per page</span>
-          </div>
-          <div class="form-group">
-            <span><span class="pagination-pf-items-current">1-15</span> of <span class="pagination-pf-items-total">75</span></span>
-            <ul class="pagination pagination-pf-back">
-              <li class="disabled"><a href="#" title="First Page"><span class="i fa fa-angle-double-left"></span></a></li>
-              <li class="disabled"><a href="#" title="Previous Page"><span class="i fa fa-angle-left"></span></a></li>
-            </ul>
-            <label for="pagination1-page" class="sr-only">Current Page</label>
-            <input class="pagination-pf-page" type="text" value="1" id="pagination1-page"/>
-            <span>of <span class="pagination-pf-pages">5</span></span>
-            <ul class="pagination pagination-pf-forward">
-              <li><a href="#" title="Next Page"><span class="i fa fa-angle-right"></span></a></li>
-              <li><a href="#" title="Last Page"><span class="i fa fa-angle-double-right"></span></a></li>
-            </ul>
-          </div>
-        </form>
+        <v-app id="inspire">
+          <v-data-table
+            :headers="headers"
+            :items="data"
+            class="elevation-1"
+          >
+            <template slot="items" slot-scope="props">
+              <td>{{ props.item.Address }}</td>
+              <td class="">{{ props.item.RequestDomain }}</td>
+              <td class="">{{ props.item.RequestType }}</td>
+              <td class="text-xs-right">{{ props.item.Created }}</td>
+            </template>
+          </v-data-table>
+        </v-app>
       </div>
-    </div> <!-- end row -->
+
   </div>
 
   <!-- vendor scripts -->
   <script src="vendor/js/jquery.min.js"></script>
-  <script src="vendor/js/jquery.dataTables.min.js"></script>
   <script src="vendor/js/bootstrap.min.js"></script>
   <script src="vendor/js/patternfly.min.js"></script>
   <script src="vendor/js/axios.min.js"></script>
   <script src="vendor/js/vue.min.js"></script>
+  <script src="vendor/js/vuetify.js"></script>
   
   <!-- gudgeon specific -->
   <script src="js/gudgeon.js"></script>
