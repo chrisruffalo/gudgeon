@@ -91,7 +91,7 @@
               <td>{{ props.item.Address }}</td>
               <td class="">{{ props.item.RequestDomain }}</td>
               <td class="">{{ props.item.RequestType }}</td>
-              <td class="text-xs-right">{{ props.item.Created }}</td>
+              <td class="text-xs-right">{{ props.item.Created | godate}}</td>
             </template>
           </v-data-table>
         </v-app>

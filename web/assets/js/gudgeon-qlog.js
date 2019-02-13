@@ -4,8 +4,8 @@ new Vue({
     return {
       headers: [
         { text: 'Client Address', value: 'Address' },
-        { text: 'Domain', value: 'RequestDomain'},
-        { text: 'Type', value: 'RequestType' },
+        { text: 'Question Domain', value: 'RequestDomain'},
+        { text: 'Question Type', value: 'RequestType' },
         { text: 'Time', value: 'Created', align: "right"}
       ],
       data: [],
