@@ -3,36 +3,126 @@ package qlog
 import (
 	"fmt"
 	"net"
+	"os"
+	"path"
 	"strings"
+	"time"
+	"unsafe"
 
+	"github.com/dgraph-io/badger"
+	"github.com/json-iterator/go"
 	"github.com/miekg/dns"
+	"github.com/timshannon/badgerhold"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/resolver"
 )
 
-// info passed over channel
-type logInfo struct {
-	address  *net.IP
-	request  *dns.Msg
-	response *dns.Msg
-	result   *resolver.ResolutionResult
-	rCon     *resolver.RequestContext
+// info passed over channel and stored in database
+// and that is recovered via the Query method
+type LogInfo struct {
+	Address  		string  
+	ConnectionType  string  
+	RequestDomain   string  
+	RequestType     string
+	Request  		*dns.Msg                    
+	Response 		*dns.Msg                   
+	Result   		*resolver.ResolutionResult 
+	RequestContext  *resolver.RequestContext   
+	Blocked         bool
+	BlockedList     string
+	BlockedRule     string
+	Created  		time.Time
+}
+
+// the type that is used to make queries against the
+// query log (should be used by the web interface to
+// find queries)
+type QueryLogQuery struct {
+	// query on fields
+	Address         string
+	ConnectionType  string 
+	RequestDomain   string
+	RequestType     string
+	Blocked         *bool
+	// query on created time
+	After           *time.Time
+	Before          *time.Time
+	// query limits for paging
+	Skip			int
+	Limit           int
+	// query sort
+	SortBy          string
+	Reverse         *bool
 }
 
 // store database location
 type qlog struct {
+	store		*badgerhold.Store
 	qlConf 		*config.GudgeonQueryLog
-	logInfoChan chan *logInfo
+	logInfoChan chan *LogInfo
 }
 
 // public interface
 type QLog interface {
+	Query(query *QueryLogQuery) []LogInfo
 	Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult)
 }
 
-func New(conf *config.GudgeonConfig) (QLog, error) {
 
+type coder struct {
+	json 	jsoniter.API
+}
+
+func (coder *coder) customEncode(value interface{}) ([]byte, error) {
+	return coder.json.Marshal(value)
+}
+
+func (coder *coder) customDecode(data []byte, value interface{}) error {
+	return coder.json.Unmarshal(data, value)
+}
+
+func (coder *coder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
+	vals := (*[]dns.RR)(ptr)
+	for iter.ReadArray() {
+		rr, err := dns.NewRR(iter.ReadString())
+		if err != nil {
+			fmt.Printf("error: %s\n", err)
+			continue
+		}
+		*vals = append(*vals, rr)
+	}
+}
+
+func (coder *coder) IsEmpty(ptr unsafe.Pointer) bool {
+	val := *(*[]dns.RR)(ptr)
+	rrs := []dns.RR(val)
+	return len(rrs) == 0
+}	
+
+func (coder *coder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
+	val := *(*[]dns.RR)(ptr)
+	rrs := []dns.RR(val)
+	if len(rrs) == 0 {
+		stream.WriteEmptyArray()
+		return
+	} 
+	stream.WriteArrayStart()
+	values := []string{}
+	// todo: there has to be a more "streaming" way to do this
+	for _, rr := range rrs {
+		if rr == nil {
+			continue
+		}
+		values = append(values, fmt.Sprintf("%+q", rr.String()))
+	}
+	output := strings.Join(values, ", ")
+	stream.Write([]byte(output))
+	stream.WriteArrayEnd()
+}
+
+// create a new query log according to configuration
+func New(conf *config.GudgeonConfig) (QLog, error) {
 	qlConf := conf.QueryLog
 	if qlConf == nil || !*(qlConf.Enabled) {
 		return nil, nil
@@ -41,33 +131,89 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	// create new empty qlog
 	qlog := &qlog{}
 	qlog.qlConf = qlConf
-	qlog.logInfoChan = make(chan *logInfo)
+	qlog.logInfoChan = make(chan *LogInfo)
 	go qlog.logWorker()
 
 	// get path to long-standing data ({home}/'data') and make sure it exists
-	//dataDir := conf.DataRoot()
-	//if _, err := os.Stat(dataDir); os.IsNotExist(err) {
-	//	os.MkdirAll(dataDir, os.ModePerm)
-	//}
+	dataDir := conf.DataRoot()
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		os.MkdirAll(dataDir, os.ModePerm)
+	}
+
+	// open db
+	dbDir := path.Join(dataDir, "query_log")
+	options := badgerhold.DefaultOptions
+
+	// set encode/decode
+	coder := &coder{}
+	coder.json = jsoniter.Config{
+		EscapeHTML:                    false,
+		MarshalFloatWith6Digits:       true, // will lose precession
+		ObjectFieldMustBeSimpleString: true, // do not unescape object field
+		SortMapKeys:                   true,
+		ValidateJsonRawMessage:        true,
+		DisallowUnknownFields:         false,
+	}.Froze()
+
+	// register jsoniter encode/decode for arrays of []dns.RR
+	jsoniter.RegisterTypeDecoder("[]dns.RR", coder)
+	jsoniter.RegisterTypeEncoder("[]dns.RR", coder)
+
+	options.Encoder = coder.customEncode
+	options.Decoder = coder.customDecode
+
+	// reduce memory consumption
+	options.MaxTableSize = 64 << 16
+	options.NumMemtables = 4
+	
+	// set where to output data
+	options.Dir = dbDir
+	options.ValueDir = dbDir
+
+	// don't log through badger logging
+	options.Logger = nil
+
+	store, err := badgerhold.Open(options)
+	if err != nil {
+		return nil, err
+	}
+
+	// keep pointer to store
+	qlog.store = store
 
 	return qlog, nil
 }
 
-func (qlog *qlog) logDb(info *logInfo) {
+func (qlog *qlog) logDB(info *LogInfo) {
+	// clean up stuff
+	if info.Request != nil {
 
+	}
+
+	err := qlog.store.Badger().Update(func(tx * badger.Txn) error {
+		err := qlog.store.TxInsert(tx, badgerhold.NextSequence(), info)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		fmt.Printf("Error saving log info to db: %s\n", err)
+	}
 }
 
-
-func (qlog *qlog) logStdout(info *logInfo) {
+func (qlog *qlog) logStdout(info *LogInfo) {
 	// get values
-	address := info.address
-	request := info.request
-	response := info.response
-	result := info.result
-	rCon := info.rCon
+	address := info.Address
+	domain := info.RequestDomain
+	requestType := info.RequestType
+	response := info.Response
+	result := info.Result
+	rCon := info.RequestContext
 
 	// log result if found
-	logPrefix := fmt.Sprintf("[%s/%s] q:|%s|%s|->", address.String(), rCon.Protocol, request.Question[0].Name, dns.Type(request.Question[0].Qtype).String())
+	logPrefix := fmt.Sprintf("[%s/%s] q:|%s|%s|->", address, rCon.Protocol, domain, requestType)
 	if result != nil {
 		logSuffix := "->"
 		if result.Blocked {
@@ -124,19 +270,126 @@ func (qlog *qlog) logWorker() {
 		if *(qlog.qlConf.Stdout) {
 			qlog.logStdout(info)
 		}
-		qlog.logDb(info)
+		qlog.logDB(info)
 	}
 }
 
-
 func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
 	// create message for sending to various endpoints
-	msg := new(logInfo)
-	msg.address = address
-	msg.request = request
-	msg.response = response
-	msg.result = result
-	msg.rCon = rCon
+	msg := new(LogInfo)
+	msg.Address = address.String()
+	msg.Request = request
+	if request != nil && len(request.Question) > 0 {
+		msg.RequestDomain = request.Question[0].Name
+		msg.RequestType = dns.Type(request.Question[0].Qtype).String()
+	}
+	msg.Response = response
+	msg.Result = result
+	if result != nil && result.Blocked {
+		msg.Blocked = true
+		if result.BlockedList != nil {
+			msg.BlockedList = result.BlockedList.CanonicalName()
+		}
+		msg.BlockedRule = result.BlockedRule
+	}
+	msg.RequestContext = rCon
+	msg.ConnectionType = rCon.Protocol
+	msg.Created = time.Now()
 	// put on channel
 	qlog.logInfoChan <- msg
+}
+
+func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
+	// result holder
+	var result []LogInfo
+
+	// create query
+	bhq := &badgerhold.Query{}
+
+	if "" != query.Address {
+		if bhq.IsEmpty() {
+			bhq = badgerhold.Where("Address").Eq(query.Address)
+		} else {
+			bhq = bhq.And("Address").Eq(query.Address)
+		}
+	}
+
+	if "" != query.ConnectionType {
+		if bhq.IsEmpty() {
+			bhq = badgerhold.Where("ConnectionType").Eq(query.ConnectionType)
+		} else {
+			bhq = bhq.And("ConnectionType").Eq(query.ConnectionType)
+		}
+	}
+
+	if "" != query.RequestDomain {
+		if bhq.IsEmpty() {
+			bhq = badgerhold.Where("RequestDomain").Eq(query.RequestDomain)
+		} else {
+			bhq = bhq.And("RequestDomain").Eq(query.RequestDomain)
+		}
+	}
+
+	if "" != query.RequestType {
+		if bhq.IsEmpty() {
+			bhq = badgerhold.Where("RequestType").Eq(query.RequestType)
+		} else {
+			bhq = bhq.And("RequestType").Eq(query.RequestType)
+		}
+	}
+
+	if nil != query.Blocked {
+		if bhq.IsEmpty() {
+			bhq = badgerhold.Where("Blocked").Eq(query.Blocked)
+		} else {
+			bhq = bhq.And("Blocked").Eq(query.Blocked)
+		}
+	}
+
+	if nil != query.After {
+		if bhq.IsEmpty() {
+			bhq = badgerhold.Where("Created").Gt(query.After)
+		} else {
+			bhq = bhq.And("Created").Gt(query.After)		
+		}		
+	}
+
+	if nil != query.Before {
+		if bhq.IsEmpty() {
+			bhq = badgerhold.Where("Created").Lt(query.Before)
+		} else {
+			bhq = bhq.And("Created").Lt(query.Before)
+		}
+	}
+
+	// set limits and skip counts (paging)
+	if query.Skip > 0 {
+		bhq.Skip(query.Skip)
+	}
+
+	if query.Limit > 0 {
+		bhq.Limit(query.Limit)
+	}
+
+	// set sort order
+	if "" == query.SortBy {
+		bhq = bhq.SortBy("Created")
+	} else {
+		bhq = bhq.SortBy(query.SortBy)
+	}
+
+	// reverse by default, to match "created" default search
+	// sure this will be a problem later though because most
+	// searches want the ascending (non-reverse) order
+	if query.Reverse == nil || (*query.Reverse) == true {
+		bhq = bhq.Reverse()
+	}
+
+	// do query
+	err := qlog.store.Find(&result, bhq)
+	if err != nil {
+		fmt.Printf("Error finding: %s\n", err)
+	}
+
+	return result
 }

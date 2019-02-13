@@ -42,7 +42,7 @@ OS_BIN_ARCH?=amd64
 OS_ARCH?=x86_64
 
 # build tags can change by target platform, only linux builds for now though
-GO_BUILD_TAGS?=netgo linux libsqlite3 sqlite_json
+GO_BUILD_TAGS?=netgo
 
 # patternfly artifact
 PFVERSION=3.59.1

@@ -73,7 +73,7 @@ func main() {
 	// open web ui if web enabled
 	if config.Web.Enabled {
 		web := web.New()
-		web.Serve(config, mets)
+		web.Serve(config, mets, qlog)
 	}
 
 	// wait for signal
