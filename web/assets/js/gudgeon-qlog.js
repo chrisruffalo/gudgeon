@@ -16,7 +16,7 @@ new Vue({
     }
   },
   methods: {
-    fetchLogs: function(retryInterval) {
+    fetchLogs: function() {
           axios
             .get('/api/log', {
               params: {
@@ -34,6 +34,6 @@ new Vue({
         }
   },
   mounted () {
-    this.fetchLogs(1500)
+    this.fetchLogs()
   },
 })

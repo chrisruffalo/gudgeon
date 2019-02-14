@@ -25,7 +25,7 @@ type LogInfo struct {
 	// original values
 	Address string
 
-	// hold the information but aren't usually serialized
+	// hold the information but aren't serialized
 	Request        *dns.Msg                   `codec:"-",json:"-"`
 	Response       *dns.Msg                   `codec:"-",json:"-"`
 	Result         *resolver.ResolutionResult `codec:"-",json:"-"`

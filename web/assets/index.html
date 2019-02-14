@@ -82,12 +82,18 @@
       <div class="col-xs-12 col-sm-12 col-md-12">
         <!-- table -->
         <v-app id="inspire">
+          <v-card>
+            <v-card-title>
+               <v-spacer></v-spacer>
+               <v-btn color="info" v-on:click="fetchLogs()"><span class="fa fa-refresh"></span></v-btn>
+            </v-card-title>
+          </v-card>
           <v-data-table
             :headers="headers"
             :items="data"
             :pagination.sync="pagination"
             class="elevation-1"
-          >
+          > 
             <template slot="items" slot-scope="props">
               <td>{{ props.item.Address }}</td>
               <td class="">{{ props.item.RequestDomain }}</td>
