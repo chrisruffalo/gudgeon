@@ -57,22 +57,13 @@ Finally I wanted to build something that is a little more self-contained and eas
 Prerequisites
 * Ability to use Makefiles (`make` command installed)
 * Go > 1.11 (module support is *required*)
-* Other dependencies depending on platform and version
-  * RHEL/CentOS/Fedora:
-    * sqlite-devel (amd64)
-    * sqlite-devel.i686 (386)
-  * Debian/Ubuntu
-    * gcc-multilib
-    * g++-multilib
-    * libsqlite3-dev (amd64)
-    * libsqlite3-dev:i386 (386)
 * `upx` (for binary compression)
 * `fpm` (for building deb/rpm)
 * Docker (for building docker images)
 
 With the prerequisites installed you can build Gudgeon by...
-* Downloading vendor assets (patternfly, vue, etc) with `[]$ make download`
 * Preparing your environment with needed Go tools with `[]$ make prepare`
-* Building the binary with `[]make`
+* Downloading vendor assets (patternfly, vue, etc) with `[]$ make download`
+* Building the binary with `[]$ make`
 
-The `download` target is used to download new dependencies when needed. The `prepare` target is only needed if the required Go tools change. The output of the process is a statically compiled for a few different platforms. The binary is statically compiled to make it easily portable to platforms and other systems that do not have Golang compilers.
+The `download` target is used to download new dependencies when needed. The `prepare` target is only needed if the required Go tools change. The output of the process is a statically compiled for a few different platforms. The binary is statically compiled to make it easily portable to platforms and other systems that do not have libc, recent Golang compilers, or other required libraries.
