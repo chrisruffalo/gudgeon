@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/gorilla/mux"
@@ -92,8 +93,21 @@ func (web *web) GetQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 		query.RequestDomain = requestDomains[0]
 	}
 
+	// look for and convert time (seconds since unix epoch) to local date
 	if after, ok := vals["after"]; ok && len(after) > 0 {
+		iAfter, err := strconv.ParseInt(after[0], 10, 64)
+		if err == nil {
+			afterTime := time.Unix(iAfter, 0)
+			query.After = &afterTime
+		}
+	}
 
+	if before, ok := vals["before"]; ok && len(before) > 0 {
+		iBefore, err := strconv.ParseInt(before[0], 10, 64)
+		if err == nil {
+			beforeTime := time.Unix(iBefore, 0)
+			query.Before = &beforeTime
+		}
 	}
 
 	// query against query log

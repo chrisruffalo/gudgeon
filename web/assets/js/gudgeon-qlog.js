@@ -17,6 +17,8 @@ new Vue({
             .get('/api/log', {
               params: {
                 limit: 'none',
+                // one hour ago
+                after: (Math.floor(Date.now()/1000) - (60 * 60)).toString(),
               }
             })
             .then(response => {

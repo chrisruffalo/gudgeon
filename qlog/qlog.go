@@ -257,6 +257,13 @@ func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon
 	qlog.logInfoChan <- msg
 }
 
+func mkQuery(query *badgerhold.Query, field string) *badgerhold.Criterion {
+	if query.IsEmpty() {
+		return badgerhold.Where(field)
+	}
+	return query.And(field)
+}
+
 func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	// result holder
 	var result []LogInfo
@@ -265,59 +272,31 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	bhq := &badgerhold.Query{}
 
 	if "" != query.Address {
-		if bhq.IsEmpty() {
-			bhq = badgerhold.Where("Address").Eq(query.Address)
-		} else {
-			bhq = bhq.And("Address").Eq(query.Address)
-		}
+		bhq = mkQuery(bhq, "Address").Eq(query.Address)
 	}
 
 	if "" != query.ConnectionType {
-		if bhq.IsEmpty() {
-			bhq = badgerhold.Where("ConnectionType").Eq(query.ConnectionType)
-		} else {
-			bhq = bhq.And("ConnectionType").Eq(query.ConnectionType)
-		}
+		bhq = mkQuery(bhq, "ConnectionType").Eq(query.ConnectionType)
 	}
 
 	if "" != query.RequestDomain {
-		if bhq.IsEmpty() {
-			bhq = badgerhold.Where("RequestDomain").Eq(query.RequestDomain)
-		} else {
-			bhq = bhq.And("RequestDomain").Eq(query.RequestDomain)
-		}
+		bhq = mkQuery(bhq, "RequestDomain").Eq(query.RequestDomain)
 	}
 
 	if "" != query.RequestType {
-		if bhq.IsEmpty() {
-			bhq = badgerhold.Where("RequestType").Eq(query.RequestType)
-		} else {
-			bhq = bhq.And("RequestType").Eq(query.RequestType)
-		}
+		bhq = mkQuery(bhq, "RequestType").Eq(query.RequestType)
 	}
 
 	if nil != query.Blocked {
-		if bhq.IsEmpty() {
-			bhq = badgerhold.Where("Blocked").Eq(query.Blocked)
-		} else {
-			bhq = bhq.And("Blocked").Eq(query.Blocked)
-		}
+		bhq = mkQuery(bhq, "Blocked").Eq(query.Blocked)
 	}
 
 	if nil != query.After {
-		if bhq.IsEmpty() {
-			bhq = badgerhold.Where("Created").Gt(query.After)
-		} else {
-			bhq = bhq.And("Created").Gt(query.After)
-		}
+		bhq = mkQuery(bhq, "Created").Gt(query.After)
 	}
 
 	if nil != query.Before {
-		if bhq.IsEmpty() {
-			bhq = badgerhold.Where("Created").Lt(query.Before)
-		} else {
-			bhq = bhq.And("Created").Lt(query.Before)
-		}
+		bhq = mkQuery(bhq, "Created").Lt(query.Before)
 	}
 
 	// set limits and skip counts (paging)
