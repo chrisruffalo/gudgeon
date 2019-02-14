@@ -60,7 +60,7 @@ all: test build minimize
 
 prepare: ## Get all go tools
 		$(GOCMD) get -u github.com/mitchellh/gox
-		$(GOCMD) get -u github.com/gobuffalo/packr/v2/...
+		$(GOCMD) get -u github.com/GeertJohan/go.rice/rice
 
 download: ## Download newest supplementary assets (todo: maybe replace with webpack?)
 		mkdir -p ./build/download/
