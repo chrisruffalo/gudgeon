@@ -22,7 +22,7 @@ func DefaultRequestContext() *RequestContext {
 
 type ResolutionContext struct {
 	// resolution tools / recursive issues
-	ResolverMap ResolverMap `msg:"-"`  // pointer to the resolvermap that started resolution, can be nil
+	ResolverMap ResolverMap `msg:"-"` // pointer to the resolvermap that started resolution, can be nil
 	Visited     []string    // list of visited resolver names
 	Stored      bool        // has the result been stored already
 	// reporting on actual resolver/source

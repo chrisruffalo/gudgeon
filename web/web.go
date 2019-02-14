@@ -3,8 +3,8 @@ package web
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/gorilla/mux"
@@ -16,7 +16,7 @@ import (
 )
 
 type web struct {
-	metrics metrics.Metrics
+	metrics  metrics.Metrics
 	queryLog qlog.QLog
 }
 
@@ -92,9 +92,8 @@ func (web *web) GetQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 		query.RequestDomain = requestDomains[0]
 	}
 
-
 	if after, ok := vals["after"]; ok && len(after) > 0 {
-		
+
 	}
 
 	// query against query log
@@ -102,7 +101,7 @@ func (web *web) GetQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 
 	if len(results) == 0 {
 		http.Error(w, "[]", http.StatusNotFound)
-		return 
+		return
 	}
 
 	// return encoded results

@@ -34,7 +34,7 @@ func TestQueryLogQuery(t *testing.T) {
 	qlogInterface, err := New(conf)
 	if err != nil {
 		t.Errorf("Error during qlog creation: %s", err)
-		return 
+		return
 	}
 
 	qlog := qlogInterface.(*qlog)
@@ -44,10 +44,10 @@ func TestQueryLogQuery(t *testing.T) {
 	for i := 0; i < totalEntries; i++ {
 		// create message for sending to various endpoints
 		msg := new(LogInfo)
-		if i % 2 == 0 { // address shifts between two values
+		if i%2 == 0 { // address shifts between two values
 			msg.Address = "192.168.0.2"
 		} else {
-			msg.Address = "192.168.0.1"			
+			msg.Address = "192.168.0.1"
 		}
 		msg.Request = &dns.Msg{
 			MsgHdr: dns.MsgHdr{
@@ -59,13 +59,13 @@ func TestQueryLogQuery(t *testing.T) {
 		}
 		msg.Request.Question = make([]dns.Question, 1)
 		msg.Request.Question[0] = dns.Question{Name: "google.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}
-		if i % 4 == 0 { // block one quarter of queries
+		if i%4 == 0 { // block one quarter of queries
 			msg.Blocked = true
 			msg.BlockedRule = "*"
 			msg.BlockedList = "testlist"
 		}
 		msg.RequestDomain = "google.com."
-		if i % 10 == 0 {
+		if i%10 == 0 {
 			msg.RequestType = "AAAA"
 		} else {
 			msg.RequestType = "A"
@@ -82,44 +82,44 @@ func TestQueryLogQuery(t *testing.T) {
 	fmt.Printf("Finished storing values\n")
 
 	// query entries based on address
-	query := &QueryLogQuery {
+	query := &QueryLogQuery{
 		Address: "192.168.0.2",
 	}
 	results := qlog.Query(query)
-	if len(results) != totalEntries / 2 {
-		t.Errorf("Adderess query returned unexpected results: %d but expected %d", len(results), totalEntries / 2)
+	if len(results) != totalEntries/2 {
+		t.Errorf("Adderess query returned unexpected results: %d but expected %d", len(results), totalEntries/2)
 	}
 
 	// query entries based on limit/skip
-	query = &QueryLogQuery {
-		Skip: 10,
+	query = &QueryLogQuery{
+		Skip:  10,
 		Limit: totalEntries / 4,
 	}
 	results = qlog.Query(query)
-	if len(results) != totalEntries / 4 {
-		t.Errorf("Limit query returned unexpected results: %d but expected %d", len(results), totalEntries / 4)
+	if len(results) != totalEntries/4 {
+		t.Errorf("Limit query returned unexpected results: %d but expected %d", len(results), totalEntries/4)
 	}
 
 	// query blocked entries
 	ptrTrue := true
-	query = &QueryLogQuery {
+	query = &QueryLogQuery{
 		Blocked: &ptrTrue,
 	}
 	results = qlog.Query(query)
-	if len(results) != totalEntries / 4 {
-		t.Errorf("Blocked query returned unexpected results: %d but expected %d", len(results), totalEntries / 4)
+	if len(results) != totalEntries/4 {
+		t.Errorf("Blocked query returned unexpected results: %d but expected %d", len(results), totalEntries/4)
 	}
 
 	// query by query type and blocked with limit
 	query = &QueryLogQuery{
-		Blocked: &ptrTrue,
+		Blocked:     &ptrTrue,
 		RequestType: "AAAA",
-		Limit: 10,
+		Limit:       10,
 	}
 	results = qlog.Query(query)
 	if len(results) > 10 || len(results) < 1 {
 		t.Errorf("Limited type query returned unexpected results: %d but expected %d", len(results), 10)
-	}	
+	}
 
 	// query by request domain
 	query = &QueryLogQuery{

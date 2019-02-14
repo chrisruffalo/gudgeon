@@ -1,4 +1,5 @@
 package qlog
+
 //go:generate codecgen -r LogInfo -o qlog_gen.go qlog.go
 
 import (
@@ -22,22 +23,22 @@ import (
 // and that is recovered via the Query method
 type LogInfo struct {
 	// original values
-	Address  		string  
+	Address string
 
 	// hold the information but aren't usually serialized
-	Request  		*dns.Msg 					`codec:"-",json:"-"`
-	Response 		*dns.Msg 					`codec:"-",json:"-"`
-	Result   		*resolver.ResolutionResult  `codec:"-",json:"-"`
-	RequestContext  *resolver.RequestContext    `codec:"-",json:"-"`
+	Request        *dns.Msg                   `codec:"-",json:"-"`
+	Response       *dns.Msg                   `codec:"-",json:"-"`
+	Result         *resolver.ResolutionResult `codec:"-",json:"-"`
+	RequestContext *resolver.RequestContext   `codec:"-",json:"-"`
 
 	// generated/calculated values
-	ConnectionType  string  
-	RequestDomain   string  
-	RequestType     string
-	Blocked         bool
-	BlockedList     string
-	BlockedRule     string
-	Created  		time.Time
+	ConnectionType string
+	RequestDomain  string
+	RequestType    string
+	Blocked        bool
+	BlockedList    string
+	BlockedRule    string
+	Created        time.Time
 }
 
 // the type that is used to make queries against the
@@ -45,26 +46,26 @@ type LogInfo struct {
 // find queries)
 type QueryLogQuery struct {
 	// query on fields
-	Address         string
-	ConnectionType  string 
-	RequestDomain   string
-	RequestType     string
-	Blocked         *bool
+	Address        string
+	ConnectionType string
+	RequestDomain  string
+	RequestType    string
+	Blocked        *bool
 	// query on created time
-	After           *time.Time
-	Before          *time.Time
+	After  *time.Time
+	Before *time.Time
 	// query limits for paging
-	Skip			int
-	Limit           int
+	Skip  int
+	Limit int
 	// query sort
-	SortBy          string
-	Reverse         *bool
+	SortBy  string
+	Reverse *bool
 }
 
 // store database location
 type qlog struct {
-	store		*badgerhold.Store
-	qlConf 		*config.GudgeonQueryLog
+	store       *badgerhold.Store
+	qlConf      *config.GudgeonQueryLog
 	logInfoChan chan *LogInfo
 }
 
@@ -74,9 +75,8 @@ type QLog interface {
 	Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult)
 }
 
-
 type coder struct {
-	handle  codec.Handle
+	handle codec.Handle
 }
 
 func (coder *coder) customEncode(value interface{}) ([]byte, error) {
@@ -123,7 +123,7 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	// reduce memory consumption
 	options.MaxTableSize = 64 << 12
 	options.NumMemtables = 1
-	
+
 	// set where to output data
 	options.Dir = dbDir
 	options.ValueDir = dbDir
@@ -148,7 +148,7 @@ func (qlog *qlog) logDB(info *LogInfo) {
 
 	}
 
-	err := qlog.store.Badger().Update(func(tx * badger.Txn) error {
+	err := qlog.store.Badger().Update(func(tx *badger.Txn) error {
 		err := qlog.store.TxInsert(tx, badgerhold.NextSequence(), info)
 		if err != nil {
 			return err
@@ -219,7 +219,7 @@ func (qlog *qlog) logStdout(info *LogInfo) {
 		fmt.Printf("%s SERVFAIL:[%s]\n", logPrefix, result.Message)
 	} else {
 		fmt.Printf("%s RESPONSE[%s]\n", logPrefix, dns.RcodeToString[response.Rcode])
-	}		
+	}
 }
 
 // this is the actual log worker that handles incoming log messages in a separate go routine
@@ -308,8 +308,8 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 		if bhq.IsEmpty() {
 			bhq = badgerhold.Where("Created").Gt(query.After)
 		} else {
-			bhq = bhq.And("Created").Gt(query.After)		
-		}		
+			bhq = bhq.And("Created").Gt(query.After)
+		}
 	}
 
 	if nil != query.Before {
