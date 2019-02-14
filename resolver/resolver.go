@@ -128,26 +128,39 @@ func (resolver *resolver) answer(rCon *RequestContext, context *ResolutionContex
 }
 
 func (resolver *resolver) searchDomains(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	// create new question
+	searchRequest := request.Copy()
+
+	// determine search domain
+	originalDomain := searchRequest.Question[0].Name
+
+	// if the original domain is empty, the original domain is just ".", or the original domain has
+	// more than one part ("db.local." instead of just "db.") then we aren't going to extend the search
+	// domain to cover it
+	domainSplits := strings.Split(originalDomain, ".")
+	if "" == originalDomain || "." == originalDomain || (len(domainSplits) > 1 && "" != domainSplits[1]) {
+		return nil, nil
+	}
+		
 	for _, sDomain := range resolver.search {
 		// skip empty search domains
 		if "" == sDomain {
 			continue
 		}
 
-		// create new question
-		searchRequest := request.Copy()
-
-		// determine search domain
-		searchDomain := searchRequest.Question[0].Name
+		// if the search domain doesn't end with a "." then add it before adding the suffix
+		searchDomain := originalDomain
 		if !strings.HasSuffix(searchDomain, ".") {
 			searchDomain = searchDomain + "."
 		}
+
+		// extend search domain with search suffix
 		searchDomain = searchDomain + sDomain
 		if !strings.HasSuffix(searchDomain, ".") {
 			searchDomain = searchDomain + "."
 		}
 
-		// update question
+		// update question in the request to match the searched domain
 		searchRequest.Question[0].Name = searchDomain
 
 		// ask new question
