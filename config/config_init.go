@@ -34,7 +34,16 @@ func (config *GudgeonConfig) verifyAndInit() error {
 	if config.Metrics == nil {
 		config.Metrics = &GudgeonMetrics{}
 	}
-	if err := config.Network.verifyAndInit(); err != nil {
+
+	if err := config.Metrics.verifyAndInit(); err != nil {
+		errors = append(errors, err)
+	}
+
+	if config.QueryLog == nil {
+		config.QueryLog = &GudgeonQueryLog{}
+	}
+
+	if err := config.QueryLog.verifyAndInit(); err != nil {
 		errors = append(errors, err)
 	}
 
@@ -77,6 +86,22 @@ func (metrics *GudgeonMetrics) verifyAndInit() error {
 
 	if "" == metrics.Interval {
 		metrics.Interval = "15s"
+	}
+
+	return nil
+}
+
+func (ql *GudgeonQueryLog) verifyAndInit() error {
+	if ql.Enabled == nil {
+		ql.Enabled = boolPointer(true)
+	}
+
+	if ql.Stdout == nil {
+		ql.Stdout = boolPointer(true)
+	}
+
+	if "" == ql.Duration {
+		ql.Duration = "7d"
 	}
 
 	return nil
