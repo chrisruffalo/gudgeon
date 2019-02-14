@@ -11,3 +11,6 @@ build
 
 # ignore asset files from vendors
 **/vendor
+
+# ignore rice-box files
+**/rice-box.go

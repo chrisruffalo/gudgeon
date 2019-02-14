@@ -1,4 +1,5 @@
 package qlog
+//go:generate codecgen -r LogInfo -o qlog_gen.go qlog.go
 
 import (
 	"fmt"
@@ -7,12 +8,11 @@ import (
 	"path"
 	"strings"
 	"time"
-	"unsafe"
 
 	"github.com/dgraph-io/badger"
-	"github.com/json-iterator/go"
 	"github.com/miekg/dns"
 	"github.com/timshannon/badgerhold"
+	"github.com/ugorji/go/codec"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/resolver"
@@ -21,14 +21,19 @@ import (
 // info passed over channel and stored in database
 // and that is recovered via the Query method
 type LogInfo struct {
+	// original values
 	Address  		string  
+
+	// hold the information but aren't usually serialized
+	Request  		*dns.Msg 					`codec:"-",json:"-"`
+	Response 		*dns.Msg 					`codec:"-",json:"-"`
+	Result   		*resolver.ResolutionResult  `codec:"-",json:"-"`
+	RequestContext  *resolver.RequestContext    `codec:"-",json:"-"`
+
+	// generated/calculated values
 	ConnectionType  string  
 	RequestDomain   string  
 	RequestType     string
-	Request  		*dns.Msg
-	Response 		*dns.Msg
-	Result   		*resolver.ResolutionResult
-	RequestContext  *resolver.RequestContext
 	Blocked         bool
 	BlockedList     string
 	BlockedRule     string
@@ -71,54 +76,19 @@ type QLog interface {
 
 
 type coder struct {
-	json 	jsoniter.API
+	handle  codec.Handle
 }
 
 func (coder *coder) customEncode(value interface{}) ([]byte, error) {
-	return coder.json.Marshal(value)
+	var data []byte
+	enc := codec.NewEncoderBytes(&data, coder.handle)
+	err := enc.Encode(value)
+	return data, err
 }
 
 func (coder *coder) customDecode(data []byte, value interface{}) error {
-	return coder.json.Unmarshal(data, value)
-}
-
-func (coder *coder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-	vals := (*[]dns.RR)(ptr)
-	for iter.ReadArray() {
-		rr, err := dns.NewRR(iter.ReadString())
-		if err != nil {
-			fmt.Printf("error: %s\n", err)
-			continue
-		}
-		*vals = append(*vals, rr)
-	}
-}
-
-func (coder *coder) IsEmpty(ptr unsafe.Pointer) bool {
-	val := *(*[]dns.RR)(ptr)
-	rrs := []dns.RR(val)
-	return len(rrs) == 0
-}	
-
-func (coder *coder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
-	val := *(*[]dns.RR)(ptr)
-	rrs := []dns.RR(val)
-	if len(rrs) == 0 {
-		stream.WriteEmptyArray()
-		return
-	} 
-	stream.WriteArrayStart()
-	values := []string{}
-	// todo: there has to be a more "streaming" way to do this
-	for _, rr := range rrs {
-		if rr == nil {
-			continue
-		}
-		values = append(values, fmt.Sprintf("%+q", rr.String()))
-	}
-	output := strings.Join(values, ", ")
-	stream.Write([]byte(output))
-	stream.WriteArrayEnd()
+	dec := codec.NewDecoderBytes(data, coder.handle)
+	return dec.Decode(value)
 }
 
 // create a new query log according to configuration
@@ -146,25 +116,13 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 
 	// set encode/decode
 	coder := &coder{}
-	coder.json = jsoniter.Config{
-		EscapeHTML:                    false,
-		MarshalFloatWith6Digits:       true, // will lose precession
-		ObjectFieldMustBeSimpleString: true, // do not unescape object field
-		SortMapKeys:                   true,
-		ValidateJsonRawMessage:        true,
-		DisallowUnknownFields:         false,
-	}.Froze()
-
-	// register jsoniter encode/decode for arrays of []dns.RR
-	jsoniter.RegisterTypeDecoder("[]dns.RR", coder)
-	jsoniter.RegisterTypeEncoder("[]dns.RR", coder)
-
+	coder.handle = &codec.MsgpackHandle{}
 	options.Encoder = coder.customEncode
 	options.Decoder = coder.customDecode
 
 	// reduce memory consumption
-	options.MaxTableSize = 64 << 16
-	options.NumMemtables = 4
+	options.MaxTableSize = 64 << 12
+	options.NumMemtables = 1
 	
 	// set where to output data
 	options.Dir = dbDir

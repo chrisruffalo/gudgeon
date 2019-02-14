@@ -28,6 +28,16 @@ func New() Web {
 	return &web{}
 }
 
+// write all metrics out to encoder
+var json = jsoniter.Config{
+	EscapeHTML:                    false,
+	MarshalFloatWith6Digits:       true, // will lose precession
+	ObjectFieldMustBeSimpleString: true, // do not unescape object field
+	SortMapKeys:                   true,
+	ValidateJsonRawMessage:        true,
+	DisallowUnknownFields:         false,
+}.Froze()
+
 // get metrics counter named in query
 func (web *web) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	if web.metrics == nil {
@@ -38,8 +48,6 @@ func (web *web) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	// get all available metrics
 	response := web.metrics.GetAll()
 
-	// write all metrics out to encoder
-	var json = jsoniter.ConfigCompatibleWithStandardLibrary
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -69,7 +77,6 @@ func (web *web) GetQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-
 	if blocked, ok := vals["blocked"]; ok && len(blocked) > 0 {
 		bl := blocked[0]
 		if "true" == strings.ToLower(bl) {
@@ -85,6 +92,11 @@ func (web *web) GetQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 		query.RequestDomain = requestDomains[0]
 	}
 
+
+	if after, ok := vals["after"]; ok && len(after) > 0 {
+		
+	}
+
 	// query against query log
 	results := web.queryLog.Query(query)
 
@@ -94,7 +106,6 @@ func (web *web) GetQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// return encoded results
-	var json = jsoniter.ConfigCompatibleWithStandardLibrary
 	json.NewEncoder(w).Encode(results)
 }
 

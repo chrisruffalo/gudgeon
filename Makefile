@@ -20,6 +20,9 @@ GOGET=$(GOCMD) get
 # downloading things
 CURLCMD=curl
 
+# rice command
+RICECMD=rice
+
 # upx command (minimizes/compresses binaries)
 UPXCMD=upx
 
@@ -57,7 +60,7 @@ all: test build minimize
 
 prepare: ## Get all go tools
 		$(GOCMD) get -u github.com/mitchellh/gox
-		$(GOCMD) get -u github.com/GeertJohan/go.rice/rice
+		$(GOCMD) get -u github.com/gobuffalo/packr/v2/...
 
 download: ## Download newest supplementary assets (todo: maybe replace with webpack?)
 		mkdir -p ./build/download/
@@ -90,17 +93,21 @@ download: ## Download newest supplementary assets (todo: maybe replace with webp
 build: ## Build Binary
 		$(GODOWN)
 		rm -f $(BUILD_DIR)/$(BINARY_NAME)*
-		$(GOBUILD) -verbose -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitHash=$(GITHASH)" -output "$(BUILD_DIR)/$(BINARY_NAME)_{{.OS}}_{{.Arch}}_bin"
+		$(RICECMD) embed-go -i ./web/
+		$(GOBUILD) -verbose -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitHash=$(GITHASH)" -output "$(BUILD_DIR)/$(BINARY_NAME)_{{.OS}}_{{.Arch}}"
 		$(UPXCMD) -q $(BUILD_DIR)/$(BINARY_NAME)*
 		rm -f $(BUILD_DIR)/*.upx
-		find $(BUILD_DIR) -name "$(BINARY_NAME)*_bin" | xargs -n 1 rice append -i ./web/ --exec
 
 test: ## Do Unit Tests
 		$(GODOWN)
 		$(GOTEST) -v ./...
 
 clean: ## Remove build artifacts
+		# do go clean steps
 		$(GOCLEAN)
+		# remove rice artifacts
+		$(RICECMD) clean -i ./web/
+		# remove build dir
 		rm -rf $(BUILD_DIR)
 
 package: # Build consistent package structure
@@ -112,7 +119,7 @@ package: # Build consistent package structure
 		mkdir -p $(BUILD_DIR)/pkgtmp/usr/bin/
 		mkdir -p $(BUILD_DIR)/pkgtmp/var/lib/$(BINARY_NAME)
 		mkdir -p $(BUILD_DIR)/pkgtmp/lib/systemd/system
-		cp $(BUILD_DIR)/$(BINARY_NAME)_linux_$(OS_BIN_ARCH)_bin $(BUILD_DIR)/pkgtmp/usr/bin/$(BINARY_NAME)
+		cp $(BUILD_DIR)/$(BINARY_NAME)_linux_$(OS_BIN_ARCH) $(BUILD_DIR)/pkgtmp/usr/bin/$(BINARY_NAME)
 		cp ./resources/gudgeon.socket $(BUILD_DIR)/pkgtmp/lib/systemd/system/gudgeon.socket
 		cp ./resources/gudgeon.service $(BUILD_DIR)/pkgtmp/lib/systemd/system/gudgeon.service
 		cp ./resources/gudgeon.yml $(BUILD_DIR)/pkgtmp/etc/gudgeon/gudgeon.yml	
