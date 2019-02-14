@@ -85,6 +85,7 @@
           <v-data-table
             :headers="headers"
             :items="data"
+            :pagination.sync="pagination"
             class="elevation-1"
           >
             <template slot="items" slot-scope="props">

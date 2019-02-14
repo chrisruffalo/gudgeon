@@ -2,6 +2,10 @@ new Vue({
   el: '#qlog',
   data () {
     return {
+      pagination: {
+        sortBy: 'Created',
+        descending: true,
+      },      
       headers: [
         { text: 'Client Address', value: 'Address' },
         { text: 'Question Domain', value: 'RequestDomain'},
