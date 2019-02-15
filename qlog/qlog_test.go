@@ -40,7 +40,7 @@ func TestQueryLogQuery(t *testing.T) {
 	qlog := qlogInterface.(*qlog)
 
 	// log 1000 entries
-	totalEntries := 86400 // about one day at one query per second
+	totalEntries := 86400 / 10 // about one tenth of one day at one query per second
 	for i := 0; i < totalEntries; i++ {
 		// create message for sending to various endpoints
 		msg := new(LogInfo)
@@ -64,7 +64,11 @@ func TestQueryLogQuery(t *testing.T) {
 			msg.BlockedRule = "*"
 			msg.BlockedList = "testlist"
 		}
-		msg.RequestDomain = "google.com."
+		if i%20 == 0 {
+			msg.RequestDomain = "netflix.com."
+		} else {
+			msg.RequestDomain = "google.com."
+		}
 		if i%10 == 0 {
 			msg.RequestType = "AAAA"
 		} else {
@@ -87,7 +91,7 @@ func TestQueryLogQuery(t *testing.T) {
 	}
 	results := qlog.Query(query)
 	if len(results) != totalEntries/2 {
-		t.Errorf("Adderess query returned unexpected results: %d but expected %d", len(results), totalEntries/2)
+		t.Errorf("Address query returned unexpected results: %d but expected %d", len(results), totalEntries/2)
 	}
 
 	// query entries based on limit/skip
@@ -126,8 +130,8 @@ func TestQueryLogQuery(t *testing.T) {
 		RequestDomain: "google.com.",
 	}
 	results = qlog.Query(query)
-	if len(results) != totalEntries {
-		t.Errorf("Domain query returned unexpected results: %d but expected %d", len(results), totalEntries)
+	if len(results) != (totalEntries - totalEntries/20) {
+		t.Errorf("Domain query returned unexpected results: %d but expected %d", len(results), totalEntries-totalEntries/20)
 	}
 	for _, result := range results {
 		if result.RequestDomain != query.RequestDomain {

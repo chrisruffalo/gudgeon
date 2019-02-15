@@ -318,7 +318,7 @@ func (engine *engine) Resolve(domainName string) (string, error) {
 	response, _, _ := engine.performRequest(&address, "udp", m)
 
 	// return answer
-	return util.GetFirstAResponse(response), nil
+	return util.GetFirstIPResponse(response), nil
 }
 
 func (engine *engine) Handle(address *net.IP, protocol string, dnsWriter dns.ResponseWriter, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {

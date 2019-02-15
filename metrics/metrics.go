@@ -55,7 +55,7 @@ func New(config *config.GudgeonConfig) Metrics {
 	gometrics.GetOrRegisterTimer(QueryTime, metrics.registry)
 
 	// create channel and start recorder
-	metrics.metricsInfoChan = make(chan *metricsInfo)
+	metrics.metricsInfoChan = make(chan *metricsInfo, 100)
 	go metrics.record()
 
 	return metrics

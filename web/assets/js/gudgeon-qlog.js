@@ -8,8 +8,10 @@ new Vue({
       },      
       headers: [
         { text: 'Client Address', value: 'Address' },
+        { text: 'Blocked', value: 'Blocked'},
         { text: 'Question Domain', value: 'RequestDomain'},
         { text: 'Question Type', value: 'RequestType' },
+        { text: 'Response', value: 'ResponseText'},
         { text: 'Time', value: 'Created', align: "right"}
       ],
       data: [],

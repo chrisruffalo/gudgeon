@@ -45,7 +45,7 @@ OS_BIN_ARCH?=amd64
 OS_ARCH?=x86_64
 
 # build tags can change by target platform, only linux builds for now though
-GO_BUILD_TAGS?=netgo
+GO_BUILD_TAGS?=netgo purego
 
 # patternfly artifact
 PFVERSION=3.59.1
@@ -58,7 +58,8 @@ FPMCOMMON=-a $(OS_ARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration $(GITHASH) --
 all: test build minimize
 .PHONY: all prepare test build clean minimize package rpm deb
 
-prepare: ## Get all go tools
+prepare: ## Get all go tools and required libraries
+		$(GOCMD) install --tags purego -a github.com/golang/snappy
 		$(GOCMD) get -u github.com/mitchellh/gox
 		$(GOCMD) get -u github.com/GeertJohan/go.rice/rice
 

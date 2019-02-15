@@ -1,8 +1,9 @@
 package util
 
 import (
-	"github.com/miekg/dns"
 	"strings"
+
+	"github.com/miekg/dns"
 )
 
 // returns true if the response is "empty"
@@ -43,18 +44,67 @@ func IsEmptyResponse(response *dns.Msg) bool {
 	return true
 }
 
-func GetFirstAResponse(response *dns.Msg) string {
+// get the first A record response value
+func GetFirstIPResponse(response *dns.Msg) string {
 	if IsEmptyResponse(response) {
 		return ""
 	}
 
 	for _, answer := range response.Answer {
 		if aRecord, ok := answer.(*dns.A); ok {
-			if aRecord != nil {
+			if aRecord != nil && aRecord.A != nil {
 				return aRecord.A.String()
+			}
+		}
+		if aaaaRecord, ok := answer.(*dns.AAAA); ok {
+			if aaaaRecord != nil && aaaaRecord.AAAA != nil {
+				return aaaaRecord.AAAA.String()
 			}
 		}
 	}
 
 	return ""
+}
+
+func GetAnswerValues(response *dns.Msg) []string {
+	values := make([]string, 0)
+
+	for _, rr := range response.Answer {
+		value := GetRecordValue(rr)
+		if "" != value {
+			values = append(values, value)
+		}
+	}
+
+	return values
+}
+
+// based on the string value for a RR
+func GetRecordValue(record interface{}) string {
+
+	var output string
+
+	switch typed := record.(type) {
+	// A
+	case *dns.A:
+		output = GetRecordValue(*typed)
+	case dns.A:
+		if typed.A != nil {
+			output = typed.A.String()
+		}
+	// AAAA
+	case *dns.AAAA:
+		output = GetRecordValue(*typed)
+	case dns.AAAA:
+		if typed.AAAA != nil {
+			output = typed.AAAA.String()
+		}
+	// generic catch-all for RR
+	case dns.RR:
+		output = typed.String()
+	default:
+		// no-op because "" is already the default string
+	}
+
+	return output
 }

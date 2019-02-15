@@ -96,8 +96,10 @@
           > 
             <template slot="items" slot-scope="props">
               <td>{{ props.item.Address }}</td>
-              <td class="">{{ props.item.RequestDomain }}</td>
-              <td class="">{{ props.item.RequestType }}</td>
+              <td>{{ props.item.Blocked }}</td>
+              <td>{{ props.item.RequestDomain }}</td>
+              <td>{{ props.item.RequestType }}</td>
+              <td>{{ props.item.ResponseText }}</td>
               <td class="text-xs-right">{{ props.item.Created | godate}}</td>
             </template>
           </v-data-table>

@@ -84,3 +84,54 @@ func TestIsEmpty(t *testing.T) {
 		t.Errorf("Did not expect empty response after adding A record")
 	}
 }
+
+func TestGetRecordValue(t *testing.T) {
+	// create static header
+	hdr := dns.RR_Header{Name: "test.", Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0}
+
+	// A record
+	if "127.0.0.1" != GetRecordValue(&dns.A{Hdr: hdr, A: net.ParseIP("127.0.0.1")}) {
+		t.Errorf("Could not parse expectd 127.0.0.1 from A record")
+	}
+	if "10.0.0.1" != GetRecordValue(dns.A{Hdr: hdr, A: net.ParseIP("10.0.0.1")}) {
+		t.Errorf("Could not parse expectd 127.0.0.1 from A record")
+	}
+
+	// AAAA record
+	if "::1" != GetRecordValue(&dns.AAAA{Hdr: hdr, AAAA: net.ParseIP("::1")}) {
+		t.Errorf("Could not parse expectd 127.0.0.1 from A record")
+	}
+
+}
+
+func TestGetAnswerValues(t *testing.T) {
+
+	response := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Authoritative:     false,
+			AuthenticatedData: false,
+			CheckingDisabled:  false,
+			RecursionDesired:  false,
+			Opcode:            dns.OpcodeQuery,
+		},
+	}
+	response.Answer = make([]dns.RR, 2)
+
+	// add a
+	response.Answer[0] = &dns.A{
+		Hdr: dns.RR_Header{Name: "test.", Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},
+		A:   net.ParseIP("127.0.0.1"),
+	}
+	// add aaaa
+	response.Answer[1] = &dns.AAAA{
+		Hdr:  dns.RR_Header{Name: "test.", Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},
+		AAAA: net.ParseIP("::1"),
+	}
+
+	// get values
+	values := GetAnswerValues(response)
+
+	if len(values) < len(response.Answer) {
+		t.Errorf("Could not get all values for response, expected %d but got %d", len(response.Answer), len(values))
+	}
+}

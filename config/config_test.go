@@ -5,7 +5,6 @@ import (
 )
 
 func TestLoad(t *testing.T) {
-
 	config, err := Load("testdata/testconfig.yml")
 	if err != nil {
 		t.Errorf("Error opening test config: %s", err)

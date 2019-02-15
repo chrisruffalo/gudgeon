@@ -141,7 +141,7 @@ func (resolver *resolver) searchDomains(rCon *RequestContext, context *Resolutio
 	if "" == originalDomain || "." == originalDomain || (len(domainSplits) > 1 && "" != domainSplits[1]) {
 		return nil, nil
 	}
-		
+
 	for _, sDomain := range resolver.search {
 		// skip empty search domains
 		if "" == sDomain {
