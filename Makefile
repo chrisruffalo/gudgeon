@@ -1,24 +1,24 @@
+# information
+MAINTAINER=Chris Ruffalo
+WEBSITE=https://github.com/gudgeon
+DESCRIPTION=Gudgeon is a flexible blocking DNS proxy/cache
+
 # set relative paths
 MKFILE_DIR:=$(abspath $(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 
 # local arch (changed to standard names for build for gox/debian/travis)
 LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed 's/i686/386/' | sed 's/686/386/' | sed 's/i386/386/' )
 
-# Go parameters
-GOCMD?=go
-GODOWN=$(GOCMD) mod download
-
 # use GOX to build certain architectures
 GOOS_LIST?=linux
 GOARCH_LIST?=$(LOCALARCH)
 
-# information
-MAINTAINER=Chris Ruffalo
-WEBSITE=https://github.com/gudgeon
-DESCRIPTION=Gudgeon is a flexible blocking DNS proxy/cache
-
-# go commands
-GOXCMD=$(abspath $(GOPATH)/bin/gox)
+# go commands and paths
+GOPATH?=$(HOME)/go
+GOBIN?=$(GOPATH)/bin/
+GOCMD?=go
+GODOWN=$(GOCMD) mod download
+GOXCMD=$(abspath $(GOBIN)/gox)
 GOBUILD=$(GOXCMD) -os "$(GOOS_LIST)" -arch "$(GOARCH_LIST)"
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
@@ -28,7 +28,7 @@ GOGET=$(GOCMD) get
 CURLCMD=curl
 
 # rice command
-RICECMD=$(abspath $(GOPATH)/bin/rice)
+RICECMD=$(abspath $(GOBIN)/rice)
 
 # upx command (minimizes/compresses binaries)
 UPXCMD=upx
