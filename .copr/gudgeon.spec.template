@@ -25,8 +25,10 @@ if ! which go; then
     curl https://dl.google.com/go/$REMARCHIVE -L -o /tmp/$REMARCHIVE
     mkdir /tmp/golang
     tar xvf /tmp/$REMARCHIVE -C /tmp/golang
+    mkdir -p /usr/local
     mv /tmp/golang/go /usr/local/go
     rm -rf /tmp/golang /tmp/$REMARCHIVE
+    mkdir -p /usr/bin
     ln -s /usr/local/go/bin/go /usr/bin/go
 fi
 
