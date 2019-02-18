@@ -30,10 +30,10 @@ if ! which go; then
     mkdir -p /tmp/golang
     tar xf /tmp/$REMARCHIVE -C /tmp/golang
     chmod +x /tmp/golang/go/bin/go
-    ln -s /tmp/golang/go/bin/go /bin/go
 fi
 
 %build
+export PATH="/tmp/golang/go/bin:$PATH"
 go version
 export VERSION=@VERSION_TOKEN@
 export NUMBER=@VERSION_TOKEN@
