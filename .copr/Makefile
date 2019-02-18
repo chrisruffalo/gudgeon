@@ -12,6 +12,7 @@ NUMBER?=$(shell git tag | tail -n 1 | cut --complement -b 1)
 .PHONY: srpm
 
 srpm:
+	env
 	dnf install -y python2-rpkg rpkg || sudo dnf install -y python2-rpkg rpkg
 	mkdir -p $(outdir)
 	cat $(spec_path).template | sed 's/@VERSION_TOKEN@/$(NUMBER)/g' | sed 's/@HASH_TOKEN@/$(GITHASH)/g' > $(spec_path)
