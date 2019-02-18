@@ -1,5 +1,5 @@
-Name:       {{{ git_name }}}
-Version:    {{{ git_version }}}
+Name:       gudgeon
+Version:    @VERSION_TOKEN@
 Release:    1%{?dist}
 Summary:    A blocking DNS proxy/cache with host/subnet level rules and other features for managing home or small office DNS.
 
@@ -31,10 +31,10 @@ if ! which go; then
 fi
 
 %build
-export VERSION="{{{ git_version }}}"
-export GITHASH=""
-export GOOS_LIST="linux" 
-export GARCH_LIST="$(uname -m)" 
+export VERSION=@VERSION_TOKEN@
+export GITHASH=@HASH_TOKEN@
+export GOOS_LIST=linux
+export GARCH_LIST=$(uname -m)
 make prepare
 make download
 make build

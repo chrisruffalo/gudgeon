@@ -14,3 +14,6 @@ build
 
 # ignore rice-box files
 **/rice-box.go
+
+# ignore spec file since it is generated
+.copr/*.spec
