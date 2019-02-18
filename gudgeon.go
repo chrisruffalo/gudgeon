@@ -18,9 +18,14 @@ import (
 // pick up version from build process
 var Version = "1.0.0"
 var GitHash = "000000"
-var LongVersion = Version + "@git" + GitHash
+var LongVersion = Version
 
 func main() {
+	// add git hash to long version if available
+	if "" != GitHash {
+		LongVersion = LongVersion + "@git" + GitHash
+	}
+
 	// load command options
 	opts, err := config.Options(LongVersion)
 	if err != nil {

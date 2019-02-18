@@ -18,7 +18,8 @@ WEBSITE=https://github.com/gudgeon
 DESCRIPTION=Gudgeon is a flexible blocking DNS proxy/cache
 
 # go commands
-GOBUILD=gox -os "$(GOOS_LIST)" -arch "$(GOARCH_LIST)"
+GOXCMD=$(abspath $(GOPATH)/bin/gox)
+GOBUILD=$(GOXCMD) -os "$(GOOS_LIST)" -arch "$(GOARCH_LIST)"
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
@@ -27,7 +28,7 @@ GOGET=$(GOCMD) get
 CURLCMD=curl
 
 # rice command
-RICECMD=rice
+RICECMD=$(abspath $(GOPATH)/bin/rice)
 
 # upx command (minimizes/compresses binaries)
 UPXCMD=upx
