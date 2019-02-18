@@ -32,8 +32,8 @@ VERSION="{{{ git_version }}}" GITHASH="" GOOS_LIST="linux" GARCH_LIST="$(uname -
 %config(noreplace) /etc/gudgeon/gudgeon.yml
 %config(noreplace) /etc/gudgeon
 /var/lib/gudgeon
-%config(noreplace) /var/lib/systemd/system/gudgeon.socket
-%config(noreplace) /var/lib/systemd/system/gudgeon.service
+%config(noreplace) /lib/systemd/system/gudgeon.socket
+%config(noreplace) /lib/systemd/system/gudgeon.service
 
 %pre
 USER_EXISTS=$(id -u gudgeon)

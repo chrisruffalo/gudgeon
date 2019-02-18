@@ -146,6 +146,6 @@ install:
 	mkdir -p $(DESTDIR)/etc/gudgeon
 	install -m 0664 $(MKFILE_DIR)/resources/gudgeon.yml $(DESTDIR)/etc/gudgeon/gudgeon.yml
 	mkdir -p $(DESTDIR)/var/lib/gudgeon
-	mkdir -p $(DESTDIR)/var/lib/systemd/system
-	install -m 0644 $(MKFILE_DIR)/resources/gudgeon.socket $(DESTDIR)/var/lib/systemd/system/gudgeon.socket
-	install -m 0644 $(MKFILE_DIR)/resources/gudgeon.service $(DESTDIR)/var/lib/systemd/system/gudgeon.service
+	mkdir -p $(DESTDIR)/lib/systemd/system
+	install -m 0644 $(MKFILE_DIR)/resources/gudgeon.socket $(DESTDIR)/lib/systemd/system/gudgeon.socket
+	install -m 0644 $(MKFILE_DIR)/resources/gudgeon.service $(DESTDIR)/lib/systemd/system/gudgeon.service
