@@ -1,4 +1,5 @@
-Name:       gudgeon
+#           from {{{ git_name }}} {{{ git_version }}}
+Name:       {{{ git_name }}}
 Version:    @VERSION_TOKEN@
 Release:    1%{?dist}
 Summary:    A blocking DNS proxy/cache with host/subnet level rules and other features for managing home or small office DNS.
@@ -20,16 +21,22 @@ A blocking DNS proxy/cache with host/subnet level rules and other features for m
 {{{ git_dir_setup_macro }}}
 # install go if not provided
 if ! which go; then
-    export LOCALARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/i686/386/' | sed 's/686/386/' | sed 's/i386/386/')
-    export REMARCHIVE=go1.11.5.linux-$LOCALARCH.tar.gz
-    curl https://dl.google.com/go/$REMARCHIVE -L -o /tmp/$REMARCHIVE
-    mkdir /tmp/golang
-    tar xvf /tmp/$REMARCHIVE -C /tmp/golang
-    export GOCMD=/tmp/golang/bin/go
+    LOCALARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/i686/386/' | sed 's/686/386/' | sed 's/i386/386/')
+    REMARCHIVE=go1.11.5.linux-$LOCALARCH.tar.gz
+    if [[ ! -f /tmp/$REMARCHIVE ]]; then
+        curl https://dl.google.com/go/$REMARCHIVE -L -o /tmp/$REMARCHIVE
+    fi
+    rm -rf /tmp/golang
+    mkdir -p /tmp/golang
+    tar xf /tmp/$REMARCHIVE -C /tmp/golang
+    chmod +x /tmp/golang/go/bin/go
+    ln -s /tmp/golang/go/bin/go /bin/go
 fi
 
 %build
+go version
 export VERSION=@VERSION_TOKEN@
+export NUMBER=@VERSION_TOKEN@
 export GITHASH=@HASH_TOKEN@
 export GOOS_LIST=linux
 export GARCH_LIST=$(uname -m)
