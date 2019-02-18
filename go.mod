@@ -16,22 +16,9 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
-	github.com/remyoudompheng/bigfft v0.0.0-20170806203942-52369c62f446 // indirect
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
 	golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67 // indirect
 	golang.org/x/net v0.0.0-20190213061140-3a22650c66bd // indirect
 	golang.org/x/sys v0.0.0-20190213121743-983097b1a8a3 // indirect
 	gopkg.in/yaml.v2 v2.2.2
-	modernc.org/b v1.0.0 // indirect
-	modernc.org/db v1.0.0 // indirect
-	modernc.org/file v1.0.0 // indirect
-	modernc.org/fileutil v1.0.0 // indirect
-	modernc.org/golex v1.0.0 // indirect
-	modernc.org/internal v1.0.0 // indirect
-	modernc.org/lldb v1.0.0 // indirect
-	modernc.org/mathutil v1.0.0 // indirect
-	modernc.org/ql v1.0.0
-	modernc.org/sortutil v1.0.0 // indirect
-	modernc.org/strutil v1.0.0 // indirect
-	modernc.org/zappy v1.0.0 // indirect
 )

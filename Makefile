@@ -66,7 +66,6 @@ all: test build minimize
 .PHONY: all prepare test build clean minimize package rpm deb srpm
 
 prepare: ## Get all go tools and required libraries
-		$(GOCMD) install --tags purego -a github.com/golang/snappy
 		$(GOCMD) get -u github.com/mitchellh/gox
 		$(GOCMD) get -u github.com/GeertJohan/go.rice/rice
 
