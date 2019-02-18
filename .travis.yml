@@ -42,3 +42,4 @@ deploy:
   overwrite: true
   on:
     tags: true
+    condition: "$TRAVIS_TAG =~ ^v.*$"
