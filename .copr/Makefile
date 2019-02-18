@@ -7,6 +7,6 @@ outdir?=$(abspath $(mkfile_dir)/../build/)
 .PHONY: srpm
 
 srpm:
-	sudo dnf install -y python2-rpkg rpkg
+	dnf install -y python2-rpkg rpkg || sudo dnf install -y python2-rpkg rpkg
 	mkdir -p $(outdir)
 	rpkg srpm --spec $(spec_path) --outdir $(outdir)

@@ -1,8 +1,8 @@
 # set relative paths
 MKFILE_DIR:=$(abspath $(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 
-# local arch
-LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed 's/i686/386/' | sed 's/686/386/' )
+# local arch (changed to standard names for build for gox/debian/travis)
+LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed 's/i686/386/' | sed 's/686/386/' | sed 's/i386/386/' )
 
 # Go parameters
 GOCMD?=go
