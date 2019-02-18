@@ -94,7 +94,7 @@ download: ## Download newest supplementary assets (todo: maybe replace with webp
 build: ## Build Binary
 		$(GODOWN)
 		rm -f $(BUILD_DIR)/$(BINARY_NAME)*
-		$(RICECMD) embed-go -i ./web/
+		$(RICECMD) embed-go -i ./web/ -i ./qlog/
 		$(GOBUILD) -verbose -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitHash=$(GITHASH)" -output "$(BUILD_DIR)/$(BINARY_NAME)_{{.OS}}_{{.Arch}}"
 		$(UPXCMD) -q $(BUILD_DIR)/$(BINARY_NAME)*
 		rm -f $(BUILD_DIR)/*.upx
