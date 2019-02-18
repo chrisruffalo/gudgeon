@@ -21,7 +21,7 @@ A blocking DNS proxy/cache with host/subnet level rules and other features for m
 %build
 make prepare
 make download
-VERSION="{{{{ git_version }}}}" GITHASH="" GOOS_LIST="linux" GARCH_LIST="$(uname -m)" make build
+VERSION="{{{ git_version }}}" GITHASH="" GOOS_LIST="linux" GARCH_LIST="$(uname -m)" make build
 
 %install
 %make_install
