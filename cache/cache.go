@@ -167,9 +167,9 @@ func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, boo
 
 	// count down/change ttl values in response
 	secondDelta := uint32(delta / time.Second)
-	adjustTtls(secondDelta, envelope.message.Answer)
-	adjustTtls(secondDelta, envelope.message.Ns)
-	adjustTtls(secondDelta, envelope.message.Extra)
+	adjustTtls(secondDelta, message.Answer)
+	adjustTtls(secondDelta, message.Ns)
+	adjustTtls(secondDelta, message.Extra)
 
 	return message, true
 }
