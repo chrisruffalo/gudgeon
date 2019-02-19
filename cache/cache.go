@@ -72,6 +72,9 @@ func minTtl(currentMin uint32, records []dns.RR) uint32 {
 
 // make string key from partition + message
 func (gocache *gocache) key(partition string, questions []dns.Question) string {
+	// ensure the partition is lowercase
+	partition = strings.ToLower(strings.TrimSpace(partition))
+
 	// it is very likely, even at low query rates, that two threads are
 	// hitting this section from the same group and so we have to tread lightly when
 	// setting values in the map potentially at the same time
@@ -94,7 +97,7 @@ func (gocache *gocache) key(partition string, questions []dns.Question) string {
 		}
 	}
 	key = fmt.Sprintf("%d%s%s", gocache.partitionIdxMap[partition], delimeter, key)
-	return strings.TrimSpace(key)
+	return strings.ToLower(strings.TrimSpace(key))
 }
 
 func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.Msg) bool {
@@ -147,6 +150,7 @@ func adjustTtls(timeDelta uint32, records []dns.RR) {
 func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, bool) {
 	// get key
 	key := gocache.key(partition, request.Question)
+
 	if "" == key {
 		return nil, false
 	}
@@ -160,18 +164,20 @@ func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, boo
 		return nil, false
 	}
 	delta := time.Now().Sub(envelope.time)
-	message := envelope.message.Copy()
+
+	// copy the message to return it instead of the original
+	messageCopy := envelope.message.Copy()
 
 	// update message id to match request id
-	message.MsgHdr.Id = request.MsgHdr.Id
+	messageCopy.MsgHdr.Id = request.MsgHdr.Id
 
 	// count down/change ttl values in response
 	secondDelta := uint32(delta / time.Second)
-	adjustTtls(secondDelta, message.Answer)
-	adjustTtls(secondDelta, message.Ns)
-	adjustTtls(secondDelta, message.Extra)
+	adjustTtls(secondDelta, messageCopy.Answer)
+	adjustTtls(secondDelta, messageCopy.Ns)
+	adjustTtls(secondDelta, messageCopy.Extra)
 
-	return message, true
+	return messageCopy, true
 }
 
 func (gocache *gocache) Size() uint32 {

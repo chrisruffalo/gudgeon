@@ -233,14 +233,18 @@ func (resolver *resolver) Answer(rCon *RequestContext, context *ResolutionContex
 	// mark resolver as visited by adding the resolver name to the list of visited resolvers
 	context.Visited = append(context.Visited, resolver.name)
 
+	// local store check
+	alreadyStored := context.Stored
+
 	// check cache first (if available)
 	if context.ResolverMap != nil {
 		cachedResponse, found := context.ResolverMap.Cache().Query(resolver.name, request)
-		if found && cachedResponse != nil {
+		if found && cachedResponse != nil && !util.IsEmptyResponse(cachedResponse) {
+			// if no resolver has been set then use that resolver name as the source name
 			if "" == context.ResolverUsed {
 				context.ResolverUsed = resolver.name
 			}
-			// set as stored in the context because it was found int he cache
+			// set as stored in the context because it was found in the cache
 			context.Stored = true
 			context.Cached = true
 			return cachedResponse, nil
@@ -261,7 +265,7 @@ func (resolver *resolver) Answer(rCon *RequestContext, context *ResolutionContex
 	}
 
 	// only cache non-nil response
-	if context != nil && context.ResolverMap != nil && !context.Stored && response != nil && !response.MsgHdr.Truncated {
+	if context != nil && context.ResolverMap != nil && !alreadyStored && response != nil && !response.MsgHdr.Truncated {
 		// set as stored based on status of cache action
 		context.Stored = context.ResolverMap.Cache().Store(resolver.name, request, response)
 	}
