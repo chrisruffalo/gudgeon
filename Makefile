@@ -42,7 +42,7 @@ BINARY_NAME=gudgeon
 
 # get version and hash from git if not passed in
 VERSION?=$(shell git rev-parse --abbrev-ref HEAD)
-GITHASH?=$(shell git rev-parse HEAD | head -c6)
+GITHASH?=$(shell git rev-parse HEAD | head -c7)
 NUMBER?=$(shell git tag | tail -n 1 | cut --complement -b 1)
 
 # build targets for dockerized commands (build deb, build rpm)
