@@ -160,9 +160,11 @@ func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, boo
 		return nil, false
 	}
 	envelope := value.(*envelope)
-	if envelope == nil || envelope.message == nil {
+	if envelope == nil || envelope.message == nil || util.IsEmptyResponse(envelope.message) {
 		return nil, false
 	}
+
+	// use the time from the envelope to determine how long the message has been in the cache to adjust the ttl
 	delta := time.Now().Sub(envelope.time)
 
 	// copy the message to return it instead of the original
