@@ -6,8 +6,12 @@ gudgeon:
   home: /var/lib/gudgeon
 
   network:
-    # use systemd listeners
-    systemd: true 
+    # can't use systemd listeners
+    systemd: false
+    # don't start on low port, let that get mapped in
+    interfaces:
+    - ip: 0.0.0.0
+      port: 5354
 
   resolvers:
   - name: default

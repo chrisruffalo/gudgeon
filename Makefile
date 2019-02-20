@@ -49,9 +49,17 @@ BINARY_NAME=gudgeon
 # get version and hash from git if not passed in
 VERSION?=$(shell git rev-parse --abbrev-ref HEAD)
 GITHASH?=$(shell git rev-parse HEAD | head -c7)
-NUMBER?=$(shell git tag | tail -n 1 | cut --complement -b 1)
+NUMBER?=$(shell git tag | sort -V | tail -n 1 | cut --complement -b 1)
 
-# build targets for dockerized commands (build deb, build rpm)
+# docker stuff
+DOCKER=$(shell which docker)
+DOCKER_PATH?=gudgeon
+DOCKER_NAME?=gudgeon
+DOCKER_TAG?=$(NUMBER)
+CONTAINER_PATH=$(DOCKER_PATH)/$(DOCKER_NAME):$(DOCKER_TAG)
+DOCKERFILE?=Dockerfile
+
+	# build targets for dockerized commands (build deb, build rpm)
 OS_TYPE?=linux
 OS_VERSION?=7
 OS_BIN_ARCH?=amd64
@@ -60,7 +68,7 @@ BINARY_TARGET?=$(BINARY_NAME)-$(OS_TYPE)-$(OS_BIN_ARCH)
 
 # build tags can change by target platform, only linux builds for now though
 GO_BUILD_TAGS?=netgo linux sqlite3 
-GO_LD_FLAGS?=-s -w -X main.Version=$(VERSION) -X main.GitHash=$(GITHASH)
+GO_LD_FLAGS?=-s -w -extldflags "-static" -X main.Version=$(VERSION) -X main.GitHash=$(GITHASH)
 
 # patternfly artifact
 PFVERSION=3.59.1
@@ -71,7 +79,7 @@ PFPATH=patternfly-$(PFVERSION)
 FPMCOMMON=-a $(OS_ARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration $(GITHASH) --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh --prefix / -C $(BUILD_DIR)/pkgtmp
 
 all: test build minimize
-.PHONY: all prepare test build clean minimize package rpm deb srpm
+.PHONY: all prepare test build clean minimize package rpm deb docker
 
 prepare: ## Get all go tools and required libraries
 		$(GOCMD) get -u github.com/karalabe/xgo
@@ -119,7 +127,7 @@ buildxgo: ## Use xgo to build arm targets with sqlite installed, this only works
 
 compress: ## Compress binaries with UPX
 		$(UPXCMD) -q $(BUILD_DIR)/$(BINARY_NAME)*
-		rm -f $(BUILD_DIR)/*.upx
+		rm -f $(BUILD_DIR)/*.upx || true
 
 test: ## Do Unit Tests
 		$(GODOWN)
@@ -152,6 +160,13 @@ rpm: package ## Build target linux/redhat RPM for $OS_BIN_ARCH/$OS_ARCH
 deb: package ## Build deb file for $OS_BIN_ARCH/$OS_ARCH
 		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)_VERSION-$(GITHASH)_ARCH.deb" -t deb $(FPMCOMMON)
 		rm -rf $(BUILD_DIR)/pkgtmp
+
+docker: ## Create container and mark as latest as well
+		$(DOCKER) build -f docker/$(DOCKERFILE) --build-arg BINARY_TARGET="$(BINARY_TARGET)" --rm -t $(CONTAINER_PATH) .
+		$(DOCKER) tag $(CONTAINER_PATH) $(DOCKER_PATH)/$(DOCKER_NAME):latest
+
+dockerpush: ## Push image at path to remote
+		$(DOCKER) push $(CONTAINER_PATH) .		
 
 install:
 		mkdir -p $(DESTDIR)/bin

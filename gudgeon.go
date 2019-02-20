@@ -81,6 +81,12 @@ func main() {
 		web.Serve(config, mets, qlog)
 	}
 
+	// try and print out error if we caught one during startup
+	if recovery := recover(); recovery != nil {
+		fmt.Printf("An error occured while starting Gudgeon: %s\n", recovery)
+		os.Exit(1)
+	}
+
 	// wait for signal
 	sig := make(chan os.Signal)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)

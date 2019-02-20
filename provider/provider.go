@@ -3,6 +3,7 @@ package provider
 import (
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	"github.com/coreos/go-systemd/activation"
@@ -124,9 +125,17 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 		// todo: log no network structure
 		return nil
 	}
+	
+	// start out with no file socket descriptors
+	fileSockets := []*os.File{}
 
-	// file descriptors from systemd
-	fileSockets := activation.Files(true)
+	// get file descriptors from systemd and fail gracefully
+	if *netConf.Systemd {
+		fileSockets = activation.Files(true)
+		if recovery := recover(); recovery != nil {
+			fmt.Printf("Could not use systemd activation: %s\n", recovery)
+		}
+	}
 
 	// interfaces
 	interfaces := netConf.Interfaces

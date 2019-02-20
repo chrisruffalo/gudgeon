@@ -8,6 +8,8 @@ Take, for example, a user who has shown persistent inability to avoid internet s
 
 For all of these reasons Gudgeon has been created to allow more flexibility in host-based DNS blocking.
 
+## Directory
+
 ## Features
 
 * Go Routines for non-blocking request handling enables high-througput especially with simultaneous requests
@@ -19,27 +21,30 @@ For all of these reasons Gudgeon has been created to allow more flexibility in h
 * Inline host file entries in configuration file
 * Enhanced (and backwards-compatible) hostname format supports wildcard names, CNAME/PTR entries, and reverse lookups
 
-## Concept of Operations
+## How Do I Install Gudgeon?
+There are a few different ways to install Gudgeon that *don't* require you to build it yourself. Gudgeon aims to support recent of releases Debian, Ubuntu, RHEL/CentOS, and Fedora as well as Docker and direct MIPS builds.
 
-Gudgeon matches incoming traffic to a consumer, maps the consumer to a set of groups, each group supports multiple different lists, and then finally to resolvers. Each step is designed to provide flexibility to end users.
+### GitHub Releases
+New tagged releases are automatically built by Travis-CI and uploaded to GitHub for download. Functionally these releases are identical to releases available in other channels. You can find these releases [here](https://github.com/chrisruffalo/gudgeon/releases).
 
-When a request is received Gudgeon does the following:
-* Check for a matching consumer, if no consumer is matched, use the "default" consumer.
-* Check for matching groups, if no groups are matched, use the "default" group.
-* Determine if the domain is blocked based on the lists that belong to the matched group(s)
-* Get resolvers for groups, if no resolvers are matched,  use the "default" resolver.
-* Attempt to resolve the domain using the resolver sources that belonged to the groups
-* Return the result from the source or the result of a blocked request
+### Fedora Releases
+Gudgeon has a [COPR repository](https://copr.fedorainfracloud.org/coprs/cruffalo/gudgeon/) for Fedora 28, 29, and CentOS 7. 
+```bash
+#optional, may be required for CentOS/EL linux
+[user@host] yum install yum-plugin-copr
+# enable COPR and install gudgeon, use appropriate yum commands on non-dnf platforms
+[user@host] sudo dnf copr enable cruffalo/gudgeon
+[user@host] sudo dnf install -y gudgeon
+```
 
-The point is to provide several different ways to change behavior away from the standard (and single-pathed) resolution heirarchy that is familiar to us from most DNS providers. The main way to do this is by assigning consumers to different groups (subnets, IPs, IP ranges) or by structuring resolvers to work in a way that more accurately reflects the needs of your site.
+### Docker Releases
+Gudgeon also comes in container form from `gudgeon/gudgeon`. For ARM6 and ARM7 use the `gudgeon/gudgeon-arm6` container.
 
-## Resolvers
+The Docker container exposes ports 5354 (dns) and 9009 (http) and those ports should be published via the `docker` command. Remember to use `/tcp` and `/udp` when exposing the ports. For persisting/modifying the configuration and for persisting data, metrics, and logs there are two directories in the container. The first directory `/etc/gudgeon` is for configuration files. The data is stored in `/var/lib/gudgeon`. 
 
-In Gudgeon a "resolver" is a set of configuration and sources that are used to resolve DNS queries. Each resolver is a description of several aspects of name resolution.
-
-## Configuration and Examples
-
-**TODO**
+```bash
+[user@host] docker run -ti -p 53:5354/tcp -p 53:5354/udp -p 9009:9009 -v /etc/gudgeon:/etc/gudgeon -v /var/lib/gudgeon:/gudgeon/home gudgeon/gudgeon:latest
+```
 
 ## What About Dnsmasq and Pi-Hole?
 
@@ -59,7 +64,7 @@ Prerequisites
 * Go > 1.11 (module support is *required*)
 * `upx` (for binary compression)
 * `fpm` (for building deb/rpm)
-* Docker (for building docker images)
+* Docker (for building docker images or xgo support)
 
 With the prerequisites installed you can build Gudgeon by...
 * Preparing your environment with needed Go tools with `[]$ make prepare`
