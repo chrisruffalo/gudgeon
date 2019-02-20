@@ -125,8 +125,8 @@ buildxgo: ## Use xgo to build arm targets with sqlite installed, this only works
 		$(RICECMD) embed-go $(RICEPATHS)
 		$(XGOCMD) --dest $(BUILD_DIR) --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
 
-compress: ## Compress binaries with UPX
-		$(UPXCMD) -q $(BUILD_DIR)/$(BINARY_NAME)*
+compress: ## Attempt to compress binaries with UPX
+		$(UPXCMD) -q $(BUILD_DIR)/$(BINARY_NAME)* || true
 		rm -f $(BUILD_DIR)/*.upx || true
 
 test: ## Do Unit Tests
