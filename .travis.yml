@@ -55,8 +55,6 @@ before_deploy:
   - BIN_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
   - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
   - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
-  - BIN_TARGET=gudgeon-linux-arm-7 OS_ARCH=arm7 make rpm
-  - BIN_TARGET=gudgeon-linux-arm-7 OS_ARCH=arm7 make deb
   # make docker builds
   - BIN_TARGET=gudgeon-linux-amd64 make docker
   - BIN_TARGET=gudgeon-linux-arm-6 DOCKER_NAME=gudgeon-arm6 DOCKERFILE=Dockerfile.arm32v6 make docker

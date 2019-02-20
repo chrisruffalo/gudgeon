@@ -12,7 +12,7 @@ LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed 's/i686/386/' | sed 's/
 # use GOX to build certain architectures
 GOOS_LIST?=linux
 GOARCH_LIST?=$(LOCALARCH)
-XGO_TARGETS?=linux/arm-5,linux/arm-6,linux/arm-7,linux/mips
+XGO_TARGETS?=linux/arm-5,linux/arm-6,linux/mips
 
 # go commands and paths
 GOPATH?=$(HOME)/go
