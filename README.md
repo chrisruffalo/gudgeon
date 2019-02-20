@@ -38,10 +38,10 @@ Gudgeon has a [COPR repository](https://copr.fedorainfracloud.org/coprs/cruffalo
 ### Docker Releases
 Gudgeon also comes in container form from `gudgeon/gudgeon`. For ARM6 and ARM7 use the `gudgeon/gudgeon-arm6` container.
 
-The Docker container exposes ports 5354 (dns) and 9009 (http) and those ports should be published via the `docker` command. Remember to use `/tcp` and `/udp` when exposing the ports. For persisting/modifying the configuration and for persisting data, metrics, and logs there are two directories in the container. The first directory `/etc/gudgeon` is for configuration files. The data is stored in `/var/lib/gudgeon`. 
+The Docker container exposes ports 5354 (dns) and 9009 (http) and those ports should be published via the `docker` command. Remember to use `/tcp` and `/udp` when exposing the ports. For persisting/modifying the configuration and for persisting data, metrics, and logs there are two directories in the container. The first directory `/etc/gudgeon` is for configuration files. The data is stored in `/var/lib/gudgeon`. The version can be any tag after v0.3.12. See the [amd64](https://cloud.docker.com/u/gudgeon/repository/docker/gudgeon/gudgeon) and [arm32v6](https://cloud.docker.com/u/gudgeon/repository/docker/gudgeon/gudgeon-arm6) for tags and more details.
 
 ```bash
-[user@host] docker run -ti -p 53:5354/tcp -p 53:5354/udp -p 9009:9009 -v /etc/gudgeon:/etc/gudgeon -v /var/lib/gudgeon:/var/lib/gudgeon gudgeon/gudgeon:latest
+[user@host] docker run -ti -p 53:5354/tcp -p 53:5354/udp -p 9009:9009 -v /etc/gudgeon:/etc/gudgeon -v /var/lib/gudgeon:/var/lib/gudgeon gudgeon/gudgeon:${version}
 ```
 
 ## What About Dnsmasq and Pi-Hole?
