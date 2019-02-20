@@ -159,7 +159,7 @@ func (list *GudgeonList) CanonicalName() string {
 
 func (list *GudgeonList) ShortName() string {
 	name := strings.ToLower(list.CanonicalName())
-	return alphaRegex.ReplaceAllString(name, "")
+	return alphaRegex.ReplaceAllString(name, "_")
 }
 
 func (list *GudgeonList) IsRemote() bool {
