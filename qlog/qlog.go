@@ -148,24 +148,11 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 }
 
 func (qlog *qlog) logDB(info *LogInfo) {
-	tx, err := qlog.store.Begin()
-	if err != nil {
-		fmt.Printf("Could start transaction: %s\n", err)
-		tx.Rollback()
-		return
-	}
-
 	istmt := "insert into qlog (Address, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);"
-	_, err = tx.Exec(istmt, info.Address, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.BlockedList, info.BlockedRule, info.Created)
+	_, err := qlog.store.Exec(istmt, info.Address, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.BlockedList, info.BlockedRule, info.Created)
 	if err != nil {
-		tx.Rollback()
 		fmt.Printf("Could not insert into db: %s\n", err)
 		return
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		fmt.Printf("Could not commit transaction: %s\n", err)
 	}
 }
 

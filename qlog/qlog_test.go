@@ -1,7 +1,6 @@
 package qlog
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -40,7 +39,7 @@ func TestQueryLogQuery(t *testing.T) {
 	qlog := qlogInterface.(*qlog)
 
 	// log 1000 entries
-	totalEntries := 86400 // about one day at one query per second
+	totalEntries := 86400 / 24 // about one hour at one query per second
 	for i := 0; i < totalEntries; i++ {
 		// create message for sending to various endpoints
 		msg := new(LogInfo)
@@ -83,7 +82,6 @@ func TestQueryLogQuery(t *testing.T) {
 		// log msg
 		qlog.logDB(msg)
 	}
-	fmt.Printf("Finished storing values\n")
 
 	// query entries based on address
 	query := &QueryLogQuery{
