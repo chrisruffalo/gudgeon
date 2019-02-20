@@ -55,13 +55,11 @@ before_deploy:
   - BIN_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
   - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
   - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
-  # make docker builds
+  # make docker build(s)
   - BIN_TARGET=gudgeon-linux-amd64 make docker
-  - BIN_TARGET=gudgeon-linux-arm-6 DOCKER_NAME=gudgeon-arm6 DOCKERFILE=Dockerfile.arm32v6 make docker
-  # push builds to docker cloud
+  # push build(s) to docker cloud
   - echo "$DOCKER_PASSWORD" | docker login --username="$DOCKER_USERNAME" --email="$DOCKER_EMAIL"
   - make dockerpush
-  - DOCKER_NAME=gudgeon-arm6 make dockerpush
 
 deploy:
   provider: releases
