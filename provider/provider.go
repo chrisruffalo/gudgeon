@@ -125,7 +125,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 		// todo: log no network structure
 		return nil
 	}
-	
+
 	// start out with no file socket descriptors
 	fileSockets := []*os.File{}
 
