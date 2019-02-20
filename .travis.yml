@@ -28,16 +28,21 @@ git:
 notifications:
   email: false
 
-# to "succeed" the script only needs to build and test
-script:
-  - make test
-
-# build all deployable artifacts
-before_deploy:
+# make full use of cache.
+before_script:
   # install dependencies
   - sudo apt-get update
   - sudo apt-get install -y upx-ucl ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib and g++-multilib
   - gem install --no-ri --no-rdoc fpm
+  # pull xgo container
+  - docker pull karalabe/xgo-latest
+
+# to "succeed" the script only needs to build and test
+script:
+  - make test
+
+# after success do all of the build stuff (within scope of the cache, hopefully)
+after_success:
   # prepare build environment
   - make prepare  
   - make download
