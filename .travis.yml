@@ -57,8 +57,6 @@ before_deploy:
   - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
   - BIN_TARGET=gudgeon-linux-arm-7 OS_ARCH=arm7 make rpm
   - BIN_TARGET=gudgeon-linux-arm-7 OS_ARCH=arm7 make deb
-  - BIN_TARGET=gudgeon-linux-mips OS_ARCH=mips make rpm
-  - BIN_TARGET=gudgeon-linux-mips OS_ARCH=mips make deb
 
 deploy:
   provider: releases
