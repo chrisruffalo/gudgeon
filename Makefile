@@ -12,6 +12,7 @@ LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed 's/i686/386/' | sed 's/
 # use GOX to build certain architectures
 GOOS_LIST?=linux
 GOARCH_LIST?=$(LOCALARCH)
+XGO_TARGETS?=linux/arm-5,linux/arm-6,linux/arm-7,linux/mips
 
 # go commands and paths
 GOPATH?=$(HOME)/go
@@ -19,6 +20,7 @@ GOBIN?=$(GOPATH)/bin/
 GOCMD?=go
 GODOWN=$(GOCMD) mod download
 GOXCMD=$(abspath $(GOBIN)/gox)
+XGOCMD=$(abspath $(GOBIN)/xgo)
 GOBUILD=$(GOXCMD) -os "$(GOOS_LIST)" -arch "$(GOARCH_LIST)"
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
@@ -27,8 +29,12 @@ GOGET=$(GOCMD) get
 # downloading things
 CURLCMD=curl
 
+# SQLite binaries
+SQLITE_DEP?=https://sqlite.org/2019/sqlite-autoconf-3270100.tar.gz
+
 # rice command
 RICECMD=$(abspath $(GOBIN)/rice)
+RICEPATHS=-i ./qlog/ -i ./web/
 
 # upx command (minimizes/compresses binaries)
 UPXCMD=upx
@@ -46,13 +52,15 @@ GITHASH?=$(shell git rev-parse HEAD | head -c7)
 NUMBER?=$(shell git tag | tail -n 1 | cut --complement -b 1)
 
 # build targets for dockerized commands (build deb, build rpm)
-OS_TYPE?=centos
+OS_TYPE?=linux
 OS_VERSION?=7
 OS_BIN_ARCH?=amd64
 OS_ARCH?=x86_64
+BINARY_TARGET?=$(BINARY_NAME)-$(OS_TYPE)-$(OS_BIN_ARCH)
 
 # build tags can change by target platform, only linux builds for now though
-GO_BUILD_TAGS?=netgo purego
+GO_BUILD_TAGS?=netgo linux sqlite3 
+GO_LD_FLAGS?=-s -w -X main.Version=$(VERSION) -X main.GitHash=$(GITHASH)
 
 # patternfly artifact
 PFVERSION=3.59.1
@@ -66,6 +74,7 @@ all: test build minimize
 .PHONY: all prepare test build clean minimize package rpm deb srpm
 
 prepare: ## Get all go tools and required libraries
+		$(GOCMD) get -u github.com/karalabe/xgo
 		$(GOCMD) get -u github.com/mitchellh/gox
 		$(GOCMD) get -u github.com/GeertJohan/go.rice/rice
 
@@ -99,9 +108,16 @@ download: ## Download newest supplementary assets (todo: maybe replace with webp
 
 build: ## Build Binary
 		$(GODOWN)
-		rm -f $(BUILD_DIR)/$(BINARY_NAME)*
-		$(RICECMD) embed-go -i ./web/ -i ./qlog/
-		$(GOBUILD) -verbose -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitHash=$(GITHASH)" -output "$(BUILD_DIR)/$(BINARY_NAME)_{{.OS}}_{{.Arch}}"
+		mkdir -p $(BUILD_DIR)
+		$(RICECMD) embed-go $(RICEPATHS)
+		$(GOBUILD) -verbose -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "$(GO_LD_FLAGS)" -output "$(BUILD_DIR)/$(BINARY_NAME)-{{.OS}}-{{.Arch}}"
+
+buildxgo: ## Use xgo to build arm targets with sqlite installed, this only works **from inside the go path** (until xgo gets module support, anyway)
+		mkdir -p $(BUILD_DIR)
+		$(RICECMD) embed-go $(RICEPATHS)
+		$(XGOCMD) --dest $(BUILD_DIR) --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
+
+compress: ## Compress binaries with UPX
 		$(UPXCMD) -q $(BUILD_DIR)/$(BINARY_NAME)*
 		rm -f $(BUILD_DIR)/*.upx
 
@@ -113,20 +129,18 @@ clean: ## Remove build artifacts
 		# do go clean steps
 		$(GOCLEAN)
 		# remove rice artifacts
-		$(RICECMD) clean -i ./web/ -i ./qlog/
+		$(RICECMD) clean $(RICEPATHS)
 		# remove build dir
 		rm -rf $(BUILD_DIR)
 
 package: # Build consistent package structure
 		rm -rf $(BUILD_DIR)/pkgtmp
-		rm -rf $(BUILD_DIR)/$(BINARY_NAME)*$(OS_BIN_ARCH).deb
-		rm -rf $(BUILD_DIR)/$(BINARY_NAME)*$(OS_ARCH).deb
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)/lists
 		mkdir -p $(BUILD_DIR)/pkgtmp/usr/bin/
 		mkdir -p $(BUILD_DIR)/pkgtmp/var/lib/$(BINARY_NAME)
 		mkdir -p $(BUILD_DIR)/pkgtmp/lib/systemd/system
-		cp $(BUILD_DIR)/$(BINARY_NAME)_linux_$(OS_BIN_ARCH) $(BUILD_DIR)/pkgtmp/usr/bin/$(BINARY_NAME)
+		cp $(BUILD_DIR)/$(BINARY_TARGET) $(BUILD_DIR)/pkgtmp/usr/bin/$(BINARY_NAME)
 		cp $(MKFILE_DIR)/resources/gudgeon.socket $(BUILD_DIR)/pkgtmp/lib/systemd/system/gudgeon.socket
 		cp $(MKFILE_DIR)/resources/gudgeon.service $(BUILD_DIR)/pkgtmp/lib/systemd/system/gudgeon.service
 		cp $(MKFILE_DIR)/resources/gudgeon.yml $(BUILD_DIR)/pkgtmp/etc/gudgeon/gudgeon.yml	
@@ -140,11 +154,11 @@ deb: package ## Build deb file for $OS_BIN_ARCH/$OS_ARCH
 		rm -rf $(BUILD_DIR)/pkgtmp
 
 install:
-	mkdir -p $(DESTDIR)/bin
-	install -m 0755 $(BUILD_DIR)/$(BINARY_NAME)_linux_$(LOCALARCH) $(DESTDIR)/bin/$(BINARY_NAME)
-	mkdir -p $(DESTDIR)/etc/gudgeon
-	install -m 0664 $(MKFILE_DIR)/resources/gudgeon.yml $(DESTDIR)/etc/gudgeon/gudgeon.yml
-	mkdir -p $(DESTDIR)/var/lib/gudgeon
-	mkdir -p $(DESTDIR)/lib/systemd/system
-	install -m 0644 $(MKFILE_DIR)/resources/gudgeon.socket $(DESTDIR)/lib/systemd/system/gudgeon.socket
-	install -m 0644 $(MKFILE_DIR)/resources/gudgeon.service $(DESTDIR)/lib/systemd/system/gudgeon.service
+		mkdir -p $(DESTDIR)/bin
+		install -m 0755 $(BUILD_DIR)/$(BINARY_NAME)_linux_$(LOCALARCH) $(DESTDIR)/bin/$(BINARY_NAME)
+		mkdir -p $(DESTDIR)/etc/gudgeon
+		install -m 0664 $(MKFILE_DIR)/resources/gudgeon.yml $(DESTDIR)/etc/gudgeon/gudgeon.yml
+		mkdir -p $(DESTDIR)/var/lib/gudgeon
+		mkdir -p $(DESTDIR)/lib/systemd/system
+		install -m 0644 $(MKFILE_DIR)/resources/gudgeon.socket $(DESTDIR)/lib/systemd/system/gudgeon.socket
+		install -m 0644 $(MKFILE_DIR)/resources/gudgeon.service $(DESTDIR)/lib/systemd/system/gudgeon.service

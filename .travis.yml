@@ -1,37 +1,64 @@
 language: go
 
+# enable docker for xgo
+services:
+- docker
+
+# go version to use
 go:
 - '1.11'
 
+# explicit import path
+go_import_path: github.com/chrisruffalo/gudgeon
+
+# establish that go modules are in use
 env:
 - GO111MODULE=on
 
+# export versions into a format compatible with make file
 before_install:
   - export VERSION=${TRAVIS_TAG:$(git rev-parse --abbrev-ref HEAD)}
   - export NUMBER=${VERSION:1}
 
+# only need the current depth
 git:
   depth: 1
 
+# no email notifications
 notifications:
   email: false
 
+# to "succeed" the script only needs to build and test
 script:
   - make test
 
+# build all deployable artifacts
 before_deploy:
+  # install dependencies
   - sudo apt-get update
   - sudo apt-get install -y upx-ucl ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib and g++-multilib
   - gem install --no-ri --no-rdoc fpm
+  # prepare build environment
   - make prepare  
   - make download
-  - make GOOS_LIST="linux" GOARCH_LIST="386 amd64 arm" build
+  # build binaries
+  - make GOOS_LIST="linux" GOARCH_LIST="386 amd64" build
+  - make buildxgo
+  # compress binaries
+  - make compress
+  # package targets
   - OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make rpm
   - OS_BIN_ARCH=386 OS_ARCH=i686 make rpm
-  - OS_BIN_ARCH=arm OS_ARCH=arm make rpm
   - OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make deb
   - OS_BIN_ARCH=386 OS_ARCH=i386 make deb
-  - OS_BIN_ARCH=arm OS_ARCH=armhf make deb
+  - BIN_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make rpm
+  - BIN_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
+  - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
+  - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
+  - BIN_TARGET=gudgeon-linux-arm-7 OS_ARCH=arm7 make rpm
+  - BIN_TARGET=gudgeon-linux-arm-7 OS_ARCH=arm7 make deb
+  - BIN_TARGET=gudgeon-linux-mips OS_ARCH=mips make rpm
+  - BIN_TARGET=gudgeon-linux-mips OS_ARCH=mips make deb
 
 deploy:
   provider: releases

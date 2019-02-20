@@ -17,8 +17,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/miekg/dns"
 
-	//_ "modernc.org/ql/driver"
-
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/resolver"
 	"github.com/chrisruffalo/gudgeon/util"
