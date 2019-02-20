@@ -155,7 +155,7 @@ deb: package ## Build deb file for $OS_BIN_ARCH/$OS_ARCH
 
 install:
 		mkdir -p $(DESTDIR)/bin
-		install -m 0755 $(BUILD_DIR)/$(BINARY_NAME)_linux_$(LOCALARCH) $(DESTDIR)/bin/$(BINARY_NAME)
+		install -m 0755 $(BUILD_DIR)/$(BINARY_NAME)-$(OS_TYPE)-$(LOCALARCH) $(DESTDIR)/bin/$(BINARY_NAME)
 		mkdir -p $(DESTDIR)/etc/gudgeon
 		install -m 0664 $(MKFILE_DIR)/resources/gudgeon.yml $(DESTDIR)/etc/gudgeon/gudgeon.yml
 		mkdir -p $(DESTDIR)/var/lib/gudgeon

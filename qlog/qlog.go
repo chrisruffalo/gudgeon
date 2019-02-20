@@ -111,6 +111,13 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	dbPath := path.Join(dbDir, "qlog.db")
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
+		// if the file exists try removing it and opening it again
+		// this could be because of change in database file formats
+		// or a corrupted database
+		if _, rmErr := os.Stat(dbPath); !os.IsNotExist(rmErr) {
+			os.Remove(dbPath)
+
+		}
 		return nil, err
 	}
 
