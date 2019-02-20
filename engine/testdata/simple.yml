@@ -1,8 +1,6 @@
 gudgeon:
   lists:
-  - name: stevenblack
-    src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
-    tags: [default]
-  - name: malwaredomains
-    src: https://mirror1.malwaredomains.com/files/justdomains
-    tags: [default]
+  - name: disconnect.me ads
+    src: https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
+  - name: disconnect.me simple tracking
+    src: https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt    
