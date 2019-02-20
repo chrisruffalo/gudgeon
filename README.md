@@ -8,8 +8,6 @@ Take, for example, a user who has shown persistent inability to avoid internet s
 
 For all of these reasons Gudgeon has been created to allow more flexibility in host-based DNS blocking.
 
-## Directory
-
 ## Features
 
 * Go Routines for non-blocking request handling enables high-througput especially with simultaneous requests
@@ -43,7 +41,7 @@ Gudgeon also comes in container form from `gudgeon/gudgeon`. For ARM6 and ARM7 u
 The Docker container exposes ports 5354 (dns) and 9009 (http) and those ports should be published via the `docker` command. Remember to use `/tcp` and `/udp` when exposing the ports. For persisting/modifying the configuration and for persisting data, metrics, and logs there are two directories in the container. The first directory `/etc/gudgeon` is for configuration files. The data is stored in `/var/lib/gudgeon`. 
 
 ```bash
-[user@host] docker run -ti -p 53:5354/tcp -p 53:5354/udp -p 9009:9009 -v /etc/gudgeon:/etc/gudgeon -v /var/lib/gudgeon:/gudgeon/home gudgeon/gudgeon:latest
+[user@host] docker run -ti -p 53:5354/tcp -p 53:5354/udp -p 9009:9009 -v /etc/gudgeon:/etc/gudgeon -v /var/lib/gudgeon:/var/lib/gudgeon gudgeon/gudgeon:latest
 ```
 
 ## What About Dnsmasq and Pi-Hole?
