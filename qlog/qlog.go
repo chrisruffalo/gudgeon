@@ -14,7 +14,7 @@ import (
 	"github.com/GeertJohan/go.rice"
 	"github.com/atrox/go-migrate-rice"
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/ql"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/miekg/dns"
 
 	//_ "modernc.org/ql/driver"
@@ -111,7 +111,7 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	}
 
 	dbPath := path.Join(dbDir, "qlog.db")
-	db, err := sql.Open("ql", dbPath)
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, err
 	}
@@ -124,12 +124,12 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 		return nil, err
 	}
 
-	dbDriver, err := ql.WithInstance(db, &ql.Config{})
+	dbDriver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	m, err := migrate.NewWithInstance("rice", migrationDriver, "ql", dbDriver)
+	m, err := migrate.NewWithInstance("rice", migrationDriver, "sqlite3", dbDriver)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +266,7 @@ func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon
 
 func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	// select entries from qlog
-	selectStmt := "SELECT * FROM qlog"
+	selectStmt := "SELECT Address, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created FROM qlog"
 
 	// so we can dynamically build the where clause
 	whereClauses := make([]string, 0)

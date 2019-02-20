@@ -194,7 +194,7 @@ func (engine *engine) handleCnameResolution(address *net.IP, protocol string, or
 		newName := answer.(*dns.CNAME).Target
 		cnameRequest.Question[0].Name = newName
 		cnameResponse, _, _ := engine.performRequest(address, protocol, cnameRequest)
-		if cnameResponse != nil && len(cnameResponse.Answer) > 0 {
+		if cnameResponse != nil && !util.IsEmptyResponse(cnameResponse) {
 			// use response
 			response = cnameResponse
 			// update answer name

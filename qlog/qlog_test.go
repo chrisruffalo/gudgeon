@@ -40,7 +40,7 @@ func TestQueryLogQuery(t *testing.T) {
 	qlog := qlogInterface.(*qlog)
 
 	// log 1000 entries
-	totalEntries := 86400 / 10 // about one tenth of one day at one query per second
+	totalEntries := 86400 // about one day at one query per second
 	for i := 0; i < totalEntries; i++ {
 		// create message for sending to various endpoints
 		msg := new(LogInfo)

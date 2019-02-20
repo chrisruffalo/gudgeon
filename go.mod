@@ -5,7 +5,6 @@ require (
 	github.com/akutz/sortfold v0.2.1
 	github.com/atrox/go-migrate-rice v1.0.0
 	github.com/coreos/go-systemd v0.0.0-20181031085051-9002847aa142
-	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/golang-migrate/migrate/v4 v4.2.4
 	github.com/google/uuid v1.0.0
 	github.com/gorilla/mux v1.6.2
