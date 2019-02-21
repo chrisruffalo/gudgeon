@@ -14,7 +14,7 @@ For all of these reasons Gudgeon has been created to allow more flexibility in h
 ## Contents
 * [Acknowlegements](ACK.md)
 * [Concept of Operations](OPERATIONS.md)
-* [Configuration](CONFIGURATION.md)
+* [Configuration](CONFIG.md)
 * [Feature Roadmap](ROADMAP.md)
 * [Questions & Answers](QA.md)
 * [What About...](WHATABOUT.md)
