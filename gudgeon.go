@@ -15,15 +15,15 @@ import (
 	"github.com/chrisruffalo/gudgeon/web"
 )
 
-// pick up version from build process
-var Version = "1.0.0"
-var GitHash = "000000"
+// pick up version from build process, but use these defaults
+var Version = "v0.3.X"
+var GitHash = "0000000"
 var LongVersion = Version
 
 func main() {
 	// add git hash to long version if available
 	if "" != GitHash {
-		LongVersion = LongVersion + "@git" + GitHash
+		LongVersion = Version + "@git" + GitHash
 	}
 
 	// load command options

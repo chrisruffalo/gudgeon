@@ -50,7 +50,11 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 	engine.config = conf
 
 	// create store
-	engine.store = rule.CreateDefaultStore() // create default store type
+	if conf != nil && conf.Storage != nil {
+		engine.store = rule.CreateStore(conf.Storage.RuleStorage) // create storage type based on configuration
+	} else {
+		engine.store = rule.CreateDefaultStore() // create default storage type
+	}
 
 	// create session key
 	uuid := uuid.New()
