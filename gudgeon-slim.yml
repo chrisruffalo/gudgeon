@@ -5,6 +5,11 @@
 gudgeon:
   home: ./.gudgeon/
 
+  # using the hash32 storage is small (only 32bits per entry) and 
+  # is faster than the memory-based solution but you lose the
+  # ability to see the actual matched rule. this is a good trade
+  # off for embedded systems or other areas where memory is at a 
+  # premium
   storage:
     rules: "hash32"
 
@@ -15,9 +20,16 @@ gudgeon:
     - ip: 0.0.0.0
       port: 5354
 
+  # since we're disabling the query log and metrics there isn't
+  # anything for the web ui to do, really, so we disable it
+  web:
+    enabled: false
+
+  # the query log uses cycles, memory, and disk space
   query_log:
     enabled: false
 
+  # the metrics storage uses cycles, memory, and disk space
   metrics:
     enabled: false
 
@@ -27,6 +39,9 @@ gudgeon:
     - 8.8.8.8
     - 8.8.4.4
 
+  # reducing the number of lists helps but since the hash storage scales
+  # pretty well you can use more lists if required. the hash32 uses 32bits
+  # for each rule plus some overhead.
   lists:
   - name: stephen's black list
     src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
