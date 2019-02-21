@@ -19,6 +19,7 @@ env:
 before_install:
   - export VERSION=${TRAVIS_TAG:$(git rev-parse --abbrev-ref HEAD)}
   - export NUMBER=${VERSION:1}
+  - if [[ ""=="$NUMBER" ]]; then export NUMBER=$(git tag | sort -V | tail -n 1 | cut --complement -b 1); fi
 
 # only need the current depth
 git:
@@ -36,6 +37,8 @@ before_script:
   - gem install --no-ri --no-rdoc fpm
   # pull xgo container
   - docker pull karalabe/xgo-latest
+  # prepare build environment
+  - make prepare  
 
 # to "succeed" the script only needs to build and test
 script:
@@ -43,8 +46,6 @@ script:
 
 # after success do all of the build stuff (within scope of the cache, hopefully)
 after_success:
-  # prepare build environment
-  - make prepare  
   - make download
   # build binaries
   - make GOOS_LIST="linux" GOARCH_LIST="386 amd64" build
@@ -60,6 +61,8 @@ after_success:
   - BIN_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
   - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
   - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
+
+before_deploy:
   # make docker build(s)
   - BIN_TARGET=gudgeon-linux-amd64 make docker
   # push build(s) to docker cloud

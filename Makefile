@@ -59,7 +59,7 @@ DOCKER_TAG?=$(NUMBER)
 CONTAINER_PATH=$(DOCKER_PATH)/$(DOCKER_NAME):$(DOCKER_TAG)
 DOCKERFILE?=Dockerfile
 
-	# build targets for dockerized commands (build deb, build rpm)
+# build targets for dockerized commands (build deb, build rpm)
 OS_TYPE?=linux
 OS_VERSION?=7
 OS_BIN_ARCH?=amd64
