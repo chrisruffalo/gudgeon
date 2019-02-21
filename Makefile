@@ -166,7 +166,7 @@ docker: ## Create container and mark as latest as well
 		$(DOCKER) tag $(CONTAINER_PATH) $(DOCKER_PATH)/$(DOCKER_NAME):latest
 
 dockerpush: ## Push image at path to remote
-		$(DOCKER) push $(CONTAINER_PATH) .		
+		$(DOCKER) push $(CONTAINER_PATH)
 
 install:
 		mkdir -p $(DESTDIR)/bin

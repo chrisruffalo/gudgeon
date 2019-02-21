@@ -63,8 +63,9 @@ after_success:
   # make docker build(s)
   - BIN_TARGET=gudgeon-linux-amd64 make docker
   # push build(s) to docker cloud
-  - echo "$DOCKER_PASSWORD" | docker login --username="$DOCKER_USERNAME" --email="$DOCKER_EMAIL"
+  - echo "$DOCKER_PASSWORD" | docker login --username="$DOCKER_USERNAME"
   - make dockerpush
+  - DOCKER_TAG=latest make dockerpush
 
 deploy:
   provider: releases
