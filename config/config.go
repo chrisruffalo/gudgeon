@@ -31,6 +31,11 @@ type GudgeonMetrics struct {
 	Interval string `yaml:"interval"`
 }
 
+// GudgeonStorage defines the different storage types for persistent/session data
+type GudgeonStorage struct {
+	RuleStorage string `yaml:"rules"`
+}
+
 // network interface information
 type GudgeonInterface struct {
 	// the IP of the interface. The interface 0.0.0.0 means "all"
@@ -127,6 +132,8 @@ type GudgeonWeb struct {
 
 type GudgeonConfig struct {
 	Home string `yaml:"home"`
+
+	Storage *GudgeonStorage `yaml:"storage"`
 
 	Metrics *GudgeonMetrics `yaml:"metrics"`
 

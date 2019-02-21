@@ -13,6 +13,13 @@ func (config *GudgeonConfig) verifyAndInit() error {
 	// collect errors for reporting/combining into one error
 	errors := make([]error, 0)
 
+	// storage
+	if config.Storage == nil {
+		config.Storage = &GudgeonStorage{
+			RuleStorage: "memory",
+		}
+	}
+
 	// network verification
 	if config.Network == nil {
 		config.Network = &GudgeonNetwork{}
@@ -30,7 +37,7 @@ func (config *GudgeonConfig) verifyAndInit() error {
 		}
 	}
 
-	// query log configuration
+	// metrics configuration
 	if config.Metrics == nil {
 		config.Metrics = &GudgeonMetrics{}
 	}
@@ -39,6 +46,7 @@ func (config *GudgeonConfig) verifyAndInit() error {
 		errors = append(errors, err)
 	}
 
+	// query log configuration
 	if config.QueryLog == nil {
 		config.QueryLog = &GudgeonQueryLog{}
 	}

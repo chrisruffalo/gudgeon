@@ -1,0 +1,41 @@
+---
+# ====================================================================
+# Minimal configuration for speed/size (mips, low memory arm)
+# ====================================================================
+gudgeon:
+  home: ./.gudgeon/
+
+  storage:
+    rules: "hash32"
+
+  network:
+    tcp: true
+    udp: true
+    interfaces:
+    - ip: 0.0.0.0
+      port: 5354
+
+  query_log:
+    enabled: false
+
+  metrics:
+    enabled: false
+
+  resolvers:
+  - name: default
+    sources:
+    - 8.8.8.8
+    - 8.8.4.4
+
+  lists:
+  - name: stephen's black list
+    src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+  - name: disconnect.me ads
+    src: https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
+
+  groups:
+  - name: default
+    tags:
+    - default
+    resolvers:
+    - default

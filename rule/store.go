@@ -1,6 +1,8 @@
 package rule
 
 import (
+	"strings"
+
 	"github.com/chrisruffalo/gudgeon/config"
 )
 
@@ -35,7 +37,14 @@ func CreateStore(backingStoreType string) RuleStore {
 
 	// create appropriate backing store
 	var delegate RuleStore
-	delegate = new(memoryStore)
+	backingStoreType = strings.ToLower(backingStoreType)
+	if "hash" == backingStoreType || "hash64" == backingStoreType {
+		delegate = new(hashStore)
+	} else if "hash32" == backingStoreType {
+		delegate = new(hashStore32)
+	} else {
+		delegate = new(memoryStore)
+	}
 
 	// set backing store
 	store.backingStore = delegate
