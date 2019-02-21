@@ -9,7 +9,10 @@ gudgeon:
   # is faster than the memory-based solution but you lose the
   # ability to see the actual matched rule. this is a good trade
   # off for embedded systems or other areas where memory is at a 
-  # premium
+  # premium. There is also a chance for false positivies but
+  # it should be fairly low... to offset that you can use "complex"
+  # rules in a whitelist. (Non-complex rules would have the same
+  # false positive issue.)
   storage:
     rules: "hash32"
 
