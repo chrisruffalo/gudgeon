@@ -77,7 +77,8 @@ PFPATH=patternfly-$(PFVERSION)
 
 # common FPM commands
 FMPARCH?=$(shell echo "$(OS_ARCH)" | sed -r 's/arm-?5/armhf/g' | sed -r 's/arm-?6/armhf/g' | sed -r 's/arm-?7/armhf/g')
-FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration $(GITHASH) --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh --prefix / -C $(BUILD_DIR)/pkgtmp
+FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration $(GITHASH) --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --prefix / -C $(BUILD_DIR)/pkgtmp
+FPMSCRIPTS=$(FPMCOMMON) --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh
 
 all: test build
 .PHONY: all prepare test build clean minimize package rpm deb docker tar
@@ -155,11 +156,11 @@ package: # Build consistent package structure
 		cp $(MKFILE_DIR)/resources/gudgeon.yml $(BUILD_DIR)/pkgtmp/etc/gudgeon/gudgeon.yml	
 
 rpm: package ## Build target linux/redhat RPM for $OS_BIN_ARCH/$OS_ARCH
-		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)-VERSION-$(GITHASH).$(OS_ARCH).rpm" -t rpm $(FPMCOMMON)
+		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)-VERSION-$(GITHASH).$(OS_ARCH).rpm" -t rpm $(FPMSCRIPTS)
 		rm -rf $(BUILD_DIR)/pkgtmp
 
 deb: package ## Build deb file for $OS_BIN_ARCH/$OS_ARCH
-		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)_VERSION-$(GITHASH)_$(OS_ARCH).deb" -t deb $(FPMCOMMON)
+		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)_VERSION-$(GITHASH)_$(OS_ARCH).deb" -t deb $(FPMSCRIPTS)
 		rm -rf $(BUILD_DIR)/pkgtmp
 
 tar: ## Root directory TAR without systemd bits and a slightly different configuration
