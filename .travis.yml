@@ -36,20 +36,18 @@ before_script:
   - sudo apt-get install -y upx-ucl ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib and g++-multilib
   - gem install --no-ri --no-rdoc fpm
   # pull xgo container
-  - docker pull karalabe/xgo-latest
+  - travis_wait docker pull karalabe/xgo-latest
   # prepare build environment
-  - make prepare  
+  - travis_wait make prepare  
 
-# to "succeed" the script only needs to build and test
+# the script needs to build the binaries to be successful
 script:
   - make test
-
-# after success do all of the build stuff (within scope of the cache, hopefully)
-after_success:
+  # get third-party resources for build
   - make download
   # build binaries
   - make GOOS_LIST="linux" GOARCH_LIST="386 amd64" build
-  - make buildxgo
+  - travis_wait make buildxgo
 
 before_deploy:
   # compress binaries
