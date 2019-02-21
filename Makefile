@@ -79,8 +79,8 @@ PFPATH=patternfly-$(PFVERSION)
 FMPARCH?=$(shell echo "$(OS_ARCH)" | sed -r 's/arm-?5/armhf/g' | sed -r 's/arm-?6/armhf/g' | sed -r 's/arm-?7/armhf/g')
 FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration $(GITHASH) --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh --prefix / -C $(BUILD_DIR)/pkgtmp
 
-all: test build minimize
-.PHONY: all prepare test build clean minimize package rpm deb docker
+all: test build
+.PHONY: all prepare test build clean minimize package rpm deb docker tar
 
 prepare: ## Get all go tools and required libraries
 		$(GOCMD) get -u github.com/karalabe/xgo
@@ -160,6 +160,18 @@ rpm: package ## Build target linux/redhat RPM for $OS_BIN_ARCH/$OS_ARCH
 
 deb: package ## Build deb file for $OS_BIN_ARCH/$OS_ARCH
 		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)_VERSION-$(GITHASH)_$(OS_ARCH).deb" -t deb $(FPMCOMMON)
+		rm -rf $(BUILD_DIR)/pkgtmp
+
+tar: ## Root directory TAR without systemd bits and a slightly different configuration
+		rm -rf $(BUILD_DIR)/pkgtmp
+		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)
+		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)/lists
+		mkdir -p $(BUILD_DIR)/pkgtmp/usr/local/bin/
+		mkdir -p $(BUILD_DIR)/pkgtmp/usr/local/$(BINARY_NAME)
+		cp $(BUILD_DIR)/$(BINARY_TARGET) $(BUILD_DIR)/pkgtmp/usr/local/bin/$(BINARY_NAME)
+		cp $(MKFILE_DIR)/resources/gudgeon-nosystemd.yml $(BUILD_DIR)/pkgtmp/etc/gudgeon/gudgeon.yml	
+		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)-$(NUMBER)-$(GITHASH).$(OS_ARCH).tar" -t tar $(FPMCOMMON)
+		gzip "$(BUILD_DIR)/$(BINARY_NAME)-$(NUMBER)-$(GITHASH).$(OS_ARCH).tar"
 		rm -rf $(BUILD_DIR)/pkgtmp
 
 docker: ## Create container and mark as latest as well

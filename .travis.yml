@@ -63,8 +63,9 @@ before_deploy:
   - BINARY_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
   - BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
   - BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
+  - BINARY_TARGET=gudgeon-linux-mips OS_ARCH=mips make tar
   # make docker build(s)
-  - BIN_TARGET=gudgeon-linux-amd64 make docker
+  - BINARY_TARGET=gudgeon-linux-amd64 make docker
   # push build(s) to docker cloud
   - docker login --username="$DOCKER_USERNAME" --password="$DOCKER_PASSWORD"
   - make dockerpush

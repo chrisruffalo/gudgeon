@@ -92,57 +92,62 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	// create new empty qlog
 	qlog := &qlog{}
 	qlog.qlConf = qlConf
+
+	// create log channel
 	qlog.logInfoChan = make(chan *LogInfo, 100)
 	go qlog.logWorker()
 
-	// get path to long-standing data ({home}/'data') and make sure it exists
-	dataDir := conf.DataRoot()
-	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
-		os.MkdirAll(dataDir, os.ModePerm)
-	}
-
-	// open db
-	dbDir := path.Join(dataDir, "query_log")
-	// create directory
-	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
-		os.MkdirAll(dbDir, os.ModePerm)
-	}
-
-	dbPath := path.Join(dbDir, "qlog.db")
-	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		// if the file exists try removing it and opening it again
-		// this could be because of change in database file formats
-		// or a corrupted database
-		if _, rmErr := os.Stat(dbPath); !os.IsNotExist(rmErr) {
-			os.Remove(dbPath)
-
+	// only build DB if persistence is enabled
+	if *(qlog.qlConf.Persist) {
+		// get path to long-standing data ({home}/'data') and make sure it exists
+		dataDir := conf.DataRoot()
+		if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+			os.MkdirAll(dataDir, os.ModePerm)
 		}
-		return nil, err
+
+		// open db
+		dbDir := path.Join(dataDir, "query_log")
+		// create directory
+		if _, err := os.Stat(dbDir); os.IsNotExist(err) {
+			os.MkdirAll(dbDir, os.ModePerm)
+		}
+
+		dbPath := path.Join(dbDir, "qlog.db")
+		db, err := sql.Open("sqlite3", dbPath)
+		if err != nil {
+			// if the file exists try removing it and opening it again
+			// this could be because of change in database file formats
+			// or a corrupted database
+			if _, rmErr := os.Stat(dbPath); !os.IsNotExist(rmErr) {
+				os.Remove(dbPath)
+
+			}
+			return nil, err
+		}
+
+		// do migrations
+		migrationsBox := rice.MustFindBox("migrations")
+
+		migrationDriver, err := migraterice.WithInstance(migrationsBox)
+		if err != nil {
+			return nil, err
+		}
+
+		dbDriver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+		if err != nil {
+			return nil, err
+		}
+
+		m, err := migrate.NewWithInstance("rice", migrationDriver, "sqlite3", dbDriver)
+		if err != nil {
+			return nil, err
+		}
+
+		m.Up()
+
+		// keep store handler
+		qlog.store = db
 	}
-
-	// do migrations
-	migrationsBox := rice.MustFindBox("migrations")
-
-	migrationDriver, err := migraterice.WithInstance(migrationsBox)
-	if err != nil {
-		return nil, err
-	}
-
-	dbDriver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
-	if err != nil {
-		return nil, err
-	}
-
-	m, err := migrate.NewWithInstance("rice", migrationDriver, "sqlite3", dbDriver)
-	if err != nil {
-		return nil, err
-	}
-
-	m.Up()
-
-	// keep store handler
-	qlog.store = db
 
 	return qlog, nil
 }
@@ -217,11 +222,14 @@ func (qlog *qlog) logStdout(info *LogInfo) {
 // this is the actual log worker that handles incoming log messages in a separate go routine
 func (qlog *qlog) logWorker() {
 	for info := range qlog.logInfoChan {
+		// only log to stdout if configured
 		if *(qlog.qlConf.Stdout) {
-			// log stdout in another routine
 			go qlog.logStdout(info)
 		}
-		qlog.logDB(info)
+		// only persist if configured, which is default
+		if *(qlog.qlConf.Persist) {
+			qlog.logDB(info)
+		}
 	}
 }
 

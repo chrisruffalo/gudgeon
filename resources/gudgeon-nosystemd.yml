@@ -1,0 +1,45 @@
+---
+# ====================================================================
+# Default configuration
+# ====================================================================
+gudgeon:
+  home: /usr/local/gudgeon
+
+  network:
+    interfaces:
+    - ip: 0.0.0.0
+      port: 53
+    
+  resolvers:
+  - name: default
+    sources:
+    - 8.8.8.8/tcp-tls
+    - 8.8.4.4/tcp-tls
+
+  lists:
+  - name: global white list
+    src: /etc/gudgeon/lists/whitelist.txt
+    type: allow
+  - name: global black list
+    src: /etc/gudgeon/lists/blacklist.txt
+  - name: stephen's black list
+    src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+  - name: malware domains
+    src: https://mirror1.malwaredomains.com/files/justdomains
+  - name: cameleon block list
+    src: http://sysctl.org/cameleon/hosts
+  - name: zeus tracker
+    src: https://zeustracker.abuse.ch/blocklist.php?download=domainblocklist
+  - name: disconnect.me tracking
+    src: https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt
+  - name: disconnect.me ads
+    src: https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
+  - name: hosts-file.net ad servers
+    src: https://hosts-file.net/ad_servers.txt
+
+  groups:
+  - name: default
+    tags:
+    - default
+    resolvers:
+    - default

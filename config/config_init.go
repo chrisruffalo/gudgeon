@@ -32,10 +32,9 @@ func (config *GudgeonConfig) verifyAndInit() error {
 	if config.Web == nil {
 		config.Web = &GudgeonWeb{
 			Enabled: true,
-			Address: "127.0.0.1",
-			Port:    9009,
 		}
 	}
+	config.Web.verifyAndInit()
 
 	// metrics configuration
 	if config.Metrics == nil {
@@ -53,6 +52,19 @@ func (config *GudgeonConfig) verifyAndInit() error {
 
 	if err := config.QueryLog.verifyAndInit(); err != nil {
 		errors = append(errors, err)
+	}
+
+	return nil
+}
+
+func (web *GudgeonWeb) verifyAndInit() error {
+	if web.Enabled {
+		if "" == web.Address {
+			web.Address = "127.0.0.1"
+		}
+		if web.Port < 1 {
+			web.Port = 9009
+		}
 	}
 
 	return nil
@@ -88,6 +100,10 @@ func (metrics *GudgeonMetrics) verifyAndInit() error {
 		metrics.Enabled = boolPointer(true)
 	}
 
+	if metrics.Persist == nil {
+		metrics.Persist = boolPointer(true)
+	}
+
 	if "" == metrics.Duration {
 		metrics.Duration = "7d"
 	}
@@ -102,6 +118,10 @@ func (metrics *GudgeonMetrics) verifyAndInit() error {
 func (ql *GudgeonQueryLog) verifyAndInit() error {
 	if ql.Enabled == nil {
 		ql.Enabled = boolPointer(true)
+	}
+
+	if ql.Persist == nil {
+		ql.Persist = boolPointer(true)
 	}
 
 	if ql.Stdout == nil {

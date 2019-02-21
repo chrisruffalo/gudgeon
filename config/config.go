@@ -21,12 +21,14 @@ type GudgeonTLS struct {
 
 type GudgeonQueryLog struct {
 	Enabled  *bool  `yaml:"enabled"`
+	Persist  *bool  `yaml:"persist"`
 	Duration string `yaml:"duration"`
 	Stdout   *bool  `yaml:"stdout"`
 }
 
 type GudgeonMetrics struct {
 	Enabled  *bool  `yaml:"enabled"`
+	Persist  *bool  `yaml:"persist"`
 	Duration string `yaml:"duration"`
 	Interval string `yaml:"interval"`
 }
