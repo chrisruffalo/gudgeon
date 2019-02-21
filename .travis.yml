@@ -50,6 +50,8 @@ after_success:
   # build binaries
   - make GOOS_LIST="linux" GOARCH_LIST="386 amd64" build
   - make buildxgo
+
+before_deploy:
   # compress binaries
   - make compress
   # package targets
@@ -61,8 +63,6 @@ after_success:
   - BIN_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
   - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
   - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
-
-before_deploy:
   # make docker build(s)
   - BIN_TARGET=gudgeon-linux-amd64 make docker
   # push build(s) to docker cloud

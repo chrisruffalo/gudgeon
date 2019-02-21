@@ -53,7 +53,7 @@ This is what the configuration looks like with the default group and the default
 ```yaml
   home: /opt/gudgeon
 ```
-The home directory is where gudgeon will store all of it's data. In `{home}/cache` downloaded lists are stored, in `{home}/data` you can find any persistent data (like the query log or metrics db), and in `{home}/session` you can find anything that is stored for the term of a single 'engine' session.
+The home directory is where gudgeon will store all of its data. In `{home}/cache` downloaded lists are stored, in `{home}/data` you can find any persistent data (like the query log or metrics db), and in `{home}/session` you can find anything that is stored for the term of a single 'engine' session.
 
 ```yaml
   network:
