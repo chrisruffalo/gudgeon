@@ -59,10 +59,10 @@ before_deploy:
   - OS_BIN_ARCH=386 OS_ARCH=i686 make rpm
   - OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make deb
   - OS_BIN_ARCH=386 OS_ARCH=i386 make deb
-  - BIN_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make rpm
-  - BIN_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
-  - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
-  - BIN_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
+  - BINARY_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make rpm
+  - BINARY_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
+  - BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
+  - BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
   # make docker build(s)
   - BIN_TARGET=gudgeon-linux-amd64 make docker
   # push build(s) to docker cloud
