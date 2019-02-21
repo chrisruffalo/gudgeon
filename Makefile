@@ -7,7 +7,7 @@ DESCRIPTION=Gudgeon is a flexible blocking DNS proxy/cache
 MKFILE_DIR:=$(abspath $(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 
 # local arch (changed to standard names for build for gox/debian/travis)
-LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed 's/i686/386/' | sed 's/686/386/' | sed 's/i386/386/' )
+LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed -r 's/i?686/386/' | sed 's/i386/386/' )
 
 # use GOX to build certain architectures
 GOOS_LIST?=linux
