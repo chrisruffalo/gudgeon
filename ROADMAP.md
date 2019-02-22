@@ -8,13 +8,16 @@ In no particular order these are the future improvements that are coming to Gudg
 * Web UI
   * Searchable query log
   * Metrics widgets
+* Rules
+  * SQLite3 Storage engine (will require even lower memory but requires disk space/access and will slow down resolution some)
 * Configuration
-  * Better default configuration (more clear on what omitted values mean)
-  * Warnings for configuration elements that might cause issues
+  * **Done:** Better default configuration (more clear on what omitted values mean)
+  * **Done:** Warnings for configuration elements that might cause issues
   * Ability to write default/simple configuration as command line option
   * "conf.d"-like capability to merge/include multiple configuration files
   * Configuration checking/parsing with warnings and errors (from command line too)
 * Resolution
+  * **Done:** Built-in "system" source/resolver to use OS's resolution (through Go API)
   * Configurable "system" resolver for resolving domain names internally
   * Conditional resolution (only use certain resolvers in certain conditions)
   * Using resolv.conf files as resolution sources
