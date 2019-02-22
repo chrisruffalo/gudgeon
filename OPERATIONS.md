@@ -1,4 +1,4 @@
-## Concept of Operations
+# Concept of Operations
 
 Gudgeon matches incoming traffic to a consumer, maps the consumer to a set of groups, each group supports multiple different lists, and then finally to resolvers. Each step is designed to provide flexibility to end users.
 

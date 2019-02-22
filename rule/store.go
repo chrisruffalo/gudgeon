@@ -39,14 +39,16 @@ func CreateStore(backingStoreType string) RuleStore {
 	// create appropriate backing store
 	var delegate RuleStore
 	backingStoreType = strings.ToLower(backingStoreType)
-	fmt.Printf("Using '%s' rule store implementation\n", backingStoreType)	
 	if "hash" == backingStoreType || "hash64" == backingStoreType {
 		delegate = new(hashStore)
+		backingStoreType = "hash"
 	} else if "hash32" == backingStoreType {
 		delegate = new(hashStore32)
 	} else {
 		delegate = new(memoryStore)
+		backingStoreType = "memory"
 	}
+	fmt.Printf("Using '%s' rule store implementation\n", backingStoreType)
 
 	// set backing store
 	store.backingStore = delegate

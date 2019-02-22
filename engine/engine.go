@@ -42,7 +42,7 @@ type consumer struct {
 	engine *engine
 
 	// configuration that this consumer was parsed from
-	configConsumer *config.GundgeonConsumer
+	configConsumer *config.GudgeonConsumer
 
 	// list of parsed groups that belong to this consumer
 	groupNames []string

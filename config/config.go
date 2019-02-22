@@ -12,6 +12,11 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
+const (
+	defaultString = "default"
+	systemString  = "system"
+)
+
 var remoteProtocols = []string{"http:", "https:"}
 var alphaRegex, _ = regexp.Compile("[^a-zA-Z0-9]+")
 
@@ -89,73 +94,9 @@ type GudgeonList struct {
 	// the type of the list, requires "allow" or "block", defaults to "block"
 	Type string `yaml:"type"`
 	// the tags that relate to the list for tag filtering/processing
-	Tags []string `yaml:"tags"`
+	Tags *[]string `yaml:"tags"`
 	// the path to the list, remote paths will be downloaded if possible
 	Source string `yaml:"src"`
-}
-
-// groups: ties end-users (consumers) to various lists.
-type GudgeonGroup struct {
-	// name: name of the group
-	Name string `yaml:"name"`
-	// inherit: list of groups to copy settings from
-	Inherit []string `yaml:"inherit"`
-	// resolvers: resolvers to use for this group
-	Resolvers []string `yaml:"resolvers"`
-	// lists: names of blocklists to apply
-	Lists []string `yaml:"lists"`
-	// tags: tags to use for tag-based matching
-	Tags []string `yaml:"tags"`
-}
-
-// range: an IP range for consumer matching
-type GudgeonMatchRange struct {
-	Start string `yaml:"start"`
-	End   string `yaml:"end"`
-}
-
-type GudgeonMatch struct {
-	IP    string             `yaml:"ip"`
-	Range *GudgeonMatchRange `yaml:"range"`
-	Net   string             `yaml:"net"`
-}
-
-type GundgeonConsumer struct {
-	Name    string          `yaml:"name"`
-	Groups  []string        `yaml:"groups"`
-	Matches []*GudgeonMatch `yaml:"matches"`
-}
-
-type GudgeonWeb struct {
-	Enabled bool   `yaml:"enabled"`
-	Address string `yaml:"address"`
-	Port    int    `yaml:"port"`
-}
-
-type GudgeonConfig struct {
-	Home string `yaml:"home"`
-
-	Storage *GudgeonStorage `yaml:"storage"`
-
-	Metrics *GudgeonMetrics `yaml:"metrics"`
-
-	QueryLog *GudgeonQueryLog `yaml:"query_log"`
-
-	Network *GudgeonNetwork `yaml:"network"`
-
-	Web *GudgeonWeb `yaml:"web"`
-
-	Resolvers []*GudgeonResolver `yaml:"resolvers"`
-
-	Lists []*GudgeonList `yaml:"lists"`
-
-	Groups []*GudgeonGroup `yaml:"groups"`
-
-	Consumers []*GundgeonConsumer `yaml:"consumers"`
-}
-
-type GudgeonRoot struct {
-	Config *GudgeonConfig `yaml:"gudgeon"`
 }
 
 // simple function to get source as name if name is missing
@@ -181,6 +122,113 @@ func (list *GudgeonList) path(cachePath string) string {
 		return path.Join(cachePath, list.Name+".list")
 	}
 	return source
+}
+
+func (list *GudgeonList) SafeTags() []string {
+	if list.Tags == nil {
+		return []string{"default"}
+	} else if len(*list.Tags) == 0 {
+		return []string{}
+	}
+	return *(list.Tags)
+}
+
+// groups: ties end-users (consumers) to various lists.
+type GudgeonGroup struct {
+	// name: name of the group
+	Name string `yaml:"name"`
+	// inherit: list of groups to copy settings from
+	Inherit []string `yaml:"inherit"`
+	// resolvers: resolvers to use for this group
+	Resolvers []string `yaml:"resolvers"`
+	// lists: names of blocklists to apply
+	Lists []string `yaml:"lists"`
+	// tags: tags to use for tag-based matching
+	Tags *[]string `yaml:"tags"`
+}
+
+func (list *GudgeonGroup) SafeTags() []string {
+	if list.Tags == nil {
+		return []string{"default"}
+	} else if len(*list.Tags) == 0 {
+		return []string{}
+	}
+	return *(list.Tags)
+}
+
+// range: an IP range for consumer matching
+type GudgeonMatchRange struct {
+	Start string `yaml:"start"`
+	End   string `yaml:"end"`
+}
+
+type GudgeonMatch struct {
+	IP    string             `yaml:"ip"`
+	Range *GudgeonMatchRange `yaml:"range"`
+	Net   string             `yaml:"net"`
+}
+
+type GudgeonConsumer struct {
+	Name    string          `yaml:"name"`
+	Groups  []string        `yaml:"groups"`
+	Matches []*GudgeonMatch `yaml:"matches"`
+}
+
+type GudgeonWeb struct {
+	Enabled bool   `yaml:"enabled"`
+	Address string `yaml:"address"`
+	Port    int    `yaml:"port"`
+}
+
+type GudgeonConfig struct {
+	Home      string             `yaml:"home"`
+	Storage   *GudgeonStorage    `yaml:"storage"`
+	Metrics   *GudgeonMetrics    `yaml:"metrics"`
+	QueryLog  *GudgeonQueryLog   `yaml:"query_log"`
+	Network   *GudgeonNetwork    `yaml:"network"`
+	Web       *GudgeonWeb        `yaml:"web"`
+	Resolvers []*GudgeonResolver `yaml:"resolvers"`
+	Lists     []*GudgeonList     `yaml:"lists"`
+	Groups    []*GudgeonGroup    `yaml:"groups"`
+	Consumers []*GudgeonConsumer `yaml:"consumers"`
+
+	// private values
+	resolverMap map[string]*GudgeonResolver
+	listMap     map[string]*GudgeonList
+	groupMap    map[string]*GudgeonGroup
+	consumerMap map[string]*GudgeonConsumer
+}
+
+func (conf *GudgeonConfig) GetResolver(name string) *GudgeonResolver {
+	if value, found := conf.resolverMap[name]; found {
+		return value
+	}
+	return nil
+}
+
+func (conf *GudgeonConfig) GetList(name string) *GudgeonList {
+	if value, found := conf.listMap[name]; found {
+		return value
+	}
+	return nil
+}
+
+func (conf *GudgeonConfig) GetGroup(name string) *GudgeonGroup {
+	if value, found := conf.groupMap[name]; found {
+		return value
+	}
+	return nil
+}
+
+func (conf *GudgeonConfig) GetConsumer(name string) *GudgeonConsumer {
+	if value, found := conf.consumerMap[name]; found {
+		return value
+	}
+	return nil
+}
+
+type GudgeonRoot struct {
+	Config *GudgeonConfig `yaml:"gudgeon"`
 }
 
 func (config *GudgeonConfig) PathToList(list *GudgeonList) string {
@@ -222,9 +270,15 @@ func Load(filename string) (*GudgeonConfig, error) {
 
 	// get config
 	config := root.Config
-	verifyErr := config.verifyAndInit()
-	if verifyErr != nil {
-		return nil, verifyErr
+
+	// get warnings and errors
+	_, errors := config.verifyAndInit()
+	if len(errors) > 0 {
+		errorStrings := make([]string, len(errors))
+		for idx, err := range errors {
+			errorStrings[idx] = fmt.Sprintf("%s\n", err)
+		}
+		return nil, fmt.Errorf("Errors loading the configuration file:\n%s", strings.Join(errorStrings, ""))
 	}
 
 	// return configuration

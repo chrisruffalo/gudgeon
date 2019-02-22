@@ -91,9 +91,16 @@ func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
 
 	// add sources
 	for _, configuredSource := range configuredResolver.Sources {
-		source := NewSource(configuredSource)
-		if source != nil {
-			resolver.sources = append(resolver.sources, source)
+		// special logic for adding the system source to the system resolver
+		// otherwise we use the name system and point back to it with a
+		// resolver source
+		if resolver.name == "system" && configuredSource == "system" {
+			resolver.sources = append(resolver.sources, newSystemSource())
+		} else {
+			source := NewSource(configuredSource)
+			if source != nil {
+				resolver.sources = append(resolver.sources, source)
+			}
 		}
 	}
 

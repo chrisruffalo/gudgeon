@@ -8,6 +8,10 @@ import (
 	"github.com/miekg/dns"
 )
 
+const (
+	ttl = 300 // default to a small ttl because some things (fire tv/kodi I'm looking at you) will hammer the DNS
+)
+
 type Source interface {
 	Name() string
 	Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)

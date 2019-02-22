@@ -28,12 +28,7 @@ func assignedLists(listNames []string, listTags []string, lists []*config.Gudgeo
 			continue
 		}
 
-		// if there are no tags the tag is "default"
-		checkingTags := list.Tags
-		if len(checkingTags) < 1 {
-			checkingTags = []string{"default"}
-		}
-		for _, tag := range checkingTags {
+		for _, tag := range list.SafeTags() {
 			if util.StringIn(tag, listTags) {
 				should = append(should, list)
 				break
@@ -76,23 +71,6 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 	// empty groups list of size equal to available groups
 	workingGroups := append([]*config.GudgeonGroup{}, conf.Groups...)
 
-	// look for default group
-	foundDefaultGroup := false
-	for _, group := range conf.Groups {
-		if "default" == group.Name {
-			foundDefaultGroup = true
-			break
-		}
-	}
-
-	// inject default group
-	if !foundDefaultGroup {
-		defaultGroup := new(config.GudgeonGroup)
-		defaultGroup.Name = "default"
-		defaultGroup.Tags = []string{"default"}
-		workingGroups = append(workingGroups, defaultGroup)
-	}
-
 	// use length of working groups to make list of active groups
 	groups := make([]*group, len(workingGroups))
 
@@ -104,7 +82,7 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 		engineGroup.configGroup = configGroup
 
 		// determine which lists belong to this group
-		engineGroup.lists = assignedLists(configGroup.Lists, configGroup.Tags, lists)
+		engineGroup.lists = assignedLists(configGroup.Lists, configGroup.SafeTags(), lists)
 
 		// add created engine group to list of groups
 		groups[idx] = engineGroup
@@ -113,18 +91,6 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 		if "default" == configGroup.Name {
 			engine.defaultGroup = engineGroup
 		}
-	}
-
-	// look for and add default consumer if none exists
-	foundDefaultConsumer := false
-	for _, configConsumer := range conf.Consumers {
-		if strings.EqualFold(configConsumer.Name, "default") {
-			foundDefaultConsumer = true
-			break
-		}
-	}
-	if !foundDefaultConsumer {
-		conf.Consumers = append(conf.Consumers, &config.GundgeonConsumer{Name: "default", Groups: []string{"default"}})
 	}
 
 	// attach groups to consumers
