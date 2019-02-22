@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ttl = 300 // default to a small ttl because some things (fire tv/kodi I'm looking at you) will hammer the DNS
+	ttl = 60 // default to a small ttl because some things (fire tv/kodi I'm looking at you) will hammer the DNS
 )
 
 type Source interface {

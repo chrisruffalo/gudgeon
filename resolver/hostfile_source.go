@@ -321,7 +321,7 @@ func (hostFileSource *hostFileSource) Answer(rCon *RequestContext, context *Reso
 	}
 
 	// set source as answering source
-	if context != nil {
+	if context != nil && !util.IsEmptyResponse(response) {
 		// don't cache responses
 		context.Stored = true
 

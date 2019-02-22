@@ -1,6 +1,9 @@
 package config
 
 import (
+	"fmt"
+	"os/user"
+	"path"
 	"strings"
 )
 
@@ -10,15 +13,26 @@ func boolPointer(b bool) *bool {
 
 // encapsulate logic to make it easier to read in this file
 func (config *GudgeonConfig) verifyAndInit() ([]string, []error) {
+	// collect errors for reporting/combining into one error
+	errors := make([]error, 0)
+	warnings := make([]string, 0)
+
 	// initialize maps
 	config.resolverMap = make(map[string]*GudgeonResolver, 0)
 	config.listMap = make(map[string]*GudgeonList, 0)
 	config.consumerMap = make(map[string]*GudgeonConsumer, 0)
 	config.groupMap = make(map[string]*GudgeonGroup, 0)
 
-	// collect errors for reporting/combining into one error
-	errors := make([]error, 0)
-	warnings := make([]string, 0)
+	// set home dir
+	if "" == config.Home {
+		usr, err := user.Current()
+		if err != nil {
+			config.Home = "./.gudgeon"
+		} else {
+			config.Home = path.Join(usr.HomeDir, ".gudgeon")
+		}
+		warnings = append(warnings, fmt.Sprintf("No home directory configured, using '%s' for Gudgeon home", config.Home))
+	}
 
 	// storage
 	if config.Storage == nil {
@@ -29,7 +43,14 @@ func (config *GudgeonConfig) verifyAndInit() ([]string, []error) {
 
 	// network verification
 	if config.Network == nil {
-		config.Network = &GudgeonNetwork{}
+		config.Network = &GudgeonNetwork{
+			Interfaces: []*GudgeonInterface{
+				&GudgeonInterface{
+					IP:   "127.0.0.1",
+					Port: 5354,
+				},
+			},
+		}
 	}
 	warn, err := config.Network.verifyAndInit()
 	errors = append(errors, err...)
@@ -66,6 +87,16 @@ func (config *GudgeonConfig) verifyAndInit() ([]string, []error) {
 
 	// consumers
 	warn, err = config.verifyAndInitConsumers()
+	errors = append(errors, err...)
+	warnings = append(warnings, warn...)
+
+	// resolvers
+	warn, err = config.verifyAndInitResolvers()
+	errors = append(errors, err...)
+	warnings = append(warnings, warn...)
+
+	// lists
+	warn, err = config.verifyAndInitLists()
 	errors = append(errors, err...)
 	warnings = append(warnings, warn...)
 
@@ -237,7 +268,17 @@ func (config *GudgeonConfig) verifyAndInitResolvers() ([]string, []error) {
 
 		if _, found := config.resolverMap[resolver.Name]; found {
 			warnings = append(warnings, "More than one resolver was found with the name '%s', resolver names are case insensitive and must be unique.", resolver.Name)
+			continue
 		}
+
+		// "condition" default and system resolvers in the event that they were only partially configured
+		// we could just leave this alone but it flat won't work without a source
+		if systemString == resolver.Name || defaultString == resolver.Name {
+			if len(resolver.Sources) == 0 {
+				resolver.Sources = []string{systemString}
+			}
+		}
+
 		config.resolverMap[resolver.Name] = resolver
 	}
 

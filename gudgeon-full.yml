@@ -67,8 +67,8 @@ gudgeon:
     - 1.1.1.1
   - name: att 
     domains: # provide the ability to resolve specific addresses from a different dns (and only those addresses)
-    - "*.att.net" # match a glob style string against the domain
-    - "*.apple.com"
+    - att.net # match a glob style string against the domain
+    - apple.com
     - twc.com # match just the (sub) domain
     sources:
     - 192.168.1.254
@@ -119,7 +119,7 @@ gudgeon:
   # the default group by consumers.
   - name: default
     resolvers:
-    - google
+    - default
     tags:
     - default
     - ads

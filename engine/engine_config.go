@@ -196,8 +196,6 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 		}
 	}
 
-	// process or clean up consumers
-
 	// set consumers as active on engine
 	engine.consumers = consumers
 

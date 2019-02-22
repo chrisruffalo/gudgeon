@@ -36,6 +36,7 @@ gudgeon:
   metrics:
     enabled: false
 
+  # use google resolvers
   resolvers:
   - name: default
     sources:

@@ -33,15 +33,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// debug print config
+	fmt.Printf("===============================\nGudgeon %s\n===============================\n", LongVersion)
+
 	// load config
 	config, err := config.Load(string(opts.AppOptions.ConfigPath))
 	if err != nil {
 		fmt.Printf("%s\n", err)
 		os.Exit(1)
 	}
-
-	// debug print config
-	fmt.Printf("===============================\nGudgeon %s\n===============================\n", LongVersion)
 
 	// clean out session directory
 	if "" != config.SessionRoot() {

@@ -12,7 +12,7 @@ type HelpOptions struct {
 }
 
 type AppOptions struct {
-	ConfigPath flags.Filename `short:"c" long:"config" description:"Path to Gudgeon configuration file." default:"./gudgeon.yml"`
+	ConfigPath flags.Filename `short:"c" long:"config" description:"Path to Gudgeon configuration file."`
 }
 
 type GudgeonOptions struct {

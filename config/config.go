@@ -251,28 +251,47 @@ func (config *GudgeonConfig) DataRoot() string {
 }
 
 func Load(filename string) (*GudgeonConfig, error) {
-	// config from config root
-	root := new(GudgeonRoot)
+	var config *GudgeonConfig
 
-	// load bytes from filename
-	bytes, err := ioutil.ReadFile(filename)
+	if "" == filename {
+		fmt.Printf("Warning: No file provided with '-c' flag, using configuration defaults...\n")
+		config = &GudgeonConfig{}
+	} else {
+		// config from config root
+		root := new(GudgeonRoot)
 
-	// return nil config object without config file (propagate error)
-	if err != nil {
-		return nil, fmt.Errorf("Could not load file '%s', error: %s", filename, err)
+		// load bytes from filename
+		bytes, err := ioutil.ReadFile(filename)
+
+		// return nil config object without config file (propagate error)
+		if err != nil {
+			return nil, fmt.Errorf("Could not load file '%s', error: %s", filename, err)
+		}
+
+		// log read file
+		fmt.Printf("Loading configuration from file: %s\n", filename)
+
+		// if file is read then unmarshal from data
+		yErr := yaml.Unmarshal(bytes, root)
+		if yErr != nil {
+			return nil, fmt.Errorf("Error unmarshaling file '%s', error: %s", filename, yErr)
+		}
+
+		// get config
+		config = root.Config
 	}
-
-	// if file is read then unmarshal from data
-	yErr := yaml.Unmarshal(bytes, root)
-	if yErr != nil {
-		return nil, fmt.Errorf("Error unmarshaling file '%s', error: %s", filename, yErr)
-	}
-
-	// get config
-	config := root.Config
 
 	// get warnings and errors
-	_, errors := config.verifyAndInit()
+	warnings, errors := config.verifyAndInit()
+
+	// print warnings
+	if len(warnings) > 0 {
+		for _, warn := range warnings {
+			fmt.Printf("Warning: %s\n", warn)
+		}
+	}
+
+	// bail and return errors
 	if len(errors) > 0 {
 		errorStrings := make([]string, len(errors))
 		for idx, err := range errors {

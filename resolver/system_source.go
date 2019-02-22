@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/miekg/dns"
+
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 type systemSource struct {
@@ -103,8 +105,8 @@ func (source *systemSource) Answer(rCon *RequestContext, context *ResolutionCont
 		rr.Header().Name = question.Name
 	}
 
-	// set source as answering source
-	if context != nil {
+	// set source as answering source if the source is not nil
+	if context != nil && !util.IsEmptyResponse(response) {
 		// don't cache responses
 		context.Stored = true
 
