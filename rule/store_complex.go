@@ -9,7 +9,7 @@ type complexStore struct {
 	complexRules map[string][]Rule
 }
 
-func (store *complexStore) Load(conf *config.GudgeonConfig, list *config.GudgeonList, rules []Rule) uint64 {
+func (store *complexStore) Load(conf *config.GudgeonConfig, list *config.GudgeonList, sessionRoot string, rules []Rule) uint64 {
 	if store.complexRules == nil {
 		store.complexRules = make(map[string][]Rule, 0)
 	}
@@ -38,7 +38,7 @@ func (store *complexStore) Load(conf *config.GudgeonConfig, list *config.Gudgeon
 
 	// backing store load is handled
 	if store.backingStore != nil {
-		return counter + store.backingStore.Load(conf, list, rules)
+		return counter + store.backingStore.Load(conf, list, sessionRoot, rules)
 	}
 
 	return counter
@@ -89,44 +89,3 @@ func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string)
 
 	return MatchNone, nil, ""
 }
-
-/*
-func (store *complexStore) IsMatchAny(groups []string, domain string) Match {
-
-	// go through the order of application (ALLOW, BLOCK)
-	for _, element := range ruleApplyOrder {
-		for _, group := range groups {
-			// get rules that were stored for that type and group
-			complexRules := store.complexRules[element][group]
-			// do complex rules that are found
-			if complexRules != nil {
-				// for each of the rules
-				for _, rule := range complexRules {
-					// check the rule using the rule logic
-					if rule.IsMatch(domain) {
-						// whitelist immediately returns
-						if element == ALLOW {
-							return MatchAllow
-						} else {
-							return MatchBlock
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// if nothing happened then we need to see what the backing store has to say
-	if store.backingStore != nil {
-		return store.backingStore.IsMatchAny(groups, domain)
-	}
-
-	// otherwise (if no backing store is configured) return no match
-	return MatchNone
-}
-
-// default implementation of IsMatch
-func (store *complexStore) IsMatch(group string, domain string) Match {
-	return store.IsMatchAny([]string{group}, domain)
-}
-*/

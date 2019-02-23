@@ -335,6 +335,7 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	}
 	// make query
 	rows, err = qlog.store.Query(selectStmt, whereValues...)
+	defer rows.Close()
 
 	// if rows is nil return empty array
 	if rows == nil || err != nil {
@@ -351,15 +352,17 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	// otherwise create an array of the required size
 	results := make([]LogInfo, 0)
 
+	// only define once
+	var address string
+	var requestDomain string
+	var requestType string
+	var responseText string
+	var blocked bool
+	var blockedList string
+	var blockedRule string
+	var created time.Time
+
 	for rows.Next() {
-		var address string
-		var requestDomain string
-		var requestType string
-		var responseText string
-		var blocked bool
-		var blockedList string
-		var blockedRule string
-		var created time.Time
 		err = rows.Scan(&address, &requestDomain, &requestType, &responseText, &blocked, &blockedList, &blockedRule, &created)
 		if err != nil {
 			fmt.Printf("error scanning: %s\n", err)

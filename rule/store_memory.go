@@ -14,7 +14,7 @@ type memoryStore struct {
 	rules map[string][]string
 }
 
-func (store *memoryStore) Load(conf *config.GudgeonConfig, list *config.GudgeonList, rules []Rule) uint64 {
+func (store *memoryStore) Load(conf *config.GudgeonConfig, list *config.GudgeonList, sessionRoot string, rules []Rule) uint64 {
 	// need some actual rules
 	if len(rules) < 1 {
 		return 0

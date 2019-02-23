@@ -14,7 +14,7 @@ gudgeon:
   # rules in a whitelist. (Non-complex rules would have the same
   # false positive issue.)
   storage:
-    rules: "hash32"
+    rules: "hash"
 
   network:
     tcp: true
@@ -51,10 +51,5 @@ gudgeon:
     src: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
   - name: disconnect.me ads
     src: https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
-
-  groups:
-  - name: default
-    tags:
-    - default
-    resolvers:
-    - default
+  - name: adult
+    src: https://raw.githubusercontent.com/chadmayfield/my-pihole-blocklists/master/lists/pi_blocklist_porn_all.list

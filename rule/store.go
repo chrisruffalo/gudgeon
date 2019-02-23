@@ -20,7 +20,7 @@ const (
 )
 
 type RuleStore interface {
-	Load(conf *config.GudgeonConfig, list *config.GudgeonList, rules []Rule) uint64
+	Load(conf *config.GudgeonConfig, list *config.GudgeonList, sessionRoot string, rules []Rule) uint64
 	FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string)
 }
 
@@ -44,6 +44,9 @@ func CreateStore(backingStoreType string) RuleStore {
 		backingStoreType = "hash"
 	} else if "hash32" == backingStoreType {
 		delegate = new(hashStore32)
+	} else if "sqlite" == backingStoreType || "sql" == backingStoreType {
+		delegate = new(sqlStore)
+		backingStoreType = "sqlite"
 	} else {
 		delegate = new(memoryStore)
 		backingStoreType = "memory"

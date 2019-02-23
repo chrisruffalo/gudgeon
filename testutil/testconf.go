@@ -21,3 +21,8 @@ func Conf(t *testing.T, path string) *config.GudgeonConfig {
 
 	return conf
 }
+
+func TempDir() string {
+	dir, _ := ioutil.TempDir("", "gudgeon-cache-")
+	return dir
+}

@@ -15,7 +15,7 @@ type hashStore32 struct {
 	hashes map[string][]uint32
 }
 
-func (store *hashStore32) Load(conf *config.GudgeonConfig, list *config.GudgeonList, rules []Rule) uint64 {
+func (store *hashStore32) Load(conf *config.GudgeonConfig, list *config.GudgeonList, sessionRoot string, rules []Rule) uint64 {
 	if store.hashes == nil {
 		store.hashes = make(map[string][]uint32)
 	}
@@ -55,7 +55,7 @@ func (store *hashStore32) Load(conf *config.GudgeonConfig, list *config.GudgeonL
 func (store *hashStore32) foundInList(rules []uint32, domainHash uint32) (bool, uint32) {
 	// search for the domain
 	idx := sort.Search(len(rules), func(i int) bool {
-		return rules[i] == domainHash
+		return rules[i] >= domainHash
 	})
 
 	// check that search found what we expected and return true if found

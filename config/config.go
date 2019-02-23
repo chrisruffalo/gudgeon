@@ -119,7 +119,7 @@ func (list *GudgeonList) IsRemote() bool {
 func (list *GudgeonList) path(cachePath string) string {
 	source := list.Source
 	if list.IsRemote() {
-		return path.Join(cachePath, list.Name+".list")
+		return path.Join(cachePath, list.ShortName()+".list")
 	}
 	return source
 }

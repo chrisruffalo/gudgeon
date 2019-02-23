@@ -183,7 +183,7 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 		}
 
 		// send rule array to engine store
-		count := engine.store.Load(conf, list, rules)
+		count := engine.store.Load(conf, list, engine.Root(), rules)
 		fmt.Printf("Loaded %d rules from %s\n", count, list.CanonicalName())
 
 		// store metrics for loaded list
@@ -193,6 +193,11 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 			rulesCounter := metrics.GetCounter("rules-list-" + list.ShortName())
 			rulesCounter.Clear()
 			rulesCounter.Inc(int64(count))
+		}
+
+		// empty rule array
+		for idx, _ := range rules {
+			rules[idx] = nil
 		}
 	}
 

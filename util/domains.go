@@ -116,6 +116,9 @@ func DomainList(domain string) []string {
 		domains = append(domains, check)
 		split := strings.Split(check, ".")
 		check = strings.Join(split[1:], ".")
+		if len(strings.Split(check, ".")) == 1 {
+			break
+		}
 	}
 	return domains
 }

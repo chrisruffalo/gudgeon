@@ -55,8 +55,8 @@ func TestDomainList(t *testing.T) {
 	}{
 		{"", []string{}},
 		{"com", []string{"com"}},
-		{"google.com", []string{"google.com", "com"}},
-		{"           three.two.one.google.com          ", []string{"three.two.one.google.com", "two.one.google.com", "one.google.com", "google.com", "com"}},
+		{"google.com", []string{"google.com"}},
+		{"           three.two.one.google.com          ", []string{"three.two.one.google.com", "two.one.google.com", "one.google.com", "google.com"}},
 	}
 
 	for _, d := range data {
