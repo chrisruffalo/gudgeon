@@ -2,7 +2,6 @@ package engine
 
 import (
 	"encoding/base64"
-	"fmt"
 	"os"
 	"runtime"
 	"strings"
@@ -43,13 +42,6 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 	// create return object
 	engine := new(engine)
 	engine.config = conf
-
-	// create store
-	if conf != nil && conf.Storage != nil {
-		engine.store = rule.CreateStore(conf.Storage.RuleStorage) // create storage type based on configuration
-	} else {
-		engine.store = rule.CreateDefaultStore() // create default storage type
-	}
 
 	// create session key
 	uuid := uuid.New()
@@ -164,42 +156,9 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 		}
 	}
 
-	// load list rules into stores
-	if metrics != nil {
-		metrics.GetCounter(gmetrics.TotalRules).Clear()
-	}
-	for _, list := range lists {
-		path := conf.PathToList(list)
-		array, err := util.GetFileAsArray(path)
-		if err != nil {
-			continue
-		}
-
-		// now parse the array by creating rules and storing them
-		parsedType := rule.ParseType(list.Type)
-		rules := make([]rule.Rule, len(array))
-		for idx, ruleText := range array {
-			rules[idx] = rule.CreateRule(ruleText, parsedType)
-		}
-
-		// send rule array to engine store
-		count := engine.store.Load(conf, list, engine.Root(), rules)
-		fmt.Printf("Loaded %d rules from %s\n", count, list.CanonicalName())
-
-		// store metrics for loaded list
-		if metrics != nil {
-			totalRulesCounter := metrics.GetCounter(gmetrics.TotalRules)
-			totalRulesCounter.Inc(int64(count))
-			rulesCounter := metrics.GetCounter("rules-list-" + list.ShortName())
-			rulesCounter.Clear()
-			rulesCounter.Inc(int64(count))
-		}
-
-		// empty rule array
-		for idx, _ := range rules {
-			rules[idx] = nil
-		}
-	}
+	// create store based on gudgeon configuration and engine details
+	// (requires lists to be downloaded and present before creation)
+	engine.store = rule.CreateStore(engine.Root(), conf)
 
 	// set consumers as active on engine
 	engine.consumers = consumers

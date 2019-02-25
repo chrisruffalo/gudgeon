@@ -12,12 +12,12 @@ create extensive blocklists to protect kids who use the internet from their devi
 For all of these reasons Gudgeon has been created to allow more flexibility in host-based DNS blocking.
 
 ## Contents
-* [Acknowlegements](ACK.md)
-* [Concept of Operations](OPERATIONS.md)
-* [Configuration](CONFIG.md)
-* [Feature Roadmap](ROADMAP.md)
-* [Questions & Answers](QA.md)
-* [What About...](WHATABOUT.md)
+* [Acknowlegements](docs/ACK.md)
+* [Concept of Operations](docs/OPERATIONS.md)
+* [Configuration](docs/CONFIG.md)
+* [Feature Roadmap](docs/ROADMAP.md)
+* [Questions & Answers](docs/QA.md)
+* [What About...](docs/WHATABOUT.md)
 
 ## Features
 * Go Routines for non-blocking request handling enables high-througput especially with simultaneous requests

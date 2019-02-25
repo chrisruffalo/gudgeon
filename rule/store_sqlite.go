@@ -1,184 +1,198 @@
 package rule
 
 import (
-    "database/sql"
-    "fmt"
-    "os"
-    "path"
-    "strings"
+	"database/sql"
+	"fmt"
+	"os"
+	"path"
+	"strings"
 
-    _ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3"
 
-    "github.com/chrisruffalo/gudgeon/config"
-    "github.com/chrisruffalo/gudgeon/util"
+	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
+// practically sqlite only supports a parameter list up to 999 characters so we set this here
+// going over that requires abandoning the prepared statements and using string building and
+// direct insertion
+const sqlBatchSize = 999
+
 type sqlStore struct {
-    db       *sql.DB
+	db      *sql.DB
+	batches map[string][]string
+	ptr     map[string]int
 }
 
-func (store *sqlStore) Load(conf *config.GudgeonConfig, list *config.GudgeonList, sessionRoot string, rules []Rule) uint64 {
-    // create new database if it doesn't exist
-    if store.db == nil {
-        // get session storage location
-        sessionDb := path.Join(sessionRoot, "rules.db")
-        if _, err := os.Stat(sessionRoot); os.IsNotExist(err) {
-            os.MkdirAll(sessionRoot, os.ModePerm)
-        }
-        db, err := sql.Open("sqlite3", sessionDb + "?_sync=FULL")
-        if err != nil {
-            fmt.Printf("error: %s\n", err)
-            return 0
-        }
-        store.db = db
-    }
+func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
+	// create batches map and pointer map
+	store.batches = make(map[string][]string)
+	store.ptr = make(map[string]int)
 
-    // make the database structure for the given list
-    listName := list.ShortName()
+	// get session storage location
+	sessionDb := path.Join(sessionRoot, "rules.db")
+	if _, err := os.Stat(sessionRoot); os.IsNotExist(err) {
+		os.MkdirAll(sessionRoot, os.ModePerm)
+	}
+	db, err := sql.Open("sqlite3", sessionDb)
+	if err != nil {
+		fmt.Printf("error: %s\n", err)
+	}
+	store.db = db
 
-    stmt := "CREATE TABLE IF NOT EXISTS " + listName + " ( Rule TEXT );"
-    _, err := store.db.Exec(stmt)
-    if err != nil {
-        fmt.Printf("error: %s\n", err)
-        return 0
-    }
+	// pre-create tabels
+	for _, list := range lists {
+		// init empty lists
+		store.batches[list.ShortName()] = make([]string, sqlBatchSize)
 
-    // filter through rules and count how many rules are in use
-    counter := uint64(0)
+		// init pointers
+		store.ptr[list.ShortName()] = -1
 
-    // insert rules
-    currentIndex := 0
-    batchSize := 250
-    startStmt := "INSERT INTO " + listName + " (Rule) VALUES"
-    maxStmt := startStmt + " (?)" + strings.Repeat(", (?)", batchSize - 1) 
-    ruleFaces := make([]interface{}, batchSize)
+		stmt := "CREATE TABLE IF NOT EXISTS " + list.ShortName() + " ( Rule TEXT );"
+		_, err := store.db.Exec(stmt)
+		if err != nil {
+			fmt.Printf("error: %s\n", err)
+		}
+	}
+}
 
-    for currentIndex < len(rules) {
-        batchEndIdx := currentIndex + batchSize - 1
-        if batchEndIdx >= len(rules) {
-            batchEndIdx = len(rules) - 1
-        }
-        ctr := 0
+func (store *sqlStore) insert(listName string, rules []string) {
+	if len(rules) < 1 {
+		return
+	}
+	stmt := "INSERT INTO " + listName + " (RULE) VALUES (?)" + strings.Repeat(", (?)", len(rules)-1)
+	vars := make([]interface{}, len(rules))
+	for idx, _ := range rules {
+		vars[idx] = rules[idx]
+	}
+	pstmt, err := store.db.Prepare(stmt)
+	if err != nil {
+		fmt.Printf("Error preparing statement: %s\n", err)
+		return
+	}
+	defer pstmt.Close()
+	//fmt.Printf("stmt: %s, vars: %s\n", stmt, vars)
+	_, err = pstmt.Exec(vars...)
+	if err != nil {
+		fmt.Printf("Error during insert: %s\n", err)
+	}
+}
 
-        for idx := currentIndex; idx <= batchEndIdx; idx++ {
-            if rules[idx] == nil {
-                continue
-            }
-            if "" == rules[idx].Text() {
-                continue
-            }
-            ruleFaces[ctr] = rules[idx].Text()
-            ctr++
-        }
+func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
+	listName := list.ShortName()
+	//fmt.Printf("batch[%s][%d] = %s\n", listName, store.ptr[listName] + 1, rule)
 
-        // if there are rows to insert
-        if ctr > 0 {
-            _, err := store.db.Exec(maxStmt[:len(startStmt) - 1 + len(ruleFaces) * 5], ruleFaces...)
-            if err != nil {
-                fmt.Printf("error during insert: %s\n", err)
-            } else {
-                counter += uint64(ctr)
-            }
-        }
+	store.batches[listName][store.ptr[listName]+1] = rule
+	store.ptr[listName] = store.ptr[listName] + 1
 
-        currentIndex = currentIndex + batchSize
-        // reset rule faces
-        for idx, _ := range ruleFaces {
-            ruleFaces[idx] = nil
-        }
-    }
+	// if enough items are in the batch, insert
+	if store.ptr[listName] >= sqlBatchSize-1 {
+		store.insert(listName, store.batches[listName])
+		store.ptr[listName] = -1
+	}
+}
 
-    // after everything is inserted, add index in one go
-    idxStmt := "CREATE INDEX IF NOT EXISTS idx_" + listName + "_Rules ON " + listName + " (Rule);"
-    _, err = store.db.Exec(idxStmt)
-    if err != nil {
-        fmt.Printf("Could not create index on table %s", listName)
-    }
+func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList) {
+	for _, list := range lists {
+		listName := list.ShortName()
+		// finalize inserts
+		if store.ptr[listName] >= 0 {
+			store.insert(listName, store.batches[listName][0:store.ptr[listName]+1])
+			delete(store.batches, listName)
+			delete(store.ptr, listName)
+		}
 
-    // return rule count
-    return counter
+		// after everything is inserted, add indexes in one go
+
+		idxStmt := "CREATE INDEX IF NOT EXISTS idx_" + listName + "_Rule ON " + listName + " (Rule);"
+		_, err := store.db.Exec(idxStmt)
+		if err != nil {
+			fmt.Printf("Could not create index on table %s\n", listName)
+		}
+	}
 }
 
 func (store *sqlStore) foundInList(list *config.GudgeonList, domains []string) (bool, string) {
-    listName := list.ShortName()
+	listName := list.ShortName()
 
-    // convert to interface array for use in query
-    params := ""
-    dfaces := make([]interface{}, len(domains))
-    for idx, domain := range domains {
-        if idx > 0 {
-            params = params + ", " 
-        }
-        params = fmt.Sprintf("%s$%d", params, idx + 1)
-        dfaces[idx] = domain
-    }
+	// convert to interface array for use in query
+	params := ""
+	dfaces := make([]interface{}, len(domains))
+	for idx, domain := range domains {
+		if idx > 0 {
+			params = params + ", "
+		}
+		params = fmt.Sprintf("%s$%d", params, idx+1)
+		dfaces[idx] = domain
+	}
 
-    stmt := "SELECT Rule FROM " + listName + " WHERE Rule in ( " + params + " ) LIMIT 1"
-    pstmt, err := store.db.Prepare(stmt)
-    if err != nil {
-        fmt.Printf("err: %s\n", err)
-    }
+	stmt := "SELECT Rule FROM " + listName + " WHERE Rule in ( " + params + " ) LIMIT 1"
+	pstmt, err := store.db.Prepare(stmt)
+	defer pstmt.Close()
+	if err != nil {
+		fmt.Printf("err: %s\n", err)
+	}
 
-    rows, err := pstmt.Query(dfaces...)
-    defer rows.Close()
-    if err != nil {
-        fmt.Printf("err: %s\n", err)
-    }
+	rows, err := pstmt.Query(dfaces...)
+	defer rows.Close()
+	if err != nil {
+		fmt.Printf("err: %s\n", err)
+	}
 
-    // check for rows
-    if rows == nil || err != nil {
-        return false, ""
-    }
+	// check for rows
+	if rows == nil || err != nil {
+		return false, ""
+	}
 
-    // scan rows for rules
-    var rule string
-    for rows.Next() {
-        err = rows.Scan(&rule)
-        if "" != rule {
-            return true, rule
-        }
-    }
+	// scan rows for rules
+	var rule string
+	for rows.Next() {
+		err = rows.Scan(&rule)
+		if "" != rule {
+			return true, rule
+		}
+	}
 
-    return false, ""
+	return false, ""
 }
 
 func (store *sqlStore) FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string) {
-    // if no block rules initialized we can bail
-    if store.db == nil {
-        return MatchNone, nil, ""
-    }
+	// if no block rules initialized we can bail
+	if store.db == nil {
+		return MatchNone, nil, ""
+	}
 
-    // allow and block split
-    allowLists := make([]*config.GudgeonList, 0)
-    blockLists := make([]*config.GudgeonList, 0)
-    for _, l := range lists {
-        if ParseType(l.Type) == ALLOW {
-            allowLists = append(allowLists, l)
-        } else {
-            blockLists = append(blockLists, l)
-        }
-    }
+	// allow and block split
+	allowLists := make([]*config.GudgeonList, 0)
+	blockLists := make([]*config.GudgeonList, 0)
+	for _, l := range lists {
+		if ParseType(l.Type) == ALLOW {
+			allowLists = append(allowLists, l)
+		} else {
+			blockLists = append(blockLists, l)
+		}
+	}
 
-    // get domains
-    domains := util.DomainList(domain)
+	// get domains
+	domains := util.DomainList(domain)
 
-    for _, list := range allowLists {
-        if list == nil {
-            continue
-        }
-        if found, rule := store.foundInList(list, domains); found {
-            return MatchAllow, list, rule
-        }
-    }
+	for _, list := range allowLists {
+		if list == nil {
+			continue
+		}
+		if found, rule := store.foundInList(list, domains); found {
+			return MatchAllow, list, rule
+		}
+	}
 
-    for _, list := range blockLists {
-        if list == nil {
-            continue
-        }
-        if found, rule := store.foundInList(list, domains); found {
-            return MatchBlock, list, rule
-        }
-    }
+	for _, list := range blockLists {
+		if list == nil {
+			continue
+		}
+		if found, rule := store.foundInList(list, domains); found {
+			return MatchBlock, list, rule
+		}
+	}
 
-    return MatchNone, nil, ""
+	return MatchNone, nil, ""
 }

@@ -24,7 +24,7 @@ var GitHash = "0000000"
 var LongVersion = Version
 
 type Gudgeon struct {
-	config     *config.GudgeonConfig
+	config *config.GudgeonConfig
 }
 
 func NewGudgeon(config *config.GudgeonConfig) *Gudgeon {
@@ -83,7 +83,6 @@ func (gudgeon *Gudgeon) Start() error {
 
 	return nil
 }
-
 
 func main() {
 	// add git hash to long version if available

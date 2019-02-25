@@ -17,7 +17,10 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
+	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 // indirect
 	github.com/twmb/murmur3 v0.0.0-20190212075929-930dc7964b30
+	github.com/willf/bitset v1.1.10 // indirect
+	github.com/willf/bloom v2.0.3+incompatible
 	golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67 // indirect
 	golang.org/x/net v0.0.0-20190213061140-3a22650c66bd // indirect
 	golang.org/x/sys v0.0.0-20190213121743-983097b1a8a3 // indirect

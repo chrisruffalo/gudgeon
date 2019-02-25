@@ -15,41 +15,30 @@ type hashStore struct {
 	hashes map[string][]uint64
 }
 
-func (store *hashStore) Load(conf *config.GudgeonConfig, list *config.GudgeonList, sessionRoot string, rules []Rule) uint64 {
-	if store.hashes == nil {
-		store.hashes = make(map[string][]uint64)
-	}
-
-	// filter through rules and count how many rules are in use
-	counter := uint64(0)
-	for _, rule := range rules {
-		if rule == nil {
-			continue
+func (store *hashStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
+	store.hashes = make(map[string][]uint64)
+	for _, list := range lists {
+		if _, found := store.hashes[list.CanonicalName()]; !found {
+			startingArrayLength := uint(0)
+			if config != nil {
+				startingArrayLength, _ = util.LineCount(config.PathToList(list))
+			}
+			store.hashes[list.CanonicalName()] = make([]uint64, 0, startingArrayLength)
 		}
-		counter++
 	}
+}
 
-	idx := 0
-	hashRules := make([]uint64, counter)
+func (store *hashStore) Load(list *config.GudgeonList, rule string) {
+	store.hashes[list.CanonicalName()] = append(store.hashes[list.CanonicalName()], murmur3.StringSum64(strings.ToLower(rule)))
+}
 
-	// evaluate each rule
-	for _, rule := range rules {
-		if rule == nil {
-			continue
-		}
-		// hash lower case rule
-		hashRules[idx] = murmur3.StringSum64(strings.ToLower(rule.Text()))
-		idx++
+func (store *hashStore) Finalize(sessionRoot string, lists []*config.GudgeonList) {
+	for k, _ := range store.hashes {
+		// sort
+		sort.Slice(store.hashes[k], func(i, j int) bool {
+			return store.hashes[k][i] < store.hashes[k][j]
+		})
 	}
-
-	// sort
-	sort.Slice(hashRules, func(i, j int) bool {
-		return hashRules[i] < hashRules[j]
-	})
-
-	store.hashes[list.CanonicalName()] = hashRules
-
-	return counter
 }
 
 func (store *hashStore) foundInList(rules []uint64, domainHash uint64) (bool, uint64) {

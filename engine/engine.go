@@ -171,6 +171,11 @@ func (engine *engine) IsDomainBlocked(consumerIp *net.IP, domain string) (bool, 
 	// get consumer
 	consumer := engine.getConsumerForIp(consumerIp)
 
+	// sometimes (in testing, downloading) the store mechanism is nil/unloaded
+	if engine.store == nil {
+		return false, nil, ""
+	}
+
 	// look in lists for match
 	result, list, ruleText := engine.store.FindMatch(consumer.lists, domain)
 

@@ -6,42 +6,42 @@ import (
 
 type complexStore struct {
 	backingStore RuleStore
-	complexRules map[string][]Rule
+	complexRules map[string][]ComplexRule
 }
 
-func (store *complexStore) Load(conf *config.GudgeonConfig, list *config.GudgeonList, sessionRoot string, rules []Rule) uint64 {
-	if store.complexRules == nil {
-		store.complexRules = make(map[string][]Rule, 0)
-	}
-	if _, found := store.complexRules[list.CanonicalName()]; !found {
-		store.complexRules[list.CanonicalName()] = make([]Rule, 0)
-	}
+func (store *complexStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
+	store.complexRules = make(map[string][]ComplexRule, 0)
 
-	// make decisions based on the rule type
-	counter := uint64(0)
-	for idx, rule := range rules {
-		if rule == nil {
-			continue
-		}
-
-		// complex rules are locally stored
-		if rule.IsComplex() {
-			store.complexRules[list.CanonicalName()] = append(store.complexRules[list.CanonicalName()], rule)
-
-			// rule is nilled out from list forwarded to next component
-			rules[idx] = nil
-
-			// add to rule counter for return
-			counter++
+	for _, list := range lists {
+		if _, found := store.complexRules[list.CanonicalName()]; !found {
+			store.complexRules[list.CanonicalName()] = make([]ComplexRule, 0)
 		}
 	}
 
-	// backing store load is handled
 	if store.backingStore != nil {
-		return counter + store.backingStore.Load(conf, list, sessionRoot, rules)
+		store.backingStore.Init(sessionRoot, config, lists)
 	}
+}
 
-	return counter
+func (store *complexStore) Load(list *config.GudgeonList, rule string) {
+	// complex rules are locally stored
+	var complexRule ComplexRule
+	if IsComplex(rule) {
+		complexRule = CreateComplexRule(rule)
+		if complexRule != nil {
+			store.complexRules[list.CanonicalName()] = append(store.complexRules[list.CanonicalName()], complexRule)
+		}
+	} else if store.backingStore != nil {
+		store.backingStore.Load(list, rule)
+	}
+}
+
+func (store *complexStore) Finalize(sessionRoot string, lists []*config.GudgeonList) {
+	// no-op
+
+	if store.backingStore != nil {
+		store.backingStore.Finalize(sessionRoot, lists)
+	}
 }
 
 func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string) {

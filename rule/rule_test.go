@@ -4,64 +4,30 @@ import (
 	"testing"
 )
 
-func TestRuleCreation(t *testing.T) {
-	rule := CreateRule("simple.domain.com", BLOCK)
-	if rule == nil || rule.IsComplex() {
-		t.Errorf("Simple rule should not be a complex rule")
+func TestParseLine(t *testing.T) {
+	data := []struct {
+		input    string
+		expected string
+	}{
+		{"", ""},
+		{"#blah blah", ""},
+		{"thing #blah blah", "thing"},
+		{"     thing         #blah blah", "thing"},
+		{"//result", ""},
+		{"stuff result", "result"},
+		{"stuff rule //comment", "rule"},
+		{"127.0.0.1 gone.ads.io //comment", "gone.ads.io"},
+		{"here.ads.io //comment", "here.ads.io"},
+		{"google.com", "google.com"},
+		{"                                    google.com    ", "google.com"},
+		{"         #                          google.com    ", ""},
+		{"  //     #                          google.com    ", ""},
 	}
 
-	rule = CreateRule("/.*google.*/", BLOCK)
-	if rule == nil || !rule.IsComplex() {
-		t.Errorf("Regex rule should not be nil and should be complex")
-	}
-
-	rule = CreateRule("*.google.com", BLOCK)
-	if rule == nil || !rule.IsComplex() {
-		t.Errorf("Wildcard rule should not be nil and should be complex")
-	}
-}
-
-type domainData struct {
-	domain   string
-	expected bool
-}
-
-func testRuleMatching(testType string, text string, data []domainData, t *testing.T) {
-	rule := CreateRule(text, BLOCK)
 	for _, d := range data {
-		result := rule.IsMatch(d.domain)
-		if result != d.expected {
-			t.Errorf("%s - (rule: %s) - IsMatch(%s) was %t but expected %t", testType, text, d.domain, result, d.expected)
+		result := ParseLine(d.input)
+		if d.expected != result {
+			t.Errorf("Input '%s' should have '%s' but got '%s'", d.input, d.expected, result)
 		}
 	}
-}
-
-func TestTextRuleMatching(t *testing.T) {
-	data := []domainData{
-		{domain: "google.com", expected: true},
-		{domain: "yahoo.com", expected: false},
-		{domain: "mail.google.com", expected: true},
-	}
-	testRuleMatching("simple", "google.com", data, t)
-}
-
-func TestWildcardRuleMatching(t *testing.T) {
-	data := []domainData{
-		{domain: "google.com", expected: false},
-		{domain: "ads.google.com", expected: true},
-		{domain: "ads.yahoo.com", expected: true},
-		{domain: "ads.yahoo.org", expected: false},
-		{domain: "ads.com", expected: false},
-	}
-	testRuleMatching("wildcard", "a*.*.com", data, t)
-}
-
-func TestRegexRuleMatching(t *testing.T) {
-	data := []domainData{
-		{domain: "ripple.com", expected: true},
-		{domain: "rack.com", expected: true},
-		{domain: "frack.com", expected: false},
-		{domain: "rrrrr.com.co", expected: false},
-	}
-	testRuleMatching("regex", "/^r.*\\.com$/", data, t)
 }

@@ -5,9 +5,9 @@ import (
 )
 
 func TestHashRuleStore(t *testing.T) {
-	testStore(defaultRuleData, func() RuleStore { return CreateStore("hash") }, t)
+	testStore(defaultRuleData, func() RuleStore { return &hashStore{} }, t)
 }
 
 func BenchmarkHashRuleStore(b *testing.B) {
-	benchNonComplexStore(func() RuleStore { return CreateStore("hash") }, b)
+	benchNonComplexStore(func() RuleStore { return &hashStore{} }, b)
 }

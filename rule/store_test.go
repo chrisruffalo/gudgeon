@@ -24,14 +24,13 @@ type ruleList struct {
 }
 
 // quick/dirty rule tests that all stores should pass
-var defaultRuleData = []ruleList {
+var defaultRuleData = []ruleList{
 	// allowlist checks are inverted
 	{group: "default", rules: []string{"rate.com"}, ruleType: ALLOW, blocked: []string{}, allowed: []string{"we.rate.com", "no.rate.com", "rate.com"}, nomatch: []string{"crate.com", "rated.com"}},
 	// blocklist checks are not
-    {group: "default", rules: []string{"rate.com","gorp.com"}, ruleType: BLOCK, blocked: []string{"we.rate.com", "no.rate.com", "rate.com", "gorp.com", "clog.gorp.com"}, allowed: []string{}, nomatch: []string{"crate.com", "rated.com", "orp.com"}},
+	{group: "default", rules: []string{"rate.com", "gorp.com"}, ruleType: BLOCK, blocked: []string{"we.rate.com", "no.rate.com", "rate.com", "gorp.com", "clog.gorp.com"}, allowed: []string{}, nomatch: []string{"crate.com", "rated.com", "orp.com"}},
 	{group: "default", rules: []string{"bonkers.com"}, ruleType: BLOCK, blocked: []string{"text.bonkers.com", "bonkers.com"}, nomatch: []string{"argument.com", "boop.com", "krunch.io", "bonk.com", "bonkerss.com"}},
 }
-
 
 type ruleStoreCreator func() RuleStore
 
@@ -48,14 +47,13 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 			ruleType = "allow"
 		}
 
-		rules := make([]Rule, len(data.rules))
-		for idx, ruleText := range data.rules {
-			rules[idx] = CreateRule(ruleText, data.ruleType)
-		}
-
 		lists := []*config.GudgeonList{&config.GudgeonList{Name: fmt.Sprintf("Test List %d", idx), Type: ruleType}}
 		// load rules into target store
-		store.Load(nil, lists[0], tmpDir, rules)
+		store.Init(tmpDir, nil, lists)
+		for _, rule := range data.rules {
+			store.Load(lists[0], rule)
+		}
+		store.Finalize(tmpDir, lists)
 
 		// check blocked
 		for _, expectedBlock := range data.blocked {
@@ -92,30 +90,24 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 
 	printMemUsage("before load", b)
 
-	// create rules
-	rules := make([]Rule, benchRules*2)
-	ruleType := BLOCK
-	for idx := 0; idx < benchRules*2; idx++ {
-		if idx >= benchRules {
-			ruleType = ALLOW
-		}
-		rules[idx] = CreateRule(testutil.RandomDomain(), ruleType)
-	}
-
 	lists := []*config.GudgeonList{
 		&config.GudgeonList{Name: "Block", Type: "block"},
 		&config.GudgeonList{Name: "Allow", Type: "allow"},
 	}
 
-	// load rules into store for each group
-	store.Load(nil, lists[0], tmpDir, rules[:benchRules])
-	store.Load(nil, lists[1], tmpDir, rules[benchRules:])
+	store.Init(tmpDir, nil, lists)
 
-	// create list of queries
+	// create rules
 	queryData := make([]string, 100)
-	for rdx := range queryData {
-		queryData[rdx] = rules[(len(rules)/2)-(len(queryData)/2)+rdx].Text()
+	for idx := 0; idx < benchRules; idx++ {
+		testDomain := testutil.RandomDomain()
+		store.Load(lists[idx%2], testDomain)
+		if idx < len(queryData) {
+			queryData[idx] = testDomain
+		}
 	}
+
+	store.Finalize(tmpDir, lists)
 
 	runtime.GC()
 	printMemUsage("after load", b)
@@ -124,7 +116,7 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	// query
+	// benchmark query
 	for i := 0; i < b.N; i++ {
 		store.FindMatch(lists, queryData[i%len(queryData)])
 	}
@@ -144,7 +136,7 @@ func TestComplexRuleStore(t *testing.T) {
 	}
 
 	// with creator function
-	testStore(ruleData, func() RuleStore { return CreateStore("") }, t)
+	testStore(ruleData, func() RuleStore { return &complexStore{} }, t)
 }
 
 func printMemUsage(msg string, b *testing.B) {

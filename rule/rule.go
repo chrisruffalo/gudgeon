@@ -1,52 +1,22 @@
 package rule
 
 import (
-	"regexp"
 	"strings"
-
-	"github.com/ryanuber/go-glob"
 )
 
-// the constant that means ALLOW after pasring "allow" or "block"
-const ALLOW = uint8(1)
-
-// the constant that means BLOCK after pasring "allow" or "block"
-const BLOCK = uint8(0)
-
-// the string that represents "allow", all other results are treated as "block"
-const ALLOWSTRING = "allow"
+var commentChars = []string{"#", "//"}
 
 const (
-	wildcard   = "*"
-	comment    = "#"
-	altComment = "//"
-	regex      = "/"
+	// the constant that means ALLOW after pasring "allow" or "block"
+	ALLOW = uint8(1)
+	// the constant that means BLOCK after pasring "allow" or "block"
+	BLOCK = uint8(0)
+	// the string that represents "allow", all other results are treated as "block"
+	ALLOWSTRING = "allow"
+
+	ruleRegex = "/"
+	ruleGlob  = "*"
 )
-
-type Rule interface {
-	RuleType() uint8
-	IsMatch(sample string) bool
-	IsComplex() bool
-	Text() string
-}
-
-type baseRule struct {
-	text     string
-	ruleType uint8
-}
-
-type textMatchRule struct {
-	baseRule
-}
-
-type wildcardMatchRule struct {
-	baseRule
-}
-
-type regexMatchRule struct {
-	baseRule
-	regexp *regexp.Regexp
-}
 
 func ParseType(listType string) uint8 {
 	if strings.EqualFold(ALLOWSTRING, listType) {
@@ -55,105 +25,32 @@ func ParseType(listType string) uint8 {
 	return BLOCK
 }
 
-func CreateRule(rule string, ruleType uint8) Rule {
-	// a rule that starts with a comment sign is parsed as an empty string which should be ignored by other parts of the API
-	if strings.HasPrefix(rule, comment) || strings.HasPrefix(rule, altComment) {
-		return nil
-	}
-	rule = strings.TrimSpace(rule)
+// parse a line, as from a file, and return the part that represents the rule
+func ParseLine(line string) string {
+	line = strings.TrimSpace(line)
 
-	var createdRule Rule
+	// remove everything after any comment on the line
+	for _, char := range commentChars {
+		if cIndex := strings.Index(line, char); cIndex >= 0 {
+			line = strings.TrimSpace(line[0:cIndex])
+		}
+	}
 
 	// a rule that can be split on spaces is more complicated, for right now just take everything after the first space
-	split := strings.Split(rule, " ")
+	// this is because of the common rule formats are either
+	// <some ip> <domain name>
+	// or
+	// <domain name>
+	// and we are interpreting these as rules
+	split := strings.Split(line, " ")
 	if len(split) > 1 {
-		rule = strings.Join(split[1:], " ")
-	}
-
-	if strings.HasPrefix(rule, regex) && strings.HasSuffix(rule, regex) {
-		// regex rules start and end with "/" to denote them that way
-		createdRule = createRegexMatchRule(rule, ruleType)
-	} else if strings.Contains(rule, wildcard) {
-		// wildcard rules have wildcards in them (only * is supported)
-		createdRule = createWildcardMatchRule(rule, ruleType)
-	} else {
-		// all other rules are straight text case insensitive match
-		createdRule = createTextMatchRule(strings.ToLower(rule), ruleType)
+		line = strings.Join(split[1:], " ")
 	}
 
 	// return rule
-	return createdRule
+	return line
 }
 
-// =================================================================
-// Rule Creation
-// =================================================================
-func createTextMatchRule(rule string, ruleType uint8) Rule {
-	newRule := new(textMatchRule)
-	newRule.text = strings.ToLower(rule) // simple rules are always lowercase and simple matches are always lowercase to match
-	newRule.ruleType = ruleType
-	return newRule
-}
-
-func createWildcardMatchRule(rule string, ruleType uint8) Rule {
-	newRule := new(wildcardMatchRule)
-	newRule.text = rule
-	newRule.ruleType = ruleType
-	return newRule
-}
-
-func createRegexMatchRule(rule string, ruleType uint8) Rule {
-	newRule := new(regexMatchRule)
-	newRule.text = rule
-	newRule.ruleType = ruleType
-	cRegex, err := regexp.Compile(rule[1 : len(rule)-1])
-	newRule.regexp = cRegex
-	if err != nil {
-		return nil
-	}
-	return newRule
-}
-
-// =================================================================
-// Base operations for Rule identification (mainly for backing stores)
-// =================================================================
-func (rule *baseRule) RuleType() uint8 {
-	return rule.ruleType
-}
-
-func (rule *baseRule) Text() string {
-	return rule.text
-}
-
-// =================================================================
-// Rule Complexity
-// =================================================================
-func (rule *textMatchRule) IsComplex() bool {
-	return false
-}
-
-func (rule *wildcardMatchRule) IsComplex() bool {
-	return true
-}
-
-func (rule *regexMatchRule) IsComplex() bool {
-	return true
-}
-
-// =================================================================
-// Rule Matching
-// =================================================================
-func (rule *textMatchRule) IsMatch(sample string) bool {
-	// check to see if the value matches the rule OR if the
-	// value has a suffix that matches the "." + rule so that
-	// "google.com" blocks "subdomain.google.com" and "google.com"
-	return rule.text == sample || strings.HasSuffix(sample, "."+rule.text)
-}
-
-func (rule *wildcardMatchRule) IsMatch(sample string) bool {
-	return glob.Glob(rule.text, sample)
-}
-
-func (rule *regexMatchRule) IsMatch(sample string) bool {
-	return rule.regexp.MatchString(sample)
+func IsComplex(ruleText string) bool {
+	return strings.Contains(ruleText, ruleGlob) || (strings.HasPrefix(ruleText, ruleRegex) && strings.HasSuffix(ruleText, ruleRegex))
 }
