@@ -6,6 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/google/gops/agent"
+	"github.com/pkg/profile"
+
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
 	"github.com/chrisruffalo/gudgeon/metrics"
@@ -99,6 +102,18 @@ func main() {
 
 	// debug print config
 	fmt.Printf("%s\nGudgeon %s\n%s\n", divider, LongVersion, divider)
+
+	// start profiling if enabled
+	if opts.DebugOptions.Profile {
+		fmt.Printf("Starting profiling...\n")
+		// start profile
+		defer profile.Start().Stop()
+		// start agent
+		err := agent.Listen(agent.Options{})
+		if err != nil {
+			fmt.Printf("Could not starting GOPS profilling agent: %s\n", err)
+		}
+	}
 
 	// load config
 	config, err := config.Load(string(opts.AppOptions.ConfigPath))

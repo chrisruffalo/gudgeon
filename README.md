@@ -70,7 +70,7 @@ Once these files are in place you can run Gudgeon directly with `gudgeon -c /pat
 Prerequisites
 * Ability to use Makefiles (`make` command installed)
 * Git
-* Go > 1.11 (module support is *required*)
+* Go >= 1.11 (module support is *required*)
 * `upx` (for binary compression)
 * `fpm` (for building deb/rpm)
 * Docker (for building docker images or xgo support)

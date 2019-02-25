@@ -15,9 +15,17 @@ type AppOptions struct {
 	ConfigPath flags.Filename `short:"c" long:"config" description:"Path to Gudgeon configuration file."`
 }
 
+type DebugOptions struct {
+	Profile bool `short:"P" long:"profile" description:"Enable GOPS profiling at runtime."`
+}
+
+
 type GudgeonOptions struct {
 	// explicit app group
 	AppOptions AppOptions `group:"Application Options"`
+
+	// debug/performance/profiling options
+	DebugOptions DebugOptions `group:"Debugging/Profiling Options"`
 
 	// emulate help flag with direct support for accessing it
 	HelpOptions HelpOptions `group:"Help Options"`

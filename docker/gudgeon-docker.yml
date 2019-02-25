@@ -5,6 +5,9 @@
 gudgeon:
   home: /var/lib/gudgeon
 
+  storage:
+    rules: "bloom+sqlite"
+
   network:
     # can't use systemd listeners
     systemd: false

@@ -5,6 +5,9 @@
 gudgeon:
   home: /usr/local/gudgeon
 
+  storage:
+    rules: "bloom+sqlite"
+
   network:
     interfaces:
     - ip: 0.0.0.0

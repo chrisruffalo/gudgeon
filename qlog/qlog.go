@@ -22,6 +22,11 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
+const (
+	// constant insert statement
+	qlogInsertStatement = "insert into qlog (Address, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);"
+)	
+
 // lit of valid sort names (lower case for ease of use with util.StringIn)
 var validSorts = []string{"address", "connectiontype", "requestdomain", "requesttype", "blocked", "blockedlist", "blockedrule", "created"}
 
@@ -153,8 +158,13 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 }
 
 func (qlog *qlog) logDB(info *LogInfo) {
-	istmt := "insert into qlog (Address, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);"
-	_, err := qlog.store.Exec(istmt, info.Address, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.BlockedList, info.BlockedRule, info.Created)
+	pstmt, err := qlog.store.Prepare(qlogInsertStatement)
+	defer pstmt.Close()
+	if err != nil {
+		return
+	}
+
+	_, err = pstmt.Exec(info.Address, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.BlockedList, info.BlockedRule, info.Created)
 	if err != nil {
 		fmt.Printf("Could not insert into db: %s\n", err)
 		return
@@ -237,13 +247,13 @@ func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon
 	// create message for sending to various endpoints
 	msg := new(LogInfo)
 	msg.Address = address.String()
-	msg.Request = request
 	if request != nil && len(request.Question) > 0 {
+		msg.Request = request.Copy()
 		msg.RequestDomain = request.Question[0].Name
 		msg.RequestType = dns.Type(request.Question[0].Qtype).String()
 	}
-	msg.Response = response
 	if response != nil {
+		msg.Response = response.Copy()
 		answerValues := util.GetAnswerValues(response)
 		if len(answerValues) > 0 {
 			msg.ResponseText = answerValues[0]
