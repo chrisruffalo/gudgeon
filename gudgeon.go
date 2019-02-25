@@ -20,28 +20,22 @@ var Version = "v0.3.X"
 var GitHash = "0000000"
 var LongVersion = Version
 
-func main() {
-	// add git hash to long version if available
-	if "" != GitHash {
-		LongVersion = Version + "@git" + GitHash
-	}
+type Gudgeon struct {
+	config     *config.GudgeonConfig
+}
 
-	// load command options
-	opts, err := config.Options(LongVersion)
-	if err != nil {
-		fmt.Printf("%s\n", err)
-		os.Exit(1)
+func NewGudgeon(config *config.GudgeonConfig) *Gudgeon {
+	return &Gudgeon{
+		config: config,
 	}
+}
 
-	// debug print config
-	fmt.Printf("===============================\nGudgeon %s\n===============================\n", LongVersion)
+func (gudgeon *Gudgeon) Start() {
+	// get config
+	config := gudgeon.config
 
-	// load config
-	config, err := config.Load(string(opts.AppOptions.ConfigPath))
-	if err != nil {
-		fmt.Printf("%s\n", err)
-		os.Exit(1)
-	}
+	// error
+	var err error
 
 	// clean out session directory
 	if "" != config.SessionRoot() {
@@ -86,6 +80,37 @@ func main() {
 		fmt.Printf("An error occured while starting Gudgeon: %s\n", recovery)
 		os.Exit(1)
 	}
+}
+
+
+func main() {
+	// add git hash to long version if available
+	if "" != GitHash {
+		LongVersion = Version + "@git" + GitHash
+	}
+
+	// load command options
+	opts, err := config.Options(LongVersion)
+	if err != nil {
+		fmt.Printf("%s\n", err)
+		os.Exit(1)
+	}
+
+	// debug print config
+	fmt.Printf("===============================\nGudgeon %s\n===============================\n", LongVersion)
+
+	// load config
+	config, err := config.Load(string(opts.AppOptions.ConfigPath))
+	if err != nil {
+		fmt.Printf("%s\n", err)
+		os.Exit(1)
+	}
+
+	// create new Gudgeon instance
+	instance := NewGudgeon(config)
+
+	// start new instance
+	instance.Start()
 
 	// wait for signal
 	sig := make(chan os.Signal)
