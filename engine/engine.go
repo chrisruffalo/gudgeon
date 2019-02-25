@@ -103,6 +103,7 @@ func (engine *engine) getConsumerForIp(consumerIp *net.IP) *consumer {
 				matchIp := net.ParseIP(match.IP)
 				if matchIp != nil && bytes.Compare(matchIp.To16(), consumerIp.To16()) == 0 {
 					foundConsumer = activeConsumer
+					break
 				}
 			}
 			// test range match
@@ -111,6 +112,7 @@ func (engine *engine) getConsumerForIp(consumerIp *net.IP) *consumer {
 				endIp := net.ParseIP(match.Range.End)
 				if startIp != nil && endIp != nil && bytes.Compare(consumerIp.To16(), startIp.To16()) >= 0 && bytes.Compare(consumerIp.To16(), endIp.To16()) <= 0 {
 					foundConsumer = activeConsumer
+					break
 				}
 			}
 			// test net (subnet) match
@@ -118,6 +120,7 @@ func (engine *engine) getConsumerForIp(consumerIp *net.IP) *consumer {
 				_, parsedNet, err := net.ParseCIDR(match.Net)
 				if err == nil && parsedNet != nil && parsedNet.Contains(*consumerIp) {
 					foundConsumer = activeConsumer
+					break
 				}
 			}
 			if foundConsumer != nil {
@@ -138,11 +141,14 @@ func (engine *engine) getConsumerForIp(consumerIp *net.IP) *consumer {
 }
 
 func (engine *engine) getConsumerGroups(consumerIp *net.IP) []string {
-	foundConsumer := engine.getConsumerForIp(consumerIp)
+	consumer := engine.getConsumerForIp(consumerIp)
+	return engine.getGroups(consumer)
+}
 
+func (engine *engine) getGroups(consumer *consumer) []string {
 	// return found consumer data if something was found
-	if foundConsumer != nil && len(foundConsumer.groupNames) > 0 {
-		return foundConsumer.groupNames
+	if consumer != nil && len(consumer.groupNames) > 0 {
+		return consumer.groupNames
 	}
 
 	// return the default group in the event nothing else is available
@@ -150,11 +156,14 @@ func (engine *engine) getConsumerGroups(consumerIp *net.IP) []string {
 }
 
 func (engine *engine) getConsumerResolvers(consumerIp *net.IP) []string {
-	foundConsumer := engine.getConsumerForIp(consumerIp)
+	consumer := engine.getConsumerForIp(consumerIp)
+	return engine.getResolvers(consumer)	
+}
 
+func (engine *engine) getResolvers(consumer *consumer) []string {
 	// return found consumer data if something was found
-	if foundConsumer != nil && len(foundConsumer.resolverNames) > 0 {
-		return foundConsumer.resolverNames
+	if consumer != nil && len(consumer.resolverNames) > 0 {
+		return consumer.resolverNames
 	}
 
 	// return the default resolver in the event nothing else is available
@@ -163,13 +172,16 @@ func (engine *engine) getConsumerResolvers(consumerIp *net.IP) []string {
 
 // return if the domain is blocked, if it is blocked return the list and rule
 func (engine *engine) IsDomainBlocked(consumerIp *net.IP, domain string) (bool, *config.GudgeonList, string) {
+	// get consumer
+	consumer := engine.getConsumerForIp(consumerIp)
+	return engine.domainBlockedForConsumer(consumer, domain)	
+}
+
+func (engine *engine) domainBlockedForConsumer(consumer *consumer, domain string) (bool, *config.GudgeonList, string) {
 	// drop ending . if present from domain
 	if strings.HasSuffix(domain, ".") {
 		domain = domain[:len(domain)-1]
 	}
-
-	// get consumer
-	consumer := engine.getConsumerForIp(consumerIp)
 
 	// sometimes (in testing, downloading) the store mechanism is nil/unloaded
 	if engine.store == nil {
@@ -245,8 +257,17 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 	// get domain name
 	domain := request.Question[0].Name
 
-	// get block status
-	if blocked, list, ruleText := engine.IsDomainBlocked(address, domain); blocked {
+	// get consumer
+	consumer := engine.getConsumerForIp(address)
+
+	// get block status and just hang up if blocked at the consumer level
+	if consumer.configConsumer.Block {
+		result = new(resolver.ResolutionResult)
+		result.Blocked = true
+
+		response = new(dns.Msg)
+		response.SetReply(request)
+	} else if blocked, list, ruleText := engine.domainBlockedForConsumer(consumer, domain); blocked {
 		// set blocked values
 		result = new(resolver.ResolutionResult)
 		result.Blocked = true
@@ -259,7 +280,7 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 		response.Rcode = dns.RcodeNameError
 	} else {
 		// if not blocked then actually try resolution, by grabbing the resolver names
-		resolvers := engine.getConsumerResolvers(address)
+		resolvers := engine.getResolvers(consumer)
 		r, res, err := engine.resolvers.AnswerMultiResolvers(rCon, resolvers, request)
 		if err != nil {
 			// todo: log error in resolution
@@ -293,6 +314,10 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 		result.Message = fmt.Sprintf("%v", recovery)
 	}
 
+	// set consumer
+	result.Consumer = consumer.configConsumer.Name
+
+	// return result
 	return response, rCon, result
 }
 

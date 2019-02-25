@@ -24,6 +24,7 @@ type ResolverMap interface {
 // returned as part of resolution to get data what actually resolved the query
 type ResolutionResult struct {
 	Cached   bool
+	Consumer string
 	Source   string
 	Resolver string
 	Message  string // errors/panics/context hints

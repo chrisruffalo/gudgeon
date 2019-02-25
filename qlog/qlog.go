@@ -24,7 +24,7 @@ import (
 
 const (
 	// constant insert statement
-	qlogInsertStatement = "insert into qlog (Address, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);"
+	qlogInsertStatement = "insert into qlog (Address, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);"
 )	
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
@@ -43,6 +43,7 @@ type LogInfo struct {
 	RequestContext *resolver.RequestContext   `json:"-"`
 
 	// generated/calculated values
+	Consumer       string
 	ConnectionType string
 	RequestDomain  string
 	RequestType    string
@@ -148,6 +149,7 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 			return nil, err
 		}
 
+		// migrate to best version of database
 		m.Up()
 
 		// keep store handler
@@ -161,10 +163,11 @@ func (qlog *qlog) logDB(info *LogInfo) {
 	pstmt, err := qlog.store.Prepare(qlogInsertStatement)
 	defer pstmt.Close()
 	if err != nil {
+		fmt.Printf("Error preparing statement: %s\n", err)
 		return
 	}
 
-	_, err = pstmt.Exec(info.Address, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.BlockedList, info.BlockedRule, info.Created)
+	_, err = pstmt.Exec(info.Address, info.Consumer, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.BlockedList, info.BlockedRule, info.Created)
 	if err != nil {
 		fmt.Printf("Could not insert into db: %s\n", err)
 		return
@@ -179,18 +182,24 @@ func (qlog *qlog) logStdout(info *LogInfo) {
 	response := info.Response
 	result := info.Result
 	rCon := info.RequestContext
+	consumerName := info.Consumer
 
 	// log result if found
-	logPrefix := fmt.Sprintf("[%s/%s] q:|%s|%s|->", address, rCon.Protocol, domain, requestType)
+	logPrefix := fmt.Sprintf("[%s/%s|%s] q:|%s|%s|->", address, rCon.Protocol, consumerName, domain, requestType)
 	if result != nil {
 		logSuffix := "->"
 		if result.Blocked {
-			listName := "UNKNOWN"
 			if result.BlockedList != nil {
-				listName = result.BlockedList.CanonicalName()
+				listName := result.BlockedList.CanonicalName()
+				ruleText := result.BlockedRule
+				if ruleText != "" {
+					fmt.Printf("%s BLOCKED[%s|%s]\n", logPrefix, listName, ruleText)	
+				} else {
+					fmt.Printf("%s BLOCKED[%s]\n", logPrefix, listName)	
+				}				
+			} else {
+				fmt.Printf("%s BLOCKED\n", logPrefix)
 			}
-			ruleText := result.BlockedRule
-			fmt.Printf("%s BLOCKED[%s|%s]\n", logPrefix, listName, ruleText)
 		} else {
 			if len(response.Answer) > 0 {
 				answerValues := util.GetAnswerValues(response)
@@ -260,15 +269,20 @@ func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon
 		}
 	}
 	msg.Result = result
-	if result != nil && result.Blocked {
-		msg.Blocked = true
-		if result.BlockedList != nil {
-			msg.BlockedList = result.BlockedList.CanonicalName()
+	if result != nil {
+		msg.Consumer = result.Consumer
+		if result.Blocked {
+			msg.Blocked = true
+			if result.BlockedList != nil {
+				msg.BlockedList = result.BlockedList.CanonicalName()
+			}
+			msg.BlockedRule = result.BlockedRule
 		}
-		msg.BlockedRule = result.BlockedRule
 	}
-	msg.RequestContext = rCon
-	msg.ConnectionType = rCon.Protocol
+	if rCon != nil {
+		msg.RequestContext = rCon
+		msg.ConnectionType = rCon.Protocol
+	}
 	msg.Created = time.Now()
 	// put on channel
 	qlog.logInfoChan <- msg

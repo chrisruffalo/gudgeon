@@ -19,6 +19,9 @@ For all of these reasons Gudgeon has been created to allow more flexibility in h
 * [Questions & Answers](docs/QA.md)
 * [What About...](docs/WHATABOUT.md)
 
+## History
+Gudgeon has been serving **all** of my home DNS traffic since 01/14/2019. Eating my own dogfood has been challenging and there've been a few issues where I've had to get to my laptop and start coding to restore service or bring pihole back online. The intervals between incidents have been steadily increasing.758771
+
 ## Features
 * Go Routines for non-blocking request handling enables high-througput especially with simultaneous requests
 * Systemd Integration to run as non-root user (with access to priveleged ports through Systemd sockets)

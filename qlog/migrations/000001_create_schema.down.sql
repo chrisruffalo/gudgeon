@@ -1,3 +1,2 @@
-BEGIN TRANSACTION;
-    DROP TABLE qlog;
-COMMIT; 
+-- reverse by dropping the qlog table
+DROP TABLE qlog;
