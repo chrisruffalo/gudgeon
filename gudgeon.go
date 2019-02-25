@@ -15,6 +15,9 @@ import (
 	"github.com/chrisruffalo/gudgeon/web"
 )
 
+// default divider
+var divider = "==============================="
+
 // pick up version from build process, but use these defaults
 var Version = "v0.3.X"
 var GitHash = "0000000"
@@ -30,7 +33,7 @@ func NewGudgeon(config *config.GudgeonConfig) *Gudgeon {
 	}
 }
 
-func (gudgeon *Gudgeon) Start() {
+func (gudgeon *Gudgeon) Start() error {
 	// get config
 	config := gudgeon.config
 
@@ -53,16 +56,14 @@ func (gudgeon *Gudgeon) Start() {
 	if *config.QueryLog.Enabled {
 		qlog, err = gqlog.New(config)
 		if err != nil {
-			fmt.Printf("%s\n", err)
-			os.Exit(1)
+			return err
 		}
 	}
 
 	// prepare engine with config options
 	engine, err := engine.New(config, mets)
 	if err != nil {
-		fmt.Printf("%s\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	// create a new provider and start hosting
@@ -77,9 +78,10 @@ func (gudgeon *Gudgeon) Start() {
 
 	// try and print out error if we caught one during startup
 	if recovery := recover(); recovery != nil {
-		fmt.Printf("An error occured while starting Gudgeon: %s\n", recovery)
-		os.Exit(1)
+		return fmt.Errorf("unrecoverable error: %s\n", recovery)
 	}
+
+	return nil
 }
 
 
@@ -97,7 +99,7 @@ func main() {
 	}
 
 	// debug print config
-	fmt.Printf("===============================\nGudgeon %s\n===============================\n", LongVersion)
+	fmt.Printf("%s\nGudgeon %s\n%s\n", divider, LongVersion, divider)
 
 	// load config
 	config, err := config.Load(string(opts.AppOptions.ConfigPath))
@@ -110,7 +112,11 @@ func main() {
 	instance := NewGudgeon(config)
 
 	// start new instance
-	instance.Start()
+	err = instance.Start()
+	if err != nil {
+		fmt.Printf("Error starting Gudgeon: %s\n", err)
+		os.Exit(1)
+	}
 
 	// wait for signal
 	sig := make(chan os.Signal)
