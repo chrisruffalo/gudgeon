@@ -158,7 +158,7 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 
 	// create store based on gudgeon configuration and engine details
 	// (requires lists to be downloaded and present before creation)
-	engine.store = rule.CreateStore(engine.Root(), conf)
+	engine.store = rule.CreateStoreWithMetrics(engine.Root(), conf, metrics)
 
 	// set consumers as active on engine
 	engine.consumers = consumers

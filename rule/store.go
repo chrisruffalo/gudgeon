@@ -114,7 +114,7 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 		fmt.Printf("Loaded %d total rules\n", totalCounter)
 		if metrics != nil {
 			totalRulesCounter := metrics.GetCounter(gmetrics.TotalRules)
-			totalRulesCounter.Inc(int64(totalCounter))			
+			totalRulesCounter.Inc(int64(totalCounter))
 		}
 	}
 

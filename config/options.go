@@ -19,7 +19,6 @@ type DebugOptions struct {
 	Profile bool `short:"P" long:"profile" description:"Enable GOPS profiling at runtime."`
 }
 
-
 type GudgeonOptions struct {
 	// explicit app group
 	AppOptions AppOptions `group:"Application Options"`

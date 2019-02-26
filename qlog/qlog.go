@@ -25,7 +25,7 @@ import (
 const (
 	// constant insert statement
 	qlogInsertStatement = "insert into qlog (Address, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);"
-)	
+)
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
 var validSorts = []string{"address", "connectiontype", "requestdomain", "requesttype", "blocked", "blockedlist", "blockedrule", "created"}
@@ -193,10 +193,10 @@ func (qlog *qlog) logStdout(info *LogInfo) {
 				listName := result.BlockedList.CanonicalName()
 				ruleText := result.BlockedRule
 				if ruleText != "" {
-					fmt.Printf("%s BLOCKED[%s|%s]\n", logPrefix, listName, ruleText)	
+					fmt.Printf("%s BLOCKED[%s|%s]\n", logPrefix, listName, ruleText)
 				} else {
-					fmt.Printf("%s BLOCKED[%s]\n", logPrefix, listName)	
-				}				
+					fmt.Printf("%s BLOCKED[%s]\n", logPrefix, listName)
+				}
 			} else {
 				fmt.Printf("%s BLOCKED\n", logPrefix)
 			}

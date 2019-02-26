@@ -170,7 +170,7 @@ type GudgeonMatch struct {
 
 type GudgeonConsumer struct {
 	Name    string          `yaml:"name"`
-	Block   bool           `yaml:"block"`
+	Block   bool            `yaml:"block"`
 	Groups  []string        `yaml:"groups"`
 	Matches []*GudgeonMatch `yaml:"matches"`
 }

@@ -157,7 +157,7 @@ func (engine *engine) getGroups(consumer *consumer) []string {
 
 func (engine *engine) getConsumerResolvers(consumerIp *net.IP) []string {
 	consumer := engine.getConsumerForIp(consumerIp)
-	return engine.getResolvers(consumer)	
+	return engine.getResolvers(consumer)
 }
 
 func (engine *engine) getResolvers(consumer *consumer) []string {
@@ -174,7 +174,7 @@ func (engine *engine) getResolvers(consumer *consumer) []string {
 func (engine *engine) IsDomainBlocked(consumerIp *net.IP, domain string) (bool, *config.GudgeonList, string) {
 	// get consumer
 	consumer := engine.getConsumerForIp(consumerIp)
-	return engine.domainBlockedForConsumer(consumer, domain)	
+	return engine.domainBlockedForConsumer(consumer, domain)
 }
 
 func (engine *engine) domainBlockedForConsumer(consumer *consumer, domain string) (bool, *config.GudgeonList, string) {
