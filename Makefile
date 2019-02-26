@@ -88,12 +88,13 @@ all: test build
 
 announce:
 		@echo "$(BINARY_NAME)"
-		@echo "=========================="
+		@echo "=============================="
 		@echo "version = $(VERSION)"
 		@echo "number = $(NUMBER)"
 		@echo "hash = $(GITHASH)"
 		@echo "longversion = $(LONGVERSION)"
 		@echo "descriptor = $(DESCRIPTOR)"
+		@echo "=============================="
 
 prepare: ## Get all go tools and required libraries
 		$(GOCMD) get -u github.com/karalabe/xgo

@@ -1,12 +1,17 @@
-language: go
+# no email notifications
+notifications:
+  email: false
 
-# enable docker for xgo
-services:
-- docker
+# go is the primary language
+language: go
 
 # go version to use
 go:
 - '1.12'
+
+# enable docker for xgo and building docker containers
+services:
+- docker
 
 # explicit import path
 go_import_path: github.com/chrisruffalo/gudgeon
@@ -14,7 +19,6 @@ go_import_path: github.com/chrisruffalo/gudgeon
 # establish that go modules are in use
 env:
 - GO111MODULE=on
-
 
 before_install:
   - export GO111MODULE=on
@@ -31,10 +35,6 @@ before_install:
   - echo "VERSION=${VERSION}"
   - echo "LONGVERSION=${LONGVERSION}"
   - echo "NUMBER=${NUMBER}"
-
-# no email notifications
-notifications:
-  email: false
 
 # make full use of cache.
 before_script:
