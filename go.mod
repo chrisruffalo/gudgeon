@@ -5,14 +5,14 @@ require (
 	github.com/akutz/sortfold v0.2.1
 	github.com/atrox/go-migrate-rice v1.0.0
 	github.com/coreos/go-systemd v0.0.0-20181031085051-9002847aa142
-	github.com/golang-migrate/migrate/v4 v4.2.4
+	github.com/golang-migrate/migrate/v4 v4.2.5
 	github.com/google/gops v0.3.6
 	github.com/google/uuid v1.0.0
 	github.com/gorilla/mux v1.6.2
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/json-iterator/go v1.1.5
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
-	github.com/mattn/go-sqlite3 v1.9.0
+	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/miekg/dns v1.1.4
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect

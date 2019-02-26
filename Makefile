@@ -124,11 +124,15 @@ build: ## Build Binary
 		mkdir -p $(BUILD_DIR)
 		$(RICECMD) embed-go $(RICEPATHS)
 		$(GOBUILD) -verbose -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "$(GO_LD_FLAGS)" -output "$(BUILD_DIR)/$(BINARY_NAME)-{{.OS}}-{{.Arch}}"
+		# remove rice artifacts
+		$(RICECMD) clean $(RICEPATHS)		
 
 buildxgo: ## Use xgo to build arm targets with sqlite installed, this only works **from inside the go path** (until xgo gets module support, anyway)
 		mkdir -p $(BUILD_DIR)
 		$(RICECMD) embed-go $(RICEPATHS)
 		$(XGOCMD) --dest $(BUILD_DIR) --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
+		# remove rice artifacts
+		$(RICECMD) clean $(RICEPATHS)		
 
 compress: ## Attempt to compress binaries with UPX
 		$(UPXCMD) -q $(BUILD_DIR)/$(BINARY_NAME)* || true

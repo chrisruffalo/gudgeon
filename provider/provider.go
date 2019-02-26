@@ -40,7 +40,7 @@ func serve(netType string, addr string, sChan chan *dns.Server) {
 	if sChan != nil {
 		sChan <- server
 	}
-	fmt.Printf("%s on address: %s\n", strings.ToUpper(netType), addr)	
+	fmt.Printf("%s on address: %s\n", strings.ToUpper(netType), addr)
 	if err := server.ListenAndServe(); err != nil {
 		fmt.Printf("Failed starting %s server: %s\n", netType, err.Error())
 		return
@@ -169,7 +169,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 	dns.HandleFunc(".", provider.handle)
 
 	// server response channels
-	sChan := make(chan *dns.Server, len(fileSockets) + len(interfaces))
+	sChan := make(chan *dns.Server, len(fileSockets)+len(interfaces))
 	servers := make([]*dns.Server, 0)
 
 	// open interface connections
