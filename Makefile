@@ -47,12 +47,12 @@ BUILD_DIR=$(MKFILE_DIR)/build
 BINARY_NAME=gudgeon
 
 # get version and hash from git if not passed in
-VERSION?=$(shell git describe --tags $$(git rev-list --tags --max-count=1) | sed -r -e 's/(.*)-(.*)/\2/')
+VERSION?=$(shell git describe --tags $$(git rev-list --tags --max-count=1) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/v\2/')
 LONGVERSION?=$(shell git describe | sed 's/^$$/$(VERSION)/')
 GITHASH?=$(shell git rev-parse HEAD | head -c7)
-NUMBER?=$(shell echo $(LONGVERSION) | sed -r -e 's/(.*)?v(.*)-(.*)?-(.*)?/\2/' )
-RELEASE?=$(shell echo \"$(LONGVERSION)\" | sed -r -e 's/(.*)?v(.*)-(.*)?-(.*)?/\3/' | sed 's/^$$/1/' )
-DESCRIPTOR?=$(shell echo \"$(LONGVERSION)\" | sed -r -e 's/(.*)?v(.*)-(.*)?-(.*)?/\1/' | sed 's/^$$/1/' )
+NUMBER?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/' )
+RELEASE?=$(shell echo \"$(LONGVERSION)\" | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\3/' | sed 's/^$$/1/' )
+DESCRIPTOR?=$(shell echo \"$(LONGVERSION)\" | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\1/' )
 
 # docker stuff
 DOCKER=$(shell which docker)

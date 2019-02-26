@@ -5,10 +5,10 @@ spec_path?=$(abspath $(mkfile_dir)/gudgeon.spec)
 outdir?=$(abspath $(mkfile_dir)/../build/)
 
 LONGVERSION?=$$(git describe)
-VERSION?=$$(git describe --tags $$(git rev-list --tags --max-count=1))
+VERSION?=$$(git describe --tags $$(git rev-list --tags --max-count=1) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/v\2/')
 GITHASH?=$$(git rev-parse HEAD | head -c7)
-NUMBER?=$$(echo $(LONGVERSION) | sed -r -e 's/(.*)?v(.*)-(.*)?-(.*)?/\2/' )
-RELEASE?=$$(echo $(LONGVERSION) | sed -r -e 's/(.*)?v(.*)-(.*)?-(.*)?/\3/' | sed 's/^$$/1/' )
+NUMBER?=$$(echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/' )
+RELEASE?=$$(echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\3/' | sed 's/^$$/1/' )
 
 .PHONY: srpm
 srpm:
