@@ -89,10 +89,10 @@ all: test build
 announce:
 		@echo "$(BINARY_NAME)"
 		@echo "=============================="
+		@echo "longversion = $(LONGVERSION)"
 		@echo "version = $(VERSION)"
 		@echo "number = $(NUMBER)"
 		@echo "hash = $(GITHASH)"
-		@echo "longversion = $(LONGVERSION)"
 		@echo "descriptor = $(DESCRIPTOR)"
 		@echo "=============================="
 

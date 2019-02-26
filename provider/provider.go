@@ -177,7 +177,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 				provider.servers = append(provider.servers, server)
 			}
 		}
-
+		// done with channel
 		close(sChan)
 	}()
 
