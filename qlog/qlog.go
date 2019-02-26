@@ -21,9 +21,13 @@ import (
 )
 
 const (
+	// max batch size allowed
+	qlogInsertBatchSize = 50
+
 	// constant insert statement
-	qlogInsertStatement = "insert into qlog (Address, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);"
+	qlogInsertStatement = "insert into qlog (Address, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
+var qlogInsertBatchTime = 1 * time.Second
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
 var validSorts = []string{"address", "connectiontype", "requestdomain", "requesttype", "blocked", "blockedlist", "blockedrule", "created"}
@@ -78,6 +82,7 @@ type qlog struct {
 	store       *sql.DB
 	qlConf      *config.GudgeonQueryLog
 	logInfoChan chan *LogInfo
+	batch       []*LogInfo
 }
 
 // public interface
@@ -98,7 +103,8 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	qlog.qlConf = qlConf
 
 	// create log channel
-	qlog.logInfoChan = make(chan *LogInfo, 100)
+	qlog.batch = make([]*LogInfo, 0, qlogInsertBatchSize)
+	qlog.logInfoChan = make(chan *LogInfo, qlogInsertBatchSize*10)
 	go qlog.logWorker()
 
 	// only build DB if persistence is enabled
@@ -157,18 +163,41 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	return qlog, nil
 }
 
-func (qlog *qlog) logDB(info *LogInfo) {
-	pstmt, err := qlog.store.Prepare(qlogInsertStatement)
-	defer pstmt.Close()
-	if err != nil {
-		fmt.Printf("Error preparing statement: %s\n", err)
-		return
+func (qlog *qlog) logDB(info *LogInfo, forceInsert bool) {
+	// only add to batch if not nil
+	if info != nil {
+		qlog.batch = append(qlog.batch, info)
 	}
 
-	_, err = pstmt.Exec(info.Address, info.Consumer, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.BlockedList, info.BlockedRule, info.Created)
-	if err != nil {
-		fmt.Printf("Could not insert into db: %s\n", err)
-		return
+	// insert whole batch and reset batch
+	if (forceInsert || len(qlog.batch) >= qlogInsertBatchSize) && len(qlog.batch) > 0 {
+		// attempt to insert statements
+		stmt := qlogInsertStatement + strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?, ?)", len(qlog.batch)-1)
+		vars := make([]interface{}, 0, len(qlog.batch)*9)
+		for _, i := range qlog.batch {
+			vars = append(vars, i.Address)
+			vars = append(vars, i.Consumer)
+			vars = append(vars, i.RequestDomain)
+			vars = append(vars, i.RequestType)
+			vars = append(vars, i.ResponseText)
+			vars = append(vars, i.Blocked)
+			vars = append(vars, i.BlockedList)
+			vars = append(vars, i.BlockedRule)
+			vars = append(vars, i.Created)
+		}
+		pstmt, err := qlog.store.Prepare(stmt)
+		defer pstmt.Close()
+		if err != nil {
+			fmt.Printf("Error preparing statement: %s\n", err)
+		} else {
+			_, err = pstmt.Exec(vars...)
+			if err != nil {
+				fmt.Printf("Could not insert into db: %s\n", err)
+			}
+		}
+
+		// remake batch for inserting
+		qlog.batch = make([]*LogInfo, 0, qlogInsertBatchSize)
 	}
 }
 
@@ -238,14 +267,23 @@ func (qlog *qlog) logStdout(info *LogInfo) {
 
 // this is the actual log worker that handles incoming log messages in a separate go routine
 func (qlog *qlog) logWorker() {
-	for info := range qlog.logInfoChan {
-		// only log to stdout if configured
-		if *(qlog.qlConf.Stdout) {
-			qlog.logStdout(info)
-		}
-		// only persist if configured, which is default
-		if *(qlog.qlConf.Persist) {
-			qlog.logDB(info)
+	// create ticker
+	ticker := time.NewTicker(qlogInsertBatchTime)
+
+	// loop until...
+	for {
+		select {
+		case info := <- qlog.logInfoChan:
+			// only log to stdout if configured
+			if info != nil && *(qlog.qlConf.Stdout) {
+				qlog.logStdout(info)
+			}
+			// only persist if configured, which is default
+			if *(qlog.qlConf.Persist) {
+				qlog.logDB(info, info == nil)
+			}
+		case <- ticker.C:
+			qlog.logDB(nil, true)
 		}
 	}
 }

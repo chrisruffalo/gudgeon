@@ -80,8 +80,11 @@ func TestQueryLogQuery(t *testing.T) {
 		msg.Created = time.Now()
 
 		// log msg
-		qlog.logDB(msg)
+		qlog.logDB(msg, false)
 	}
+
+	// flush waiting batch entries
+	qlog.logDB(nil, true)
 
 	// query entries based on address
 	query := &QueryLogQuery{
