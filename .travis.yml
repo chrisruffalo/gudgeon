@@ -14,10 +14,11 @@ go_import_path: github.com/chrisruffalo/gudgeon
 # establish that go modules are in use
 env:
 - GO111MODULE=on
-- GO112MODULE=on
 
 # export versions into a format compatible with make file
 before_install:
+  - export GO111MODULE=on
+  - export GO112MODULE=on
   - export VERSION=${TRAVIS_TAG:$(git describe --tags $(git rev-list --tags --max-count=1))}
   - export LONGVERSION=$VERSION
   - export NUMBER=${VERSION:$(echo "$VERSION" | sed -r -e 's/(.*)?v(.*)-(.*)?-(.*)?/\2/')}
