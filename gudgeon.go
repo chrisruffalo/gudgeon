@@ -27,7 +27,12 @@ var GitHash = "0000000"
 var LongVersion = Version
 
 type Gudgeon struct {
-	config *config.GudgeonConfig
+	config   *config.GudgeonConfig
+	engine   engine.Engine
+	provider provider.Provider
+	qlog     gqlog.QLog
+	metrics  metrics.Metrics
+	web      web.Web
 }
 
 func NewGudgeon(config *config.GudgeonConfig) *Gudgeon {
@@ -52,6 +57,7 @@ func (gudgeon *Gudgeon) Start() error {
 	var mets metrics.Metrics
 	if *config.Metrics.Enabled {
 		mets = metrics.New(config)
+		gudgeon.metrics = mets
 	}
 
 	// create query log
@@ -61,6 +67,7 @@ func (gudgeon *Gudgeon) Start() error {
 		if err != nil {
 			return err
 		}
+		gudgeon.qlog = qlog
 	}
 
 	// prepare engine with config options
@@ -68,15 +75,18 @@ func (gudgeon *Gudgeon) Start() error {
 	if err != nil {
 		return err
 	}
+	gudgeon.engine = engine
 
 	// create a new provider and start hosting
 	provider := provider.NewProvider()
 	provider.Host(config, engine, mets, qlog)
+	gudgeon.provider = provider
 
 	// open web ui if web enabled
 	if config.Web.Enabled {
 		web := web.New()
 		web.Serve(config, mets, qlog)
+		gudgeon.web = web
 	}
 
 	// try and print out error if we caught one during startup
@@ -85,6 +95,22 @@ func (gudgeon *Gudgeon) Start() error {
 	}
 
 	return nil
+}
+
+func (gudgeon *Gudgeon) Shutdown() {
+	// stop providers
+	if gudgeon.provider != nil {
+		gudgeon.provider.Shutdown()
+	}
+
+	// stop web
+
+	// stop metrics
+
+	// stop query log
+	if gudgeon.qlog != nil {
+		gudgeon.qlog.Stop()
+	}
 }
 
 func main() {
@@ -143,4 +169,6 @@ func main() {
 	}
 
 	fmt.Printf("Signal (%s) received, stopping\n", s)
+	// stop gudgeon, hopefully gracefully
+	instance.Shutdown()
 }

@@ -84,6 +84,7 @@ type qlog struct {
 	store       *sql.DB
 	qlConf      *config.GudgeonQueryLog
 	logInfoChan chan *LogInfo
+	doneChan    chan bool
 	batch       []*LogInfo
 }
 
@@ -91,6 +92,7 @@ type qlog struct {
 type QLog interface {
 	Query(query *QueryLogQuery) []LogInfo
 	Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult)
+	Stop()
 }
 
 // create a new query log according to configuration
@@ -107,6 +109,7 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	// create log channel
 	qlog.batch = make([]*LogInfo, 0, qlogInsertBatchSize)
 	qlog.logInfoChan = make(chan *LogInfo, qlogInsertBatchSize*10)
+	qlog.doneChan = make(chan bool)
 	go qlog.logWorker()
 
 	// only build DB if persistence is enabled
@@ -272,6 +275,11 @@ func (qlog *qlog) logWorker() {
 	// create ticker
 	ticker := time.NewTicker(qlogInsertBatchTime)
 
+	// stop the timer immediately if we aren't persisting records
+	if !*(qlog.qlConf.Persist) {
+		ticker.Stop()
+	}
+
 	// loop until...
 	for {
 		select {
@@ -284,10 +292,15 @@ func (qlog *qlog) logWorker() {
 			if *(qlog.qlConf.Persist) {
 				qlog.logDB(info, info == nil)
 			}
+		case <-qlog.doneChan:
+			break
 		case <-ticker.C:
 			qlog.logDB(nil, true)
 		}
 	}
+
+	// stop ticker
+	ticker.Stop()
 }
 
 func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
@@ -444,4 +457,13 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	}
 
 	return results
+}
+
+func (qlog *qlog) Stop() {
+	// flush batches
+	qlog.logInfoChan <- nil
+	// be done
+	qlog.doneChan <- true
+	// close db
+	qlog.store.Close()
 }

@@ -24,6 +24,9 @@ func TestNewQueryLog(t *testing.T) {
 	if qlog == nil {
 		t.Errorf("Query log nil but expected to be created")
 	}
+
+	// stop query log
+	qlog.Stop()
 }
 
 func TestQueryLogQuery(t *testing.T) {
@@ -139,4 +142,7 @@ func TestQueryLogQuery(t *testing.T) {
 			t.Errorf("Expected domain did not match: %s != %s", result.RequestDomain, query.RequestDomain)
 		}
 	}
+
+	// stop query log
+	qlog.Stop()
 }
