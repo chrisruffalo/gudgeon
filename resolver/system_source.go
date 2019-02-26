@@ -87,13 +87,9 @@ func (source *systemSource) Answer(rCon *RequestContext, context *ResolutionCont
 					continue
 				}
 
-				if !strings.HasSuffix(ptr, ".") {
-					ptr = ptr + "."
-				}
-
 				rr := &dns.PTR{
 					Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
-					Ptr: ptr,
+					Ptr: dns.Fqdn(ptr),
 				}
 				response.Answer = append(response.Answer, rr)
 			}

@@ -103,6 +103,7 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 		return nil, err
 	}
 
+	// read response
 	return co.ReadMsg()
 }
 

@@ -20,13 +20,14 @@ type provider struct {
 	engine  engine.Engine
 	metrics metrics.Metrics
 	qlog    qlog.QLog
+	servers []*dns.Server
 }
 
 type Provider interface {
 	Host(config *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics, qlog qlog.QLog) error
 	//UpdateConfig(config *GudgeonConfig) error
 	//UpdateEngine(engine *engine.Engine) error
-	//Shutdown()
+	Shutdown() error
 }
 
 func NewProvider() Provider {
@@ -34,17 +35,23 @@ func NewProvider() Provider {
 	return provider
 }
 
-func serve(netType string, addr string) {
-	fmt.Printf("%s on address: %s\n", strings.ToUpper(netType), addr)
+func serve(netType string, addr string, sChan chan *dns.Server) {
 	server := &dns.Server{Addr: addr, Net: netType}
+	if sChan != nil {
+		sChan <- server
+	}
+	fmt.Printf("%s on address: %s\n", strings.ToUpper(netType), addr)	
 	if err := server.ListenAndServe(); err != nil {
 		fmt.Printf("Failed starting %s server: %s\n", netType, err.Error())
 		return
 	}
 }
 
-func listen(listener net.Listener, packetConn net.PacketConn) {
+func listen(listener net.Listener, packetConn net.PacketConn, sChan chan *dns.Server) {
 	server := &dns.Server{}
+	if sChan != nil {
+		sChan <- server
+	}
 	if packetConn != nil {
 		if t, ok := packetConn.(*net.UDPConn); ok && t != nil {
 			fmt.Printf("Listen on datagram: %s\n", t.LocalAddr().String())
@@ -161,16 +168,20 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 	// global dns handle function
 	dns.HandleFunc(".", provider.handle)
 
+	// server response channels
+	sChan := make(chan *dns.Server, len(fileSockets) + len(interfaces))
+	servers := make([]*dns.Server, 0)
+
 	// open interface connections
 	if *netConf.Systemd && len(fileSockets) > 0 {
 		fmt.Printf("Using [%d] systemd listeners...\n", len(fileSockets))
 		for _, f := range fileSockets {
 			// check if udp
 			if pc, err := net.FilePacketConn(f); err == nil {
-				go listen(nil, pc)
+				go listen(nil, pc, sChan)
 				f.Close()
 			} else if pc, err := net.FileListener(f); err == nil { // then check if tcp
-				go listen(pc, nil)
+				go listen(pc, nil, sChan)
 				f.Close()
 			}
 		}
@@ -181,13 +192,42 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 		for _, iface := range interfaces {
 			addr := fmt.Sprintf("%s:%d", iface.IP, iface.Port)
 			if *iface.TCP {
-				go serve("tcp", addr)
+				go serve("tcp", addr, sChan)
 			}
 			if *iface.UDP {
-				go serve("udp", addr)
+				go serve("udp", addr, sChan)
 			}
 		}
 	}
 
+	// collect servers from channel
+	for server := range sChan {
+		servers = append(servers, server)
+		if len(sChan) < 1 {
+			break
+		}
+	}
+	close(sChan)
+	provider.servers = servers
+
+	return nil
+}
+
+func (provider *provider) Shutdown() error {
+	errors := make([]string, 0)
+	for _, server := range provider.servers {
+		if server != nil {
+			err := server.Shutdown()
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("%s", err))
+			} else {
+				fmt.Printf("Shtudown server: %s\n", server.Addr)
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("Error(s) shutting down servers:\n%s\n", strings.Join(errors, "\n"))
+	}
 	return nil
 }

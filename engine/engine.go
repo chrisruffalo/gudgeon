@@ -315,7 +315,9 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 	}
 
 	// set consumer
-	result.Consumer = consumer.configConsumer.Name
+	if result != nil && consumer != nil && consumer.configConsumer != nil {
+		result.Consumer = consumer.configConsumer.Name
+	}
 
 	// return result
 	return response, rCon, result
@@ -335,9 +337,8 @@ func (engine *engine) Resolve(domainName string) (string, error) {
 		return domainName, fmt.Errorf("cannot resolve an empty domain name")
 	}
 
-	if !strings.HasSuffix(domainName, ".") {
-		domainName += "."
-	}
+	// ensure the domain name is fully qualified
+	domainName = dns.Fqdn(domainName)
 
 	// make question parts
 	m.Question = make([]dns.Question, 1)

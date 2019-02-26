@@ -1,7 +1,5 @@
 package qlog
 
-//go:generate codecgen -r LogInfo -o qlog_gen.go qlog.go
-
 import (
 	"database/sql"
 	"fmt"
@@ -243,7 +241,7 @@ func (qlog *qlog) logWorker() {
 	for info := range qlog.logInfoChan {
 		// only log to stdout if configured
 		if *(qlog.qlConf.Stdout) {
-			go qlog.logStdout(info)
+			qlog.logStdout(info)
 		}
 		// only persist if configured, which is default
 		if *(qlog.qlConf.Persist) {
@@ -294,7 +292,7 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 
 	// so we can dynamically build the where clause
 	whereClauses := make([]string, 0)
-	var whereValues []interface{}
+	whereValues := make([]interface{}, 0)
 
 	// result holding
 	var rows *sql.Rows

@@ -9,7 +9,7 @@ import (
 
 func Conf(t *testing.T, path string) *config.GudgeonConfig {
 	// create/get tmp dir
-	dir, _ := ioutil.TempDir("", "gudgeon-cache-")
+	dir := TempDir()
 
 	conf, err := config.Load(path)
 	if err != nil {
@@ -23,6 +23,9 @@ func Conf(t *testing.T, path string) *config.GudgeonConfig {
 }
 
 func TempDir() string {
-	dir, _ := ioutil.TempDir("", "gudgeon-cache-")
+	dir, err := ioutil.TempDir("", "gudgeon-cache-")
+	if err != nil {
+		return "./gudgeon-cache-"
+	}
 	return dir
 }

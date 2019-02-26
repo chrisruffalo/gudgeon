@@ -67,8 +67,7 @@ func newHostFileFromHostArray(data []string) Source {
 		}
 
 		// get domain
-		address := values[0]
-		address = strings.TrimSpace(address)
+		address := strings.TrimSpace(values[0])
 		parsedAddress := net.ParseIP(address)
 
 		// parse out list of domains
@@ -84,9 +83,8 @@ func newHostFileFromHostArray(data []string) Source {
 				// determine if domain is wild or not
 				wild := strings.Contains(domain, "*")
 
-				if !strings.HasSuffix(domain, ".") {
-					domain = domain + "."
-				}
+				// fully qualify domain
+				domain := dns.Fqdn(domain)
 
 				// append value to list
 				if !wild {
@@ -96,21 +94,11 @@ func newHostFileFromHostArray(data []string) Source {
 				}
 			}
 		} else {
-			// treat address as cname entry
-			// target alias alias alias alias
-			target := address
-			if !strings.HasSuffix(target, ".") {
-				target = target + "."
-			}
-
 			// add target to alias cname lookup
 			for _, alias := range domains {
-				if !strings.HasSuffix(alias, ".") {
-					alias = alias + "."
-				}
 				// only one alias per taget
 				if "" == source.cnameEntries[alias] {
-					source.cnameEntries[alias] = target
+					source.cnameEntries[dns.Fqdn(alias)] = dns.Fqdn(address)
 				}
 			}
 		}
@@ -231,9 +219,7 @@ func (hostFileSource *hostFileSource) respondToPTR(name string, response *dns.Ms
 				continue
 			}
 
-			if !strings.HasSuffix(ptr, ".") {
-				ptr = ptr + "."
-			}
+			ptr = dns.Fqdn(ptr)
 
 			rr := &dns.PTR{
 				Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
@@ -254,9 +240,7 @@ func (hostFileSource *hostFileSource) respondToCNAME(name string, response *dns.
 			return
 		}
 
-		if !strings.HasSuffix(cname, ".") {
-			cname = cname + "."
-		}
+		cname = dns.Fqdn(cname)
 
 		rr := &dns.CNAME{
 			Hdr:    dns.RR_Header{Name: name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: ttl},

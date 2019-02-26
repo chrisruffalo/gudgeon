@@ -156,16 +156,9 @@ func (resolver *resolver) searchDomains(rCon *RequestContext, context *Resolutio
 		}
 
 		// if the search domain doesn't end with a "." then add it before adding the suffix
-		searchDomain := originalDomain
-		if !strings.HasSuffix(searchDomain, ".") {
-			searchDomain = searchDomain + "."
-		}
-
+		searchDomain := dns.Fqdn(originalDomain)
 		// extend search domain with search suffix
-		searchDomain = searchDomain + sDomain
-		if !strings.HasSuffix(searchDomain, ".") {
-			searchDomain = searchDomain + "."
-		}
+		searchDomain = dns.Fqdn(searchDomain + sDomain)
 
 		// update question in the request to match the searched domain
 		searchRequest.Question[0].Name = searchDomain

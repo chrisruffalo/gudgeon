@@ -80,6 +80,7 @@ func ReverseDomainTree(domain string) string {
 		return domain
 	}
 
+	// remove trailing "."
 	if strings.HasSuffix(domain, ".") {
 		domain = domain[:len(domain)-1]
 	}

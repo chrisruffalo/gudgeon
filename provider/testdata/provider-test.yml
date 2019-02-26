@@ -1,0 +1,14 @@
+gudgeon:
+
+  network:
+    interfaces:
+    - ip: 127.0.0.1
+      port: 5553
+
+  resolvers:
+  - name: default
+    hosts:
+    - "127.0.0.1 google.com"
+    - "google.com alias.google.com videos.google.com change.google.com"
+    - "10.0.0.1 youtube.com"
+    - "youtube.com alias.youtube.com"
