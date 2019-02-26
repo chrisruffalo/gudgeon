@@ -19,10 +19,9 @@ env:
 before_install:
   - export GO111MODULE=on
   - export GO112MODULE=on
-  - export VERSION=${TRAVIS_TAG:$(git describe --tags $(git rev-list --tags --max-count=1) || echo "${TRAVIS_TAG}")}
+  - export VERSION=${TRAVIS_TAG}
   - export LONGVERSION=$VERSION
   - export NUMBER=$(echo "$VERSION" | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/')
-  - if [[ ""=="$NUMBER" ]]; then export NUMBER=$(git describe --tags $(git rev-list --tags --max-count=1) || echo "${TRAVIS_TAG}" | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/'); fi
   - echo "VERSION=${VERSION}"
   - echo "LONGVERSION=${LONGVERSION}"
   - echo "NUMBER=${NUMBER}"

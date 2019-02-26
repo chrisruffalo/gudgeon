@@ -51,8 +51,8 @@ VERSION?=$(shell git describe --tags $$(git rev-list --tags --max-count=1) | sed
 LONGVERSION?=$(shell git describe | sed 's/^$$/$(VERSION)/')
 GITHASH?=$(shell git rev-parse HEAD | head -c7)
 NUMBER?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/' )
-RELEASE?=$(shell echo \"$(LONGVERSION)\" | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\3/' | sed 's/^$$/1/' )
-DESCRIPTOR?=$(shell echo \"$(LONGVERSION)\" | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\1/' )
+RELEASE?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\3/' | sed 's/^$$/1/' )
+DESCRIPTOR?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\1/' | sed 's/^v$$//' )
 
 # docker stuff
 DOCKER=$(shell which docker)
@@ -84,7 +84,16 @@ FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration "$(RELEASE)" 
 FPMSCRIPTS=$(FPMCOMMON) --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh
 
 all: test build
-.PHONY: all prepare test build clean minimize package rpm deb docker tar
+.PHONY: all announce prepare test build clean minimize package rpm deb docker tar
+
+announce:
+		@echo "$(BINARY_NAME)"
+		@echo "=========================="
+		@echo "version = $(VERSION)"
+		@echo "number = $(NUMBER)"
+		@echo "hash = $(GITHASH)"
+		@echo "longversion = $(LONGVERSION)"
+		@echo "descriptor = $(DESCRIPTOR)"
 
 prepare: ## Get all go tools and required libraries
 		$(GOCMD) get -u github.com/karalabe/xgo
@@ -119,7 +128,7 @@ download: ## Download newest supplementary assets (todo: maybe replace with webp
 		rm -rf $(BUILD_DIR)/download
 		rm -rf $(BUILD_DIR)/vendor
 
-build: ## Build Binary
+build: announce ## Build Binary
 		$(GODOWN)
 		mkdir -p $(BUILD_DIR)
 		$(RICECMD) embed-go $(RICEPATHS)
@@ -127,7 +136,7 @@ build: ## Build Binary
 		# remove rice artifacts
 		$(RICECMD) clean $(RICEPATHS)		
 
-buildxgo: ## Use xgo to build arm targets with sqlite installed, this only works **from inside the go path** (until xgo gets module support, anyway)
+buildxgo: announce ## Use xgo to build arm targets with sqlite installed, this only works **from inside the go path** (until xgo gets module support, anyway)
 		mkdir -p $(BUILD_DIR)
 		$(RICECMD) embed-go $(RICEPATHS)
 		$(XGOCMD) --dest $(BUILD_DIR) --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
@@ -150,7 +159,7 @@ clean: ## Remove build artifacts
 		# remove build dir
 		rm -rf $(BUILD_DIR)
 
-package: # Build consistent package structure
+package: announce # Build consistent package structure
 		rm -rf $(BUILD_DIR)/pkgtmp
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)/lists
@@ -170,7 +179,7 @@ deb: package ## Build deb file for $OS_BIN_ARCH/$OS_ARCH
 		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)_VERSION-$(RELEASE)_$(OS_ARCH).deb" -t deb $(FPMSCRIPTS)
 		rm -rf $(BUILD_DIR)/pkgtmp
 
-tar: ## Root directory TAR without systemd bits and a slightly different configuration
+tar: announce ## Root directory TAR without systemd bits and a slightly different configuration
 		rm -rf $(BUILD_DIR)/pkgtmp
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)/lists
@@ -182,7 +191,7 @@ tar: ## Root directory TAR without systemd bits and a slightly different configu
 		gzip "$(BUILD_DIR)/$(BINARY_NAME)-$(NUMBER)-$(GITHASH).$(OS_ARCH).tar"
 		rm -rf $(BUILD_DIR)/pkgtmp
 
-docker: ## Create container and mark as latest as well
+docker: announce ## Create container and mark as latest as well
 		$(DOCKER) build -f docker/$(DOCKERFILE) --build-arg BINARY_TARGET="$(BINARY_TARGET)" --rm -t $(CONTAINER_PATH) .
 		$(DOCKER) tag $(CONTAINER_PATH) $(DOCKER_PATH)/$(DOCKER_NAME):latest
 
