@@ -15,13 +15,19 @@ go_import_path: github.com/chrisruffalo/gudgeon
 env:
 - GO111MODULE=on
 
-# export versions into a format compatible with make file
+
 before_install:
   - export GO111MODULE=on
   - export GO112MODULE=on
+  # export versions into a format compatible with make file  
   - export VERSION=${TRAVIS_TAG}
   - export LONGVERSION=$VERSION
   - export NUMBER=$(echo "$VERSION" | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/')
+  # if none of these worked or had values, unset so make can do it
+  - if [[ "" == "$VERSION" ]]; then unset VERSION; fi
+  - if [[ "" == "$LONGVERSION" ]]; then unset LONGVERSION; fi
+  - if [[ "" == "$NUMBER" ]]; then unset NUMBER; fi
+  # debug
   - echo "VERSION=${VERSION}"
   - echo "LONGVERSION=${LONGVERSION}"
   - echo "NUMBER=${NUMBER}"
@@ -32,6 +38,8 @@ notifications:
 
 # make full use of cache.
 before_script:
+  # announce versions (so that we can debug from here if something is wrong, really)
+  - make announce
   # install dependencies
   - sudo apt-get update
   - sudo apt-get install -y upx-ucl ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib and g++-multilib
