@@ -27,6 +27,8 @@ const (
 	// constant insert statement
 	qlogInsertStatement = "insert into qlog (Address, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
+
+// how often to resolve batches and insert into query log
 var qlogInsertBatchTime = 1 * time.Second
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
@@ -273,7 +275,7 @@ func (qlog *qlog) logWorker() {
 	// loop until...
 	for {
 		select {
-		case info := <- qlog.logInfoChan:
+		case info := <-qlog.logInfoChan:
 			// only log to stdout if configured
 			if info != nil && *(qlog.qlConf.Stdout) {
 				qlog.logStdout(info)
@@ -282,7 +284,7 @@ func (qlog *qlog) logWorker() {
 			if *(qlog.qlConf.Persist) {
 				qlog.logDB(info, info == nil)
 			}
-		case <- ticker.C:
+		case <-ticker.C:
 			qlog.logDB(nil, true)
 		}
 	}
