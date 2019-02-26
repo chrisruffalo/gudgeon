@@ -1,7 +1,7 @@
 #           from {{{ git_name }}} {{{ git_version }}}
 Name:       {{{ git_name }}}
 Version:    @VERSION_TOKEN@
-Release:    1%{?dist}
+Release:    @RELEASE_TOKEN@
 Summary:    A blocking DNS proxy/cache with host/subnet level rules and other features for managing home or small office DNS.
 
 License:    MIT

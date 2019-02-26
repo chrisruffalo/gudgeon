@@ -47,9 +47,12 @@ BUILD_DIR=$(MKFILE_DIR)/build
 BINARY_NAME=gudgeon
 
 # get version and hash from git if not passed in
-VERSION?=$(shell git rev-parse --abbrev-ref HEAD)
+VERSION?=$(shell git describe --tags $$(git rev-list --tags --max-count=1) | sed -r -e 's/(.*)-(.*)/\2/')
+LONGVERSION?=$(shell git describe | sed 's/^$$/$(VERSION)/')
 GITHASH?=$(shell git rev-parse HEAD | head -c7)
-NUMBER?=$(shell git tag | sort -V | tail -n 1 | cut --complement -b 1)
+NUMBER?=$(shell echo $(LONGVERSION) | sed -r -e 's/(.*)?v(.*)-(.*)?-(.*)?/\2/' )
+RELEASE?=$(shell echo \"$(LONGVERSION)\" | sed -r -e 's/(.*)?v(.*)-(.*)?-(.*)?/\3/' | sed 's/^$$/1/' )
+DESCRIPTOR?=$(shell echo \"$(LONGVERSION)\" | sed -r -e 's/(.*)?v(.*)-(.*)?-(.*)?/\1/' | sed 's/^$$/1/' )
 
 # docker stuff
 DOCKER=$(shell which docker)
@@ -68,7 +71,7 @@ BINARY_TARGET?=$(BINARY_NAME)-$(OS_TYPE)-$(OS_BIN_ARCH)
 
 # build tags can change by target platform, only linux builds for now though
 GO_BUILD_TAGS?=netgo linux sqlite3 
-GO_LD_FLAGS?=-s -w -extldflags "-static" -X main.Version=$(VERSION) -X main.GitHash=$(GITHASH)
+GO_LD_FLAGS?=-s -w -extldflags "-static" -X main.Version="$(VERSION)" -X main.GitHash="$(GITHASH)"
 
 # patternfly artifact
 PFVERSION=3.59.1
@@ -77,7 +80,7 @@ PFPATH=patternfly-$(PFVERSION)
 
 # common FPM commands
 FMPARCH?=$(shell echo "$(OS_ARCH)" | sed -r 's/arm-?5/armhf/g' | sed -r 's/arm-?6/armhf/g' | sed -r 's/arm-?7/armhf/g')
-FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration $(GITHASH) --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --prefix / -C $(BUILD_DIR)/pkgtmp
+FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration "$(RELEASE)" --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --prefix / -C $(BUILD_DIR)/pkgtmp
 FPMSCRIPTS=$(FPMCOMMON) --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh
 
 all: test build
@@ -156,11 +159,11 @@ package: # Build consistent package structure
 		cp $(MKFILE_DIR)/resources/gudgeon.yml $(BUILD_DIR)/pkgtmp/etc/gudgeon/gudgeon.yml	
 
 rpm: package ## Build target linux/redhat RPM for $OS_BIN_ARCH/$OS_ARCH
-		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)-VERSION-$(GITHASH).$(OS_ARCH).rpm" -t rpm $(FPMSCRIPTS)
+		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)-VERSION-$(RELEASE).$(OS_ARCH).rpm" -t rpm $(FPMSCRIPTS)
 		rm -rf $(BUILD_DIR)/pkgtmp
 
 deb: package ## Build deb file for $OS_BIN_ARCH/$OS_ARCH
-		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)_VERSION-$(GITHASH)_$(OS_ARCH).deb" -t deb $(FPMSCRIPTS)
+		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)_VERSION-$(RELEASE)_$(OS_ARCH).deb" -t deb $(FPMSCRIPTS)
 		rm -rf $(BUILD_DIR)/pkgtmp
 
 tar: ## Root directory TAR without systemd bits and a slightly different configuration

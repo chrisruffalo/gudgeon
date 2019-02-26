@@ -6,7 +6,7 @@ services:
 
 # go version to use
 go:
-- '1.11'
+- '1.12'
 
 # explicit import path
 go_import_path: github.com/chrisruffalo/gudgeon
@@ -14,12 +14,14 @@ go_import_path: github.com/chrisruffalo/gudgeon
 # establish that go modules are in use
 env:
 - GO111MODULE=on
+- GO112MODULE=on
 
 # export versions into a format compatible with make file
 before_install:
-  - export VERSION=${TRAVIS_TAG:$(git rev-parse --abbrev-ref HEAD)}
-  - export NUMBER=${VERSION:1}
-  - if [[ ""=="$NUMBER" ]]; then export NUMBER=$(git tag | sort -V | tail -n 1 | cut --complement -b 1); fi
+  - export VERSION=${TRAVIS_TAG:$(git describe --tags $(git rev-list --tags --max-count=1))}
+  - export LONGVERSION=$VERSION
+  - export NUMBER=${VERSION:$(echo "$VERSION" | sed -r -e 's/(.*)?v(.*)-(.*)?-(.*)?/\2/')}
+  - if [[ ""=="$NUMBER" ]]; then export NUMBER=$(git describe --tags $(git rev-list --tags --max-count=1) | sed -r -e 's/(.*)?v(.*)-(.*)?-(.*)?/\2/'); fi
 
 # only need the current depth
 git:
