@@ -5,6 +5,9 @@ import (
 	"os/user"
 	"path"
 	"strings"
+	"time"
+
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 func boolPointer(b bool) *bool {
@@ -142,6 +145,9 @@ func (network *GudgeonNetwork) verifyAndInit() ([]string, []error) {
 }
 
 func (metrics *GudgeonMetrics) verifyAndInit() ([]string, []error) {
+	// collect warnings
+	warnings := make([]string, 0)
+
 	if metrics.Enabled == nil {
 		metrics.Enabled = boolPointer(true)
 	}
@@ -153,15 +159,31 @@ func (metrics *GudgeonMetrics) verifyAndInit() ([]string, []error) {
 	if "" == metrics.Duration {
 		metrics.Duration = "7d"
 	}
+	if _, err := util.ParseDuration(metrics.Duration); err != nil {
+		warnings = append(warnings, fmt.Sprintf("Could not parse metrics duration: %s, using default (7d)", err))
+		metrics.Duration = "7d"
+	}
 
 	if "" == metrics.Interval {
 		metrics.Interval = "15s"
 	}
+	if parsed, err := util.ParseDuration(metrics.Interval); err != nil {
+		warnings = append(warnings, fmt.Sprintf("Could not parse metrics interval: %s, using default (15s)", err))
+		metrics.Interval = "15s"
+	} else if parsed < time.Second {
+		warnings = append(warnings, fmt.Sprintf("A metrics interval less than 1s is probably too short, using default value (15s)"))
+		metrics.Interval = "15s"
+	} else if parsed > 30 * time.Minute {
+		warnings = append(warnings, fmt.Sprintf("A metrics interval more than 30 minutes (30m) is fairly low resolution, consider changing this value"))
+	}
 
-	return []string{}, []error{}
+	return warnings, []error{}
 }
 
 func (ql *GudgeonQueryLog) verifyAndInit() ([]string, []error) {
+	// collect warnings
+	warnings := make([]string, 0)
+
 	if ql.Enabled == nil {
 		ql.Enabled = boolPointer(true)
 	}
@@ -177,8 +199,36 @@ func (ql *GudgeonQueryLog) verifyAndInit() ([]string, []error) {
 	if "" == ql.Duration {
 		ql.Duration = "7d"
 	}
+	if parsed, err := util.ParseDuration(ql.Duration); err != nil {
+		warnings = append(warnings, fmt.Sprintf("Could not parse query log duration: %s, using default (7d)", err))
+		ql.Duration = "7d"
+	} else if parsed < time.Hour {
+		warnings = append(warnings, fmt.Sprintf("A query log duration less than 1 hour (1h) is probably too short, using 1h"))
+		ql.Duration = "1h"
+	}
 
-	return []string{}, []error{}
+	if "" == ql.BatchInterval {
+		ql.BatchInterval = "1s"
+	}
+	if parsed, err := util.ParseDuration(ql.BatchInterval); err != nil {
+		warnings = append(warnings, fmt.Sprintf("Could not parse query log batch interval: %s, using default", err))
+		ql.BatchInterval = "1s"
+	} else if parsed > time.Minute {
+		warnings = append(warnings, fmt.Sprintf("A batch interval greater than 1m is probably too long, consider changing this value (%s)", ql.BatchInterval))
+	} else if parsed < 500 * time.Millisecond {
+		warnings = append(warnings, fmt.Sprintf("A batch interval less than 500ms is probably too short, using default value (1s)"))
+		ql.BatchInterval = "1s"
+	}
+
+	if ql.BatchSize < 1 {
+		// silently use default in cases where it was probably not specified
+		ql.BatchSize = 50
+	} else if ql.BatchSize > 1000 {
+		warnings = append(warnings, fmt.Sprintf("A batch size greater than 1000 is probably too high, using max value (1000)"))
+		ql.BatchSize = 1000
+	}
+
+	return warnings, []error{}
 }
 
 // verify all the groups at once and set the groupMap

@@ -1,23 +1,38 @@
 package metrics
 
 import (
-	gometrics "github.com/rcrowley/go-metrics"
+	"database/sql"
+	"fmt"
+	"os"
+	"path"
+	"strings"
+	"time"
 
+	"github.com/GeertJohan/go.rice"
+	"github.com/atrox/go-migrate-rice"
+	"github.com/json-iterator/go"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/miekg/dns"
+	gometrics "github.com/rcrowley/go-metrics"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/resolver"
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 const (
 	// metrics prefix
 	MetricsPrefix = "gudgeon-"
 	// metrics names are prefixed by the metrics prefix and delim
-	TotalRules     = "total-rules"
-	TotalQueries   = "total-queries"
-	CachedQueries  = "cached-queries"
-	BlockedQueries = "blocked-queries"
-	QueryTime      = "query-time"
+	TotalRules              = "active-rules"
+	TotalQueries            = "total-session-queries"
+	TotalLifetimeQueries    = "total-lifetime-queries"
+	TotalIntervalQueries    = "total-interval-queries"
+	CachedQueries           = "cached-queries"
+	BlockedQueries          = "blocked-session-queries"
+	BlockedLifetimeQueries  = "blocked-lifetime-queries"
+	QueryTime               = "query-time"
 )
 
 type metricsInfo struct {
@@ -28,8 +43,17 @@ type metricsInfo struct {
 }
 
 type metrics struct {
+	// keep config
+	config          *config.GudgeonConfig
+
 	registry        gometrics.Registry
 	metricsInfoChan chan *metricsInfo
+	db              *sql.DB
+
+	// time management for interval insert
+	lastInsert      time.Time
+	ticker			*time.Ticker
+	doneTicker      chan bool
 }
 
 type Metrics interface {
@@ -41,20 +65,118 @@ type Metrics interface {
 
 	// record relevant metrics based on request
 	RecordQueryMetrics(request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult)
+
+	// stop
+	Stop()
 }
 
+// write all metrics out to encoder
+var json = jsoniter.Config{
+	EscapeHTML:                    false,
+	MarshalFloatWith6Digits:       true,
+	ObjectFieldMustBeSimpleString: true,
+	SortMapKeys:                   false,
+	ValidateJsonRawMessage:        true,
+	DisallowUnknownFields:         false,
+}.Froze()
+
 func New(config *config.GudgeonConfig) Metrics {
-	metrics := &metrics{}
-	metrics.registry = gometrics.NewPrefixedRegistry(MetricsPrefix)
+	metrics := &metrics{
+		config: config,
+		registry: gometrics.NewPrefixedRegistry(MetricsPrefix),
+	}
 
 	// create metrics things that we want to be ready to at the first query every time
-	gometrics.GetOrRegisterMeter(TotalQueries, metrics.registry)
+	gometrics.GetOrRegisterCounter(TotalQueries, metrics.registry)
+	gometrics.GetOrRegisterCounter(TotalLifetimeQueries, metrics.registry)	
 	gometrics.GetOrRegisterCounter(TotalRules, metrics.registry)
-	gometrics.GetOrRegisterMeter(CachedQueries, metrics.registry)
-	gometrics.GetOrRegisterMeter(BlockedQueries, metrics.registry)
+	gometrics.GetOrRegisterCounter(CachedQueries, metrics.registry)
+	gometrics.GetOrRegisterCounter(BlockedQueries, metrics.registry)
+	gometrics.GetOrRegisterCounter(BlockedLifetimeQueries, metrics.registry)
 	gometrics.GetOrRegisterTimer(QueryTime, metrics.registry)
 
-	// create channel and start recorder
+	// open sql database and migrate to current version
+	if *(config.Metrics.Persist) {
+		// get path to long-standing data ({home}/'data') and make sure it exists
+		dataDir := config.DataRoot()
+		if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+			os.MkdirAll(dataDir, os.ModePerm)
+		}
+
+		// open db
+		dbDir := path.Join(dataDir, "metrics")
+		// create directory
+		if _, err := os.Stat(dbDir); os.IsNotExist(err) {
+			os.MkdirAll(dbDir, os.ModePerm)
+		}
+
+		dbPath := path.Join(dbDir, "metrics.db")
+		db, err := sql.Open("sqlite3", dbPath)
+		if err != nil {
+			// if the file exists try removing it and opening it again
+			// this could be because of change in database file formats
+			// or a corrupted database
+			if _, rmErr := os.Stat(dbPath); !os.IsNotExist(rmErr) {
+				os.Remove(dbPath)
+
+			}
+			return nil
+		}
+
+		// do migrations
+		migrationsBox := rice.MustFindBox("metrics-migrations")
+
+		migrationDriver, err := migraterice.WithInstance(migrationsBox)
+		if err != nil {
+			return nil
+		}
+
+		dbDriver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+		if err != nil {
+			return nil
+		}
+
+		m, err := migrate.NewWithInstance("rice", migrationDriver, "sqlite3", dbDriver)
+		if err != nil {
+			return nil
+		}
+
+		// migrate to best version of database
+		m.Up()
+
+		// keep store handler
+		metrics.db = db
+
+		// prune metrics
+		metrics.prune()
+
+		// start ticker to persist data
+		duration, _ := util.ParseDuration(config.Metrics.Interval)
+		metrics.ticker = time.NewTicker(duration)
+		metrics.doneTicker = make(chan bool)
+		metrics.lastInsert = time.Now()
+
+		// init lifetime metric counts
+		metrics.load()
+
+		// start go function to monitor ticker
+		go func() {
+			for {
+				select {
+				case <- metrics.ticker.C:
+					// insert new metrics
+					metrics.insert(time.Now())
+					// prune old metrics
+					metrics.prune()
+				case <- metrics.doneTicker:
+					break
+				}
+			}
+			metrics.ticker.Stop()
+		}()
+	}	
+
+	// create channel for incoming metrics and start recorder
 	metrics.metricsInfoChan = make(chan *metricsInfo, 100)
 	go metrics.record()
 
@@ -85,19 +207,100 @@ func (metrics *metrics) record() {
 	// get information from channel
 	for info := range metrics.metricsInfoChan {
 		// first add count to total queries
-		queryMeter := metrics.GetMeter(TotalQueries)
-		queryMeter.Mark(1)
+		metrics.GetCounter(TotalQueries).Inc(1)
+		metrics.GetCounter(TotalLifetimeQueries).Inc(1)
+		metrics.GetCounter(TotalIntervalQueries).Inc(1)
 
 		// add cache hits
 		if info.result != nil && info.result.Cached {
-			cachedMeter := metrics.GetMeter(CachedQueries)
-			cachedMeter.Mark(1)
+			metrics.GetCounter(CachedQueries).Inc(1)
 		}
 
 		// add blocked queries
 		if info.result != nil && info.result.Blocked {
-			blockedMeter := metrics.GetMeter(BlockedQueries)
-			blockedMeter.Mark(1)
+			metrics.GetCounter(BlockedQueries).Inc(1)
+			metrics.GetCounter(BlockedLifetimeQueries).Inc(1)
+		}
+	}
+}
+
+func (metrics *metrics) insert(currentTime time.Time) {
+	// get all metrics
+	all := metrics.GetAll()
+	// make into json string
+	bytes, err := json.Marshal(all)
+	if err != nil {
+		fmt.Printf("Error marshalling json: %s\n", err)
+		return
+	}
+
+	stmt := "INSERT INTO metrics (FromTime, AtTime, MetricsJson, IntervalSeconds) VALUES (?, ?, ?, ?)"
+	pstmt, err := metrics.db.Prepare(stmt)
+	defer pstmt.Close()
+	if err != nil {
+		fmt.Printf("Error preparing statement: %s\n", err)
+		return
+	}
+	_, err = pstmt.Exec(metrics.lastInsert, time.Now(), string(bytes), currentTime.Sub(metrics.lastInsert).Seconds())
+	if err != nil {
+		fmt.Printf("Error inserting metrics: %s\n", err)
+		return
+	}
+
+	// clear and restart interval
+	metrics.GetCounter(TotalIntervalQueries).Clear()
+	metrics.lastInsert = currentTime
+}
+
+func (metrics *metrics) prune() {
+	duration, _ := util.ParseDuration(metrics.config.Metrics.Duration)
+	_, err := metrics.db.Exec("DELETE FROM metrics WHERE AtTime <= ?", time.Now().Add(-1 * duration))
+	if err != nil {
+		fmt.Printf("Error pruning metrics data: %s\n", err)
+	}
+}
+
+func (metrics *metrics) load() {
+	rows, err := metrics.db.Query("SELECT MetricsJson FROM metrics ORDER BY AtTime DESC LIMIT 1")
+	if err != nil {
+		fmt.Printf("Could not load initial metrics information: %s\n", err)
+		return
+	}
+
+	var metricsJsonString string
+	for rows.Next() {
+		err = rows.Scan(&metricsJsonString)
+		if err != nil {
+			fmt.Printf("Error scanning for metrics results: %s\n", err)
+			continue
+		}
+		if "" != metricsJsonString {
+			break
+		}
+	}
+	rows.Close()
+
+	// can't do anything with empty string, set, or object
+	metricsJsonString = strings.TrimSpace(metricsJsonString)
+	if "" == metricsJsonString || "{}" == metricsJsonString || "[]" == metricsJsonString {
+		return
+	}
+
+	// unmarshal object
+	var data map[string]map[string]interface{}
+	json.Unmarshal([]byte(metricsJsonString), &data)
+
+	preload := []string{TotalLifetimeQueries, BlockedLifetimeQueries}
+	for _, key := range preload {
+		if metric, found := data[MetricsPrefix + key]; found {
+			if count, foundCount := metric["count"]; foundCount {
+				if val, ok := count.(float64); ok {
+					gometrics.GetOrRegisterCounter(key, metrics.registry).Inc(int64(val))
+				}
+				if val, ok := count.(int64); ok {
+					gometrics.GetOrRegisterCounter(key, metrics.registry).Inc(int64(val))
+				}				
+			}
 		}
 	}
 }
@@ -109,4 +312,14 @@ func (metrics *metrics) RecordQueryMetrics(request *dns.Msg, response *dns.Msg, 
 	msg.result = result
 	msg.rCon = rCon
 	metrics.metricsInfoChan <- msg
+}
+
+func (metrics *metrics) Stop() {
+	// close db and shutdown timer if it exists
+	if metrics.db != nil {
+		metrics.doneTicker <- true
+		metrics.insert(time.Now())
+		metrics.prune()
+		metrics.db.Close()
+	}
 }

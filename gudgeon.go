@@ -106,6 +106,9 @@ func (gudgeon *Gudgeon) Shutdown() {
 	// stop web
 
 	// stop metrics
+	if gudgeon.metrics != nil {
+		gudgeon.metrics.Stop()
+	}
 
 	// stop query log
 	if gudgeon.qlog != nil {

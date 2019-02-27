@@ -21,15 +21,9 @@ import (
 )
 
 const (
-	// max batch size allowed
-	qlogInsertBatchSize = 50
-
 	// constant insert statement
 	qlogInsertStatement = "insert into qlog (Address, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
-
-// how often to resolve batches and insert into query log
-var qlogInsertBatchTime = 1 * time.Second
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
 var validSorts = []string{"address", "connectiontype", "requestdomain", "requesttype", "blocked", "blockedlist", "blockedrule", "created"}
@@ -81,11 +75,11 @@ type QueryLogQuery struct {
 
 // store database location
 type qlog struct {
-	store       *sql.DB
-	qlConf      *config.GudgeonQueryLog
-	logInfoChan chan *LogInfo
-	doneChan    chan bool
-	batch       []*LogInfo
+	store               *sql.DB
+	qlConf              *config.GudgeonQueryLog
+	logInfoChan         chan *LogInfo
+	doneChan            chan bool
+	batch               []*LogInfo
 }
 
 // public interface
@@ -107,12 +101,12 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	qlog.qlConf = qlConf
 
 	// create log channel
-	qlog.batch = make([]*LogInfo, 0, qlogInsertBatchSize)
-	qlog.logInfoChan = make(chan *LogInfo, qlogInsertBatchSize*10)
+	qlog.batch = make([]*LogInfo, 0, qlConf.BatchSize)
+	qlog.logInfoChan = make(chan *LogInfo, qlConf.BatchSize*10) // support 10 "batches" in queue
 	qlog.doneChan = make(chan bool)
 	go qlog.logWorker()
 
-	// only build DB if persistence is enabled
+    // only build DB if persistence is enabled
 	if *(qlog.qlConf.Persist) {
 		// get path to long-standing data ({home}/'data') and make sure it exists
 		dataDir := conf.DataRoot()
@@ -141,7 +135,7 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 		}
 
 		// do migrations
-		migrationsBox := rice.MustFindBox("migrations")
+		migrationsBox := rice.MustFindBox("qlog-migrations")
 
 		migrationDriver, err := migraterice.WithInstance(migrationsBox)
 		if err != nil {
@@ -163,9 +157,20 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 
 		// keep store handler
 		qlog.store = db
+
+		// prune entries
+		qlog.prune()
 	}
 
 	return qlog, nil
+}
+
+func (qlog *qlog) prune() {
+	duration, _ := util.ParseDuration(qlog.qlConf.Duration)
+	_, err := qlog.store.Exec("DELETE FROM qlog WHERE Created <= ?", time.Now().Add(-1 * duration))
+	if err != nil {
+		fmt.Printf("Error pruning qlog data: %s\n", err)
+	}
 }
 
 func (qlog *qlog) logDB(info *LogInfo, forceInsert bool) {
@@ -175,7 +180,7 @@ func (qlog *qlog) logDB(info *LogInfo, forceInsert bool) {
 	}
 
 	// insert whole batch and reset batch
-	if (forceInsert || len(qlog.batch) >= qlogInsertBatchSize) && len(qlog.batch) > 0 {
+	if (forceInsert || len(qlog.batch) >= qlog.qlConf.BatchSize) && len(qlog.batch) > 0 {
 		// attempt to insert statements
 		stmt := qlogInsertStatement + strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?, ?)", len(qlog.batch)-1)
 		vars := make([]interface{}, 0, len(qlog.batch)*9)
@@ -202,7 +207,7 @@ func (qlog *qlog) logDB(info *LogInfo, forceInsert bool) {
 		}
 
 		// remake batch for inserting
-		qlog.batch = make([]*LogInfo, 0, qlogInsertBatchSize)
+		qlog.batch = make([]*LogInfo, 0, qlog.qlConf.BatchSize)
 	}
 }
 
@@ -272,8 +277,11 @@ func (qlog *qlog) logStdout(info *LogInfo) {
 
 // this is the actual log worker that handles incoming log messages in a separate go routine
 func (qlog *qlog) logWorker() {
-	// create ticker
-	ticker := time.NewTicker(qlogInsertBatchTime)
+	// create ticker from conf
+	duration, _ := util.ParseDuration(qlog.qlConf.BatchInterval)
+	ticker := time.NewTicker(duration)
+	// prune every hour (also prunes on startup)
+	pruneTicker := time.NewTicker(1 * time.Hour)
 
 	// stop the timer immediately if we aren't persisting records
 	if !*(qlog.qlConf.Persist) {
@@ -296,11 +304,14 @@ func (qlog *qlog) logWorker() {
 			break
 		case <-ticker.C:
 			qlog.logDB(nil, true)
+		case <-pruneTicker.C:
+			qlog.prune()
 		}
 	}
 
-	// stop ticker
+	// stop tickers
 	ticker.Stop()
+	pruneTicker.Stop()
 }
 
 func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
@@ -341,7 +352,7 @@ func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon
 
 func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	// select entries from qlog
-	selectStmt := "SELECT Address, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created FROM qlog"
+	selectStmt := "SELECT Address, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created FROM qlog"
 
 	// so we can dynamically build the where clause
 	whereClauses := make([]string, 0)
@@ -429,6 +440,7 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 
 	// only define once
 	var address string
+	var consumer string
 	var requestDomain string
 	var requestType string
 	var responseText string
@@ -438,13 +450,14 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	var created time.Time
 
 	for rows.Next() {
-		err = rows.Scan(&address, &requestDomain, &requestType, &responseText, &blocked, &blockedList, &blockedRule, &created)
+		err = rows.Scan(&address,  &consumer, &requestDomain, &requestType, &responseText, &blocked, &blockedList, &blockedRule, &created)
 		if err != nil {
-			fmt.Printf("error scanning: %s\n", err)
+			fmt.Printf("Error scanning qlog results: %s\n", err)
 			continue
 		}
 		logInfo := LogInfo{
 			Address:       address,
+			Consumer:      consumer,
 			RequestDomain: requestDomain,
 			RequestType:   requestType,
 			ResponseText:  responseText,
@@ -464,6 +477,8 @@ func (qlog *qlog) Stop() {
 	qlog.logInfoChan <- nil
 	// be done
 	qlog.doneChan <- true
+	// prune old records
+	qlog.prune()
 	// close db
 	qlog.store.Close()
 }

@@ -114,7 +114,7 @@ func (web *web) GetQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 	results := web.queryLog.Query(query)
 
 	if len(results) == 0 {
-		http.Error(w, "[]", http.StatusNotFound)
+		w.Write([]byte("[]"))
 		return
 	}
 

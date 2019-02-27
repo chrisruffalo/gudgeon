@@ -3,9 +3,11 @@ var app = new Vue({
   el: '#metrics-scoreboard',
   data: {
     metrics: {
-      'gudgeon-total-rules': { 'count': 0 },
-      'gudgeon-total-queries': { 'count': 0 },
-      'gudgeon-blocked-queries': { 'count': 0 },
+      'gudgeon-active-rules': { 'count': 0 },
+      'gudgeon-total-session-queries': { 'count': 0 },
+      'gudgeon-total-lifetime-queries': { 'count': 0 },
+      'gudgeon-blocked-session-queries': { 'count': 0 },
+      'gudgeon-blocked-lifetime-queries': { 'count': 0 },
     },
     retryIntervals: {},
   },

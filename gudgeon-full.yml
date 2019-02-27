@@ -19,14 +19,16 @@ gudgeon:
   # the query log is used to log queries to disk for later inspection or revision
   query_log:
     enabled: true   # enabled by default, to disable query log set to "false"
-    duration: 7d    # how long to keep queries on disk, older queries are deleted
+    duration: 10d   # how long to keep queries on disk, older queries are deleted
     stdout: true    # should queries be logged to standard out
+    batch: 50       # how many queries are batched together for inserts (max is 1000)
+    interval: 1s    # how often to commit batches that aren't full (min is 500ms)
 
   # metrics can be saved to disk for use by the ui or exported to something like prometheus
   metrics:
     enabled: true   # enabled by default, to disable metrics set to "false"
-    duration: 24h   # how long to save metrics for, they will be deleted/removed after this period
-    interval: 15s   # how often to write metrics to log, lowering the interval increases storage requirements
+    duration: 10d   # how long to save metrics for, they will be deleted/removed after this period
+    interval: 15s   # how often to write metrics to log, lowering the interval increases storage requirements (min is 500ms)
 
   # control network options
   network:

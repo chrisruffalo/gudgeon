@@ -25,10 +25,12 @@ type GudgeonTLS struct {
 }
 
 type GudgeonQueryLog struct {
-	Enabled  *bool  `yaml:"enabled"`
-	Persist  *bool  `yaml:"persist"`
-	Duration string `yaml:"duration"`
-	Stdout   *bool  `yaml:"stdout"`
+	Enabled       *bool  `yaml:"enabled"`
+	Persist       *bool  `yaml:"persist"`
+	Duration      string `yaml:"duration"`
+	Stdout        *bool  `yaml:"stdout"`
+	BatchSize     int    `yaml:"batch"`
+	BatchInterval string `yaml:"interval"`
 }
 
 type GudgeonMetrics struct {

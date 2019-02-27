@@ -22,7 +22,7 @@ A blocking DNS proxy/cache with host/subnet level rules and other features for m
 # install go if not provided
 if ! which go; then
     LOCALARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/i686/386/' | sed 's/686/386/' | sed 's/i386/386/')
-    REMARCHIVE=go1.11.5.linux-$LOCALARCH.tar.gz
+    REMARCHIVE=go1.12.linux-$LOCALARCH.tar.gz
     if [[ ! -f /tmp/$REMARCHIVE ]]; then
         curl https://dl.google.com/go/$REMARCHIVE -L -o /tmp/$REMARCHIVE
     fi

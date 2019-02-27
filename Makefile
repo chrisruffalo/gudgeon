@@ -34,7 +34,7 @@ SQLITE_DEP?=https://sqlite.org/2019/sqlite-autoconf-3270100.tar.gz
 
 # rice command
 RICECMD=$(abspath $(GOBIN)/rice)
-RICEPATHS=-i ./qlog/ -i ./web/
+RICEPATHS=-i ./qlog/ -i ./web/ -i ./metrics/
 
 # upx command (minimizes/compresses binaries)
 UPXCMD=upx
