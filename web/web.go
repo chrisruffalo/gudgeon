@@ -52,6 +52,62 @@ func (web *web) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func (web *web) QueryMetrics(w http.ResponseWriter, r *http.Request) {
+	if web.metrics == nil {
+		http.Error(w, "Metrics not enabled", http.StatusNotFound)
+		return
+	}
+
+	// add in other query options from params
+	vals := r.URL.Query()
+
+	var (
+		queryStart *time.Time
+		queryEnd   *time.Time
+	)
+
+	// look for and convert time (seconds since unix epoch) to local date
+	if start, ok := vals["start"]; ok && len(start) > 0 {
+		iStart, err := strconv.ParseInt(start[0], 10, 64)
+		if err != nil {
+			iStart = 0
+		}
+		startTime := time.Unix(iStart, 0)
+		queryStart = &startTime
+	}
+
+	if end, ok := vals["end"]; ok && len(end) > 0 {
+		iEnd, err := strconv.ParseInt(end[0], 10, 64)
+		if err != nil {
+			endTime := time.Unix(iEnd, 0)
+			queryEnd = &endTime
+		}
+	}
+
+	if queryStart == nil {
+		startTime := time.Unix(0, 0)
+		queryStart = &startTime
+	}
+
+	if queryEnd == nil {
+		endTime := time.Now()
+		queryEnd = &endTime
+	}
+
+	// get results
+	metricsEntries, err := web.metrics.Query(*queryStart, *queryEnd)
+	if err != nil {
+		w.Write([]byte(fmt.Sprintf("%s", err)))
+		return
+	} else if len(metricsEntries) < 1 {
+		w.Write([]byte("[]"))
+		return
+	}
+
+	// return encoded results
+	json.NewEncoder(w).Encode(metricsEntries)
+}
+
 func (web *web) GetQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 	if web.queryLog == nil {
 		http.Error(w, "Query Log not enabled", http.StatusNotFound)
@@ -131,7 +187,8 @@ func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog 
 	router := mux.NewRouter()
 
 	// attach metrics
-	router.HandleFunc("/api/metrics", web.GetMetrics).Methods("GET")
+	router.HandleFunc("/api/metrics/current", web.GetMetrics).Methods("GET")
+	router.HandleFunc("/api/metrics/query", web.QueryMetrics).Methods("GET")
 	router.HandleFunc("/api/log", web.GetQueryLogInfo).Methods("GET")
 
 	// attach to static assets

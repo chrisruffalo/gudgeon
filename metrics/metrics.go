@@ -3,6 +3,7 @@ package metrics
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"strings"
@@ -10,9 +11,9 @@ import (
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/atrox/go-migrate-rice"
-	"github.com/json-iterator/go"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	"github.com/json-iterator/go"
 	"github.com/miekg/dns"
 	gometrics "github.com/rcrowley/go-metrics"
 
@@ -25,14 +26,14 @@ const (
 	// metrics prefix
 	MetricsPrefix = "gudgeon-"
 	// metrics names are prefixed by the metrics prefix and delim
-	TotalRules              = "active-rules"
-	TotalQueries            = "total-session-queries"
-	TotalLifetimeQueries    = "total-lifetime-queries"
-	TotalIntervalQueries    = "total-interval-queries"
-	CachedQueries           = "cached-queries"
-	BlockedQueries          = "blocked-session-queries"
-	BlockedLifetimeQueries  = "blocked-lifetime-queries"
-	QueryTime               = "query-time"
+	TotalRules             = "active-rules"
+	TotalQueries           = "total-session-queries"
+	TotalLifetimeQueries   = "total-lifetime-queries"
+	TotalIntervalQueries   = "total-interval-queries"
+	CachedQueries          = "cached-queries"
+	BlockedQueries         = "blocked-session-queries"
+	BlockedLifetimeQueries = "blocked-lifetime-queries"
+	QueryTime              = "query-time"
 )
 
 type metricsInfo struct {
@@ -42,18 +43,25 @@ type metricsInfo struct {
 	rCon     *resolver.RequestContext
 }
 
+type MetricsEntry struct {
+	FromTime        time.Time
+	AtTime          time.Time
+	Values          map[string]map[string]interface{}
+	IntervalSeconds int
+}
+
 type metrics struct {
 	// keep config
-	config          *config.GudgeonConfig
+	config *config.GudgeonConfig
 
 	registry        gometrics.Registry
 	metricsInfoChan chan *metricsInfo
 	db              *sql.DB
 
 	// time management for interval insert
-	lastInsert      time.Time
-	ticker			*time.Ticker
-	doneTicker      chan bool
+	lastInsert time.Time
+	ticker     *time.Ticker
+	doneTicker chan bool
 }
 
 type Metrics interface {
@@ -65,6 +73,9 @@ type Metrics interface {
 
 	// record relevant metrics based on request
 	RecordQueryMetrics(request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult)
+
+	// Query metrics from db
+	Query(start time.Time, end time.Time) ([]*MetricsEntry, error)
 
 	// stop
 	Stop()
@@ -82,13 +93,13 @@ var json = jsoniter.Config{
 
 func New(config *config.GudgeonConfig) Metrics {
 	metrics := &metrics{
-		config: config,
+		config:   config,
 		registry: gometrics.NewPrefixedRegistry(MetricsPrefix),
 	}
 
 	// create metrics things that we want to be ready to at the first query every time
 	gometrics.GetOrRegisterCounter(TotalQueries, metrics.registry)
-	gometrics.GetOrRegisterCounter(TotalLifetimeQueries, metrics.registry)	
+	gometrics.GetOrRegisterCounter(TotalLifetimeQueries, metrics.registry)
 	gometrics.GetOrRegisterCounter(TotalRules, metrics.registry)
 	gometrics.GetOrRegisterCounter(CachedQueries, metrics.registry)
 	gometrics.GetOrRegisterCounter(BlockedQueries, metrics.registry)
@@ -163,18 +174,18 @@ func New(config *config.GudgeonConfig) Metrics {
 		go func() {
 			for {
 				select {
-				case <- metrics.ticker.C:
+				case <-metrics.ticker.C:
 					// insert new metrics
 					metrics.insert(time.Now())
 					// prune old metrics
 					metrics.prune()
-				case <- metrics.doneTicker:
+				case <-metrics.doneTicker:
 					break
 				}
 			}
 			metrics.ticker.Stop()
 		}()
-	}	
+	}
 
 	// create channel for incoming metrics and start recorder
 	metrics.metricsInfoChan = make(chan *metricsInfo, 100)
@@ -241,7 +252,7 @@ func (metrics *metrics) insert(currentTime time.Time) {
 		fmt.Printf("Error preparing statement: %s\n", err)
 		return
 	}
-	_, err = pstmt.Exec(metrics.lastInsert, time.Now(), string(bytes), currentTime.Sub(metrics.lastInsert).Seconds())
+	_, err = pstmt.Exec(metrics.lastInsert, currentTime, string(bytes), int(math.Round(currentTime.Sub(metrics.lastInsert).Seconds())))
 	if err != nil {
 		fmt.Printf("Error inserting metrics: %s\n", err)
 		return
@@ -254,10 +265,48 @@ func (metrics *metrics) insert(currentTime time.Time) {
 
 func (metrics *metrics) prune() {
 	duration, _ := util.ParseDuration(metrics.config.Metrics.Duration)
-	_, err := metrics.db.Exec("DELETE FROM metrics WHERE AtTime <= ?", time.Now().Add(-1 * duration))
+	_, err := metrics.db.Exec("DELETE FROM metrics WHERE AtTime <= ?", time.Now().Add(-1*duration))
 	if err != nil {
 		fmt.Printf("Error pruning metrics data: %s\n", err)
 	}
+}
+
+func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, error) {
+	rows, err := metrics.db.Query("SELECT FromTime, AtTime, MetricsJson, IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime DESC", start, end)
+	if err != nil {
+		return []*MetricsEntry{}, err
+	}
+	defer rows.Close()
+
+	results := make([]*MetricsEntry, 0)
+
+	var (
+		atTime            time.Time
+		fromTime          time.Time
+		metricsJsonString string
+		intervalSeconds   int
+	)
+
+	for rows.Next() {
+		err = rows.Scan(&atTime, &fromTime, &metricsJsonString, &intervalSeconds)
+		if err != nil {
+			fmt.Printf("Error scanning for metrics query: %s\n", err)
+			continue
+		}
+		// load entry values
+		entry := &MetricsEntry{
+			AtTime:          atTime,
+			FromTime:        fromTime,
+			IntervalSeconds: intervalSeconds,
+		}
+		// unmarshal string into values
+		json.Unmarshal([]byte(metricsJsonString), &entry.Values)
+		// add metrics to results
+		results = append(results, entry)
+	}
+	rows.Close()
+
+	return results, nil
 }
 
 func (metrics *metrics) load() {
@@ -292,14 +341,14 @@ func (metrics *metrics) load() {
 
 	preload := []string{TotalLifetimeQueries, BlockedLifetimeQueries}
 	for _, key := range preload {
-		if metric, found := data[MetricsPrefix + key]; found {
+		if metric, found := data[MetricsPrefix+key]; found {
 			if count, foundCount := metric["count"]; foundCount {
 				if val, ok := count.(float64); ok {
 					gometrics.GetOrRegisterCounter(key, metrics.registry).Inc(int64(val))
 				}
 				if val, ok := count.(int64); ok {
 					gometrics.GetOrRegisterCounter(key, metrics.registry).Inc(int64(val))
-				}				
+				}
 			}
 		}
 	}

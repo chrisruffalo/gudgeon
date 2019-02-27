@@ -14,7 +14,7 @@ var app = new Vue({
   methods: {
     fetchMetric: function(retryInterval) {
       axios
-        .get('/api/metrics')
+        .get('/api/metrics/current')
         .then(response => {
           this['metrics'] = response.data
           if (retryInterval > 0) {

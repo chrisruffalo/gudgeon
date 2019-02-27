@@ -173,7 +173,7 @@ func (metrics *GudgeonMetrics) verifyAndInit() ([]string, []error) {
 	} else if parsed < time.Second {
 		warnings = append(warnings, fmt.Sprintf("A metrics interval less than 1s is probably too short, using default value (15s)"))
 		metrics.Interval = "15s"
-	} else if parsed > 30 * time.Minute {
+	} else if parsed > 30*time.Minute {
 		warnings = append(warnings, fmt.Sprintf("A metrics interval more than 30 minutes (30m) is fairly low resolution, consider changing this value"))
 	}
 
@@ -215,7 +215,7 @@ func (ql *GudgeonQueryLog) verifyAndInit() ([]string, []error) {
 		ql.BatchInterval = "1s"
 	} else if parsed > time.Minute {
 		warnings = append(warnings, fmt.Sprintf("A batch interval greater than 1m is probably too long, consider changing this value (%s)", ql.BatchInterval))
-	} else if parsed < 500 * time.Millisecond {
+	} else if parsed < 500*time.Millisecond {
 		warnings = append(warnings, fmt.Sprintf("A batch interval less than 500ms is probably too short, using default value (1s)"))
 		ql.BatchInterval = "1s"
 	}

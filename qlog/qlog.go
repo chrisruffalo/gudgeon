@@ -75,11 +75,11 @@ type QueryLogQuery struct {
 
 // store database location
 type qlog struct {
-	store               *sql.DB
-	qlConf              *config.GudgeonQueryLog
-	logInfoChan         chan *LogInfo
-	doneChan            chan bool
-	batch               []*LogInfo
+	store       *sql.DB
+	qlConf      *config.GudgeonQueryLog
+	logInfoChan chan *LogInfo
+	doneChan    chan bool
+	batch       []*LogInfo
 }
 
 // public interface
@@ -106,7 +106,7 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	qlog.doneChan = make(chan bool)
 	go qlog.logWorker()
 
-    // only build DB if persistence is enabled
+	// only build DB if persistence is enabled
 	if *(qlog.qlConf.Persist) {
 		// get path to long-standing data ({home}/'data') and make sure it exists
 		dataDir := conf.DataRoot()
@@ -167,7 +167,7 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 
 func (qlog *qlog) prune() {
 	duration, _ := util.ParseDuration(qlog.qlConf.Duration)
-	_, err := qlog.store.Exec("DELETE FROM qlog WHERE Created <= ?", time.Now().Add(-1 * duration))
+	_, err := qlog.store.Exec("DELETE FROM qlog WHERE Created <= ?", time.Now().Add(-1*duration))
 	if err != nil {
 		fmt.Printf("Error pruning qlog data: %s\n", err)
 	}
@@ -450,7 +450,7 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	var created time.Time
 
 	for rows.Next() {
-		err = rows.Scan(&address,  &consumer, &requestDomain, &requestType, &responseText, &blocked, &blockedList, &blockedRule, &created)
+		err = rows.Scan(&address, &consumer, &requestDomain, &requestType, &responseText, &blocked, &blockedList, &blockedRule, &created)
 		if err != nil {
 			fmt.Printf("Error scanning qlog results: %s\n", err)
 			continue
