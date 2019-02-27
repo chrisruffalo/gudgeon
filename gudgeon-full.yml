@@ -159,8 +159,23 @@ gudgeon:
   # entire 10.0.2.0/24 subnet.
   - name: openmachines
     groups:
-    - default
     - open
+    - default
     matches:
     # subnet match
     - net: 10.0.2.0/24
+
+  # match and allow local networks (routable private networks)
+  - name: localtraffic
+    groups:
+    - default
+    matches:
+    - ip: 127.0.0.1
+    - ip: ::1
+    - net: 172.0.0.0/8
+    - net: 192.0.0.0/8
+    - net: 10.0.0.0/8
+
+  # block unmatched consumers by default
+  - name: default 
+    block: true

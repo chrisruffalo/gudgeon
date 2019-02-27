@@ -7,11 +7,13 @@ In no particular order these are the future improvements that are coming to Gudg
   * Integration tests that use start/stop mechanics for end-to-end testing
   * File watching and reloading minimal configuration changes without service restart or downtime (hot reload)
 * Metrics
-  * Local instance metrics storage
+  * **Done:** Local instance metrics storage
   * Exporting to Prometheus and InfluxDB (followed by others as desired)
+* Query Log
+  * Reverse name lookups for clients (possibly netbios names or other names if possible for things not in DNS infrastructure)
 * Web UI
   * Searchable query log
-  * Metrics widgets
+  * Metrics graph widgets
 * Logging:
   * Use actual, configurable, logging framework instead of fmt.Printf
 * Rules
@@ -23,7 +25,7 @@ In no particular order these are the future improvements that are coming to Gudg
   * **Done:** Warnings for configuration elements that might cause issues
   * Ability to write default/simple configuration as command line option
   * "conf.d"-like capability to merge/include multiple configuration files
-  * Configuration checking/parsing with warnings and errors (from command line too)
+  * **Done:** Configuration checking/parsing with warnings and errors (from command line too)
 * Resolution
   * **Done:** Built-in "system" source/resolver to use OS's resolution (through Go API)
   * Configurable "system" resolver for resolving domain names internally
@@ -31,8 +33,8 @@ In no particular order these are the future improvements that are coming to Gudg
   * Using resolv.conf files as resolution sources
   * Name support with DNS-Over-TLS (use domain name instead of just IP as resolver source)
 * Consumers
-  * Block clients at the consumer level
-  * Invert consumer matching
+  * **Done:** Block clients at the consumer level
+  * Invert consumer matching (or more sophisticated consumer matching)
 * Groups
   * "Inherit" from other groups (heirarchy of groups)
 * DNS Features
