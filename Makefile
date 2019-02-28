@@ -80,7 +80,7 @@ PFPATH=patternfly-$(PFVERSION)
 
 # common FPM commands
 FMPARCH?=$(shell echo "$(OS_ARCH)" | sed -r 's/arm-?5/armhf/g' | sed -r 's/arm-?6/armhf/g' | sed -r 's/arm-?7/armhf/g')
-FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration "$(RELEASE)" --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --prefix / -C $(BUILD_DIR)/pkgtmp
+FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration "$(RELEASE)" --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/log/gudgeon" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --prefix / -C $(BUILD_DIR)/pkgtmp
 FPMSCRIPTS=$(FPMCOMMON) --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh
 
 all: test build
@@ -167,6 +167,7 @@ package: announce # Build consistent package structure
 		mkdir -p $(BUILD_DIR)/pkgtmp/usr/bin/
 		mkdir -p $(BUILD_DIR)/pkgtmp/var/lib/$(BINARY_NAME)
 		mkdir -p $(BUILD_DIR)/pkgtmp/lib/systemd/system
+		mkdir -p $(BUILD_DIR)/pkgtmp/var/log/gudgeon
 		cp $(BUILD_DIR)/$(BINARY_TARGET) $(BUILD_DIR)/pkgtmp/usr/bin/$(BINARY_NAME)
 		cp $(MKFILE_DIR)/resources/gudgeon.socket $(BUILD_DIR)/pkgtmp/lib/systemd/system/gudgeon.socket
 		cp $(MKFILE_DIR)/resources/gudgeon.service $(BUILD_DIR)/pkgtmp/lib/systemd/system/gudgeon.service
@@ -186,8 +187,9 @@ tar: announce ## Root directory TAR without systemd bits and a slightly differen
 		mkdir -p $(BUILD_DIR)/pkgtmp/etc/$(BINARY_NAME)/lists
 		mkdir -p $(BUILD_DIR)/pkgtmp/usr/local/bin/
 		mkdir -p $(BUILD_DIR)/pkgtmp/usr/local/$(BINARY_NAME)
+		mkdir -p $(BUILD_DIR)/pkgtmp/var/log/gudgeon
 		cp $(BUILD_DIR)/$(BINARY_TARGET) $(BUILD_DIR)/pkgtmp/usr/local/bin/$(BINARY_NAME)
-		cp $(MKFILE_DIR)/resources/gudgeon-nosystemd.yml $(BUILD_DIR)/pkgtmp/etc/gudgeon/gudgeon.yml	
+		cp $(MKFILE_DIR)/resources/gudgeon-nosystemd.yml $(BUILD_DIR)/pkgtmp/etc/gudgeon/gudgeon.ym
 		$(FPMCMD) -s dir -p "$(BUILD_DIR)/$(BINARY_NAME)-$(NUMBER)-$(GITHASH).$(OS_ARCH).tar" -t tar $(FPMCOMMON)
 		gzip "$(BUILD_DIR)/$(BINARY_NAME)-$(NUMBER)-$(GITHASH).$(OS_ARCH).tar"
 		rm -rf $(BUILD_DIR)/pkgtmp
@@ -208,3 +210,4 @@ install:
 		mkdir -p $(DESTDIR)/lib/systemd/system
 		install -m 0644 $(MKFILE_DIR)/resources/gudgeon.socket $(DESTDIR)/lib/systemd/system/gudgeon.socket
 		install -m 0644 $(MKFILE_DIR)/resources/gudgeon.service $(DESTDIR)/lib/systemd/system/gudgeon.service
+		mkdir -p $(DESTDIR)/var/log/gudgeon

@@ -9,7 +9,8 @@ RUN apk update && \
     rm -rf /var/cache/apk/* && \
     mkdir -p /etc/gudgeon && \
     mkdir -p /etc/gudgeon/lists && \
-    mkdir -p /var/lib/gudgeon
+    mkdir -p /var/lib/gudgeon && \
+    mkdir -p /var/log/gudgeon
 
 # copy default config into container and target binary
 COPY docker/gudgeon-docker.yml /etc/gudgeon/gudgeon.yml

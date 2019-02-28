@@ -17,7 +17,9 @@ gudgeon:
     rules: "hash32"
     # disabling the cache means not storing results locally but it
     # does mean that you have to reach out to the source each time
-    cache: true
+    # depending on your memory needs and query storage this can save
+    # a fair amount
+    cache: false
 
   network:
     tcp: true
@@ -33,11 +35,11 @@ gudgeon:
 
   # the query log uses cycles, memory, and disk space
   query_log:
-    enabled: true
+    enabled: false
 
   # the metrics storage uses cycles, memory, and disk space
   metrics:
-    enabled: true
+    enabled: false
 
   # use google resolvers
   resolvers:
