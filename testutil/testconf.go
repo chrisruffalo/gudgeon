@@ -11,7 +11,7 @@ func Conf(t *testing.T, path string) *config.GudgeonConfig {
 	// create/get tmp dir
 	dir := TempDir()
 
-	conf, err := config.Load(path)
+	conf, _, err := config.Load(path)
 	if err != nil {
 		t.Errorf("Could not load test configuration: %s", err)
 	}

@@ -11,7 +11,7 @@ import (
 func TestDnsResolver(t *testing.T) {
 	// load configuration
 	conf := testutil.Conf(t, "testdata/resolvers.yml")
-	resolvers := NewResolverMap(conf.Resolvers)
+	resolvers := NewResolverMap(conf, conf.Resolvers)
 
 	data := []struct {
 		resolverName string
@@ -75,7 +75,7 @@ func TestDnsResolver(t *testing.T) {
 func TestHostnameResolver(t *testing.T) {
 	// load configuration
 	conf := testutil.Conf(t, "testdata/hostresolvers.yml")
-	resolvers := NewResolverMap(conf.Resolvers)
+	resolvers := NewResolverMap(conf, conf.Resolvers)
 
 	data := []struct {
 		resolver  string

@@ -25,7 +25,7 @@ func conf(t *testing.T, path string) *config.GudgeonConfig {
 	// create/get tmp dir
 	dir, _ := ioutil.TempDir("", "gudgeon-cache-")
 
-	conf, err := config.Load(path)
+	conf, _, err := config.Load(path)
 	if err != nil {
 		t.Errorf("Could not load test configuration: %s", err)
 	}
