@@ -40,7 +40,7 @@ func (config *GudgeonConfig) verifyAndInit() ([]string, []error) {
 	// storage
 	if config.Storage == nil {
 		config.Storage = &GudgeonStorage{
-			RuleStorage: "memory",
+			RuleStorage:  "memory",
 			CacheEnabled: boolPointer(true),
 		}
 	}
@@ -115,7 +115,6 @@ func (storage *GudgeonStorage) verifyAndInit() ([]string, []error) {
 
 	return []string{}, []error{}
 }
-
 
 func (web *GudgeonWeb) verifyAndInit() ([]string, []error) {
 	if web.Enabled {

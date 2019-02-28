@@ -126,10 +126,10 @@ func main() {
 	// set initial log instance configuration
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
-    log.SetFormatter(&log.TextFormatter{
-        FullTimestamp: true,
-        TimestampFormat: "2006-01-02 15:04:05PM MST",
-    })    
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02 15:04:05PM MST",
+	})
 
 	// load command options
 	opts, err := config.Options(LongVersion)

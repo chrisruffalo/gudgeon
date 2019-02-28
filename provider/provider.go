@@ -8,7 +8,7 @@ import (
 
 	"github.com/coreos/go-systemd/activation"
 	"github.com/miekg/dns"
-	log "github.com/sirupsen/logrus"			
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"

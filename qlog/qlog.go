@@ -76,8 +76,8 @@ type QueryLogQuery struct {
 
 // store database location
 type qlog struct {
-	fileLogger  *log.Logger
-	stdLogger   *log.Logger
+	fileLogger *log.Logger
+	stdLogger  *log.Logger
 
 	store       *sql.DB
 	qlConf      *config.GudgeonQueryLog
@@ -113,7 +113,7 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 		}
 
 		// attempt to open file
-		w, err := os.OpenFile(qlConf.File, os.O_RDWR | os.O_CREATE | os.O_APPEND, os.ModePerm)
+		w, err := os.OpenFile(qlConf.File, os.O_RDWR|os.O_CREATE|os.O_APPEND, os.ModePerm)
 		if err != nil {
 			log.Errorf("While opening query log file: %s", err)
 		} else {
@@ -121,20 +121,20 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 			qlog.fileLogger = log.New()
 			qlog.fileLogger.SetOutput(w)
 			qlog.fileLogger.SetLevel(log.InfoLevel)
-		    qlog.fileLogger.SetFormatter(&log.JSONFormatter{})				
+			qlog.fileLogger.SetFormatter(&log.JSONFormatter{})
 		}
-	} 
+	}
 
 	if *(qlConf.Stdout) {
 		log.Info("Logging queries to stdout")
 		qlog.stdLogger = log.New()
 		qlog.stdLogger.SetOutput(os.Stdout)
 		qlog.stdLogger.SetLevel(log.InfoLevel)
-	    qlog.stdLogger.SetFormatter(&log.TextFormatter{
-	        FullTimestamp: true,
-	        TimestampFormat: "2006-01-02 15:04:05PM MST",
-	    })
-	}	
+		qlog.stdLogger.SetFormatter(&log.TextFormatter{
+			FullTimestamp:   true,
+			TimestampFormat: "2006-01-02 15:04:05PM MST",
+		})
+	}
 
 	// create log channel
 	qlog.batch = make([]*LogInfo, 0, qlConf.BatchSize)
@@ -294,14 +294,14 @@ func (qlog *qlog) log(info *LogInfo) {
 				if qlog.fileLogger != nil {
 					fields["blockedList"] = result.BlockedList.CanonicalName()
 				}
-				if result.BlockedRule != "" {					
+				if result.BlockedRule != "" {
 					builder.WriteString("|")
 					builder.WriteString(result.BlockedRule)
 					if qlog.fileLogger != nil {
 						fields["blockedRule"] = result.BlockedRule
-					}				
+					}
 				}
-				builder.WriteString("]")				
+				builder.WriteString("]")
 			}
 		} else {
 			if result.Cached {
@@ -348,13 +348,13 @@ func (qlog *qlog) log(info *LogInfo) {
 	} else if response.Rcode == dns.RcodeServerFailure {
 		// write as error and return
 		if qlog.fileLogger != nil {
-			qlog.fileLogger.WithFields(fields).Error(fmt.Sprintf("SERVFAIL:[%s]", result.Message))	
+			qlog.fileLogger.WithFields(fields).Error(fmt.Sprintf("SERVFAIL:[%s]", result.Message))
 		}
 		if qlog.stdLogger != nil {
 			builder.WriteString(fmt.Sprintf("SERVFAIL:[%s]", result.Message))
-			qlog.stdLogger.Error(builder.String())		
+			qlog.stdLogger.Error(builder.String())
 		}
-		
+
 		return
 	} else {
 		builder.WriteString(fmt.Sprintf("RESPONSE[%s]", dns.RcodeToString[response.Rcode]))
@@ -362,10 +362,10 @@ func (qlog *qlog) log(info *LogInfo) {
 
 	// output built string
 	if qlog.fileLogger != nil {
-		qlog.fileLogger.WithFields(fields).Info(dns.RcodeToString[response.Rcode])	
+		qlog.fileLogger.WithFields(fields).Info(dns.RcodeToString[response.Rcode])
 	}
 	if qlog.stdLogger != nil {
-		qlog.stdLogger.Info(builder.String())		
+		qlog.stdLogger.Info(builder.String())
 	}
 }
 
@@ -386,7 +386,7 @@ func (qlog *qlog) logWorker() {
 	for {
 		select {
 		case info := <-qlog.logInfoChan:
-			// only log to 
+			// only log to
 			if info != nil && ("" != qlog.qlConf.File || *(qlog.qlConf.Stdout)) {
 				qlog.log(info)
 			}

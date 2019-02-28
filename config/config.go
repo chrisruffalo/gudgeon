@@ -275,7 +275,7 @@ func Load(filename string) (*GudgeonConfig, []string, error) {
 
 		// return nil config object without config file (propagate error)
 		if err != nil {
-			return nil,  []string{}, fmt.Errorf("Load file '%s', error: %s", filename, err)
+			return nil, []string{}, fmt.Errorf("Load file '%s', error: %s", filename, err)
 		}
 
 		// if file is read then unmarshal from data
