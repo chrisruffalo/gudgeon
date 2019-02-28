@@ -221,8 +221,11 @@ func (qlog *qlog) logStdout(info *LogInfo) {
 	rCon := info.RequestContext
 	consumerName := info.Consumer
 
+	// create builder
+	var builder strings.Builder
+
 	// log result if found
-	logPrefix := fmt.Sprintf("[%s/%s|%s] q:|%s|%s|->", address, rCon.Protocol, consumerName, domain, requestType)
+	builder.WriteString(fmt.Sprintf("[%s/%s|%s] q:|%s|%s|->", address, rCon.Protocol, consumerName, domain, requestType))
 	if result != nil {
 		logSuffix := "->"
 		if result.Blocked {
@@ -230,12 +233,12 @@ func (qlog *qlog) logStdout(info *LogInfo) {
 				listName := result.BlockedList.CanonicalName()
 				ruleText := result.BlockedRule
 				if ruleText != "" {
-					fmt.Printf("%s BLOCKED[%s|%s]\n", logPrefix, listName, ruleText)
+					builder.WriteString(fmt.Sprintf(" BLOCKED[%s|%s]", listName, ruleText))
 				} else {
-					fmt.Printf("%s BLOCKED[%s]\n", logPrefix, listName)
+					builder.WriteString(fmt.Sprintf(" BLOCKED[%s]", listName))
 				}
 			} else {
-				fmt.Printf("%s BLOCKED\n", logPrefix)
+				builder.WriteString("BLOCKED")
 			}
 		} else {
 			if len(response.Answer) > 0 {
@@ -243,10 +246,10 @@ func (qlog *qlog) logStdout(info *LogInfo) {
 				if len(answerValues) > 0 {
 					logSuffix += answerValues[0]
 					if len(answerValues) > 1 {
-						logSuffix += fmt.Sprintf(" (+%d)", len(answerValues)-1)
+						builder.WriteString(fmt.Sprintf(" (+%d)", len(answerValues)-1))
 					}
 				} else {
-					logSuffix += "(EMPTY RESPONSE)"
+					builder.WriteString("(EMPTY RESPONSE)")
 				}
 			}
 
@@ -255,24 +258,27 @@ func (qlog *qlog) logStdout(info *LogInfo) {
 				if len(response.Ns) > 0 && response.Ns[0].Header().Rrtype == dns.TypeSOA && len(response.Ns[0].String()) > 0 {
 					logSuffix += response.Ns[0].(*dns.SOA).Ns
 					if len(response.Ns) > 1 {
-						logSuffix += fmt.Sprintf(" (+%d)", len(response.Ns)-1)
+						builder.WriteString(fmt.Sprintf(" (+%d)", len(response.Ns)-1))
 					}
 				} else {
-					logSuffix += "(EMPTY)"
+					builder.WriteString("(EMPTY)")
 				}
 			}
 
 			if result.Cached {
-				fmt.Printf("%sc:[%s]%s\n", logPrefix, result.Resolver, logSuffix)
+				builder.WriteString(fmt.Sprintf("c:[%s]%s", result.Resolver, logSuffix))
 			} else {
-				fmt.Printf("%sr:[%s]->s:[%s]%s\n", logPrefix, result.Resolver, result.Source, logSuffix)
+				builder.WriteString(fmt.Sprintf("r:[%s]->s:[%s]%s", result.Resolver, result.Source, logSuffix))
 			}
 		}
 	} else if response.Rcode == dns.RcodeServerFailure {
-		fmt.Printf("%s SERVFAIL:[%s]\n", logPrefix, result.Message)
+		builder.WriteString(fmt.Sprintf(" SERVFAIL:[%s]", result.Message))
 	} else {
-		fmt.Printf("%s RESPONSE[%s]\n", logPrefix, dns.RcodeToString[response.Rcode])
+		builder.WriteString(fmt.Sprintf(" RESPONSE[%s]", dns.RcodeToString[response.Rcode]))
 	}
+
+	// output built string
+	fmt.Printf("%s\n", builder.String())
 }
 
 // this is the actual log worker that handles incoming log messages in a separate go routine
