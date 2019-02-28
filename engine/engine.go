@@ -91,6 +91,7 @@ func (engine *engine) ListPath(listType string) string {
 type Engine interface {
 	IsDomainBlocked(consumer *net.IP, domain string) (bool, *config.GudgeonList, string)
 	Resolve(domainName string) (string, error)
+	Reverse(address string) string
 	Handle(address *net.IP, protocol string, dnsWriter dns.ResponseWriter, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
 }
 
@@ -347,6 +348,47 @@ func (engine *engine) Resolve(domainName string) (string, error) {
 
 	// return answer
 	return util.GetFirstIPResponse(response), nil
+}
+
+// return the reverse lookup details for an address and return the result of the (first) ptr record
+func (engine *engine) Reverse(address string) string {
+	// cannot do reverse lookup
+	if address == "" || net.ParseIP(address) == nil {
+		return ""
+	}
+
+
+	m := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Authoritative:     true,
+			AuthenticatedData: true,
+			RecursionDesired:  true,
+			Opcode:            dns.OpcodeQuery,
+		},
+	}
+
+	// we already checked and know this won't be nil
+	ip := net.ParseIP(address)
+
+	// make question parts
+	m.Question = make([]dns.Question, 1)
+	m.Question[0] = dns.Question{Name: util.ReverseLookupDomain(&ip), Qtype: dns.TypePTR, Qclass: dns.ClassINET}
+
+	// get just response
+	client := net.ParseIP("127.0.0.1")
+	response, _, _ := engine.performRequest(&client, "udp", m)
+
+	// look for first pointer
+	for _, answer := range response.Answer {
+		if aRecord, ok := answer.(*dns.PTR); ok {
+			if aRecord != nil && aRecord.Ptr != "" {
+				return aRecord.Ptr
+			}
+		}
+	}
+
+	// return answer
+	return ""
 }
 
 func (engine *engine) Handle(address *net.IP, protocol string, dnsWriter dns.ResponseWriter, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {

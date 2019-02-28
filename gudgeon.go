@@ -49,22 +49,36 @@ func (gudgeon *Gudgeon) Start() error {
 	// error
 	var err error
 
+	// components
+	var (
+		mets    metrics.Metrics
+        qlog    gqlog.QLog
+        eng     engine.Engine
+	)
+
+	// create glue method to glue engine and query log together without binding them together
+	// in a way that creates a cycle. note: there's probably a better way to do this
+	rlookup := func(address string) string {
+		if eng != nil {
+			return eng.Reverse(address)
+		}
+		return ""
+	}
+
 	// clean out session directory
 	if "" != config.SessionRoot() {
 		util.ClearDirectory(config.SessionRoot())
 	}
 
 	// create metrics
-	var mets metrics.Metrics
 	if *config.Metrics.Enabled {
 		mets = metrics.New(config)
 		gudgeon.metrics = mets
 	}
 
 	// create query log
-	var qlog gqlog.QLog
 	if *config.QueryLog.Enabled {
-		qlog, err = gqlog.New(config)
+		qlog, err = gqlog.NewWithReverseLookup(config, rlookup)
 		if err != nil {
 			return err
 		}
@@ -72,15 +86,15 @@ func (gudgeon *Gudgeon) Start() error {
 	}
 
 	// prepare engine with config options
-	engine, err := engine.New(config, mets)
+	eng, err = engine.New(config, mets)
 	if err != nil {
 		return err
 	}
-	gudgeon.engine = engine
+	gudgeon.engine = eng
 
 	// create a new provider and start hosting
 	provider := provider.NewProvider()
-	provider.Host(config, engine, mets, qlog)
+	provider.Host(config, eng, mets, qlog)
 	gudgeon.provider = provider
 
 	// open web ui if web enabled
@@ -128,7 +142,7 @@ func main() {
 	log.SetLevel(log.InfoLevel)
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp:   true,
-		TimestampFormat: "2006-01-02 15:04:05PM MST",
+		TimestampFormat: "2006-01-02 15:04:05",
 	})
 
 	// load command options

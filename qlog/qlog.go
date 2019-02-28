@@ -23,17 +23,21 @@ import (
 
 const (
 	// constant insert statement
-	qlogInsertStatement = "insert into qlog (Address, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	qlogInsertStatement = "insert into qlog (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
 var validSorts = []string{"address", "connectiontype", "requestdomain", "requesttype", "blocked", "blockedlist", "blockedrule", "created"}
 
+// allows a dependency injection-way of defining a reverse lookup function, takes a string address (should be an IP) and returns a string that contains the domain name result
+type ReverseLookupFunction = func(addres string) string
+
 // info passed over channel and stored in database
 // and that is recovered via the Query method
 type LogInfo struct {
-	// original values
-	Address string
+	// client address
+	Address        string
+	ClientName     string
 
 	// hold the information but aren't serialized
 	Request        *dns.Msg                   `json:"-"`
@@ -76,6 +80,8 @@ type QueryLogQuery struct {
 
 // store database location
 type qlog struct {
+	rlookup    ReverseLookupFunction
+
 	fileLogger *log.Logger
 	stdLogger  *log.Logger
 
@@ -93,8 +99,7 @@ type QLog interface {
 	Stop()
 }
 
-// create a new query log according to configuration
-func New(conf *config.GudgeonConfig) (QLog, error) {
+func NewWithReverseLookup(conf  *config.GudgeonConfig, rlookup ReverseLookupFunction) (QLog, error) {
 	qlConf := conf.QueryLog
 	if qlConf == nil || !*(qlConf.Enabled) {
 		return nil, nil
@@ -103,6 +108,9 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	// create new empty qlog
 	qlog := &qlog{}
 	qlog.qlConf = qlConf
+	if qlog != nil && rlookup != nil {
+		qlog.rlookup = rlookup
+	}
 
 	// create distinct loggers for query output
 	if qlConf.File != "" {
@@ -132,7 +140,7 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 		qlog.stdLogger.SetLevel(log.InfoLevel)
 		qlog.stdLogger.SetFormatter(&log.TextFormatter{
 			FullTimestamp:   true,
-			TimestampFormat: "2006-01-02 15:04:05PM MST",
+			TimestampFormat: "2006-01-02 15:04:05",
 		})
 	}
 
@@ -201,6 +209,11 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	return qlog, nil
 }
 
+// create a new query log according to configuration
+func New(conf *config.GudgeonConfig) (QLog, error) {
+	return NewWithReverseLookup(conf, nil)
+}
+
 func (qlog *qlog) prune() {
 	duration, _ := util.ParseDuration(qlog.qlConf.Duration)
 	_, err := qlog.store.Exec("DELETE FROM qlog WHERE Created <= ?", time.Now().Add(-1*duration))
@@ -218,10 +231,11 @@ func (qlog *qlog) logDB(info *LogInfo, forceInsert bool) {
 	// insert whole batch and reset batch
 	if (forceInsert || len(qlog.batch) >= qlog.qlConf.BatchSize) && len(qlog.batch) > 0 {
 		// attempt to insert statements
-		stmt := qlogInsertStatement + strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?, ?)", len(qlog.batch)-1)
+		stmt := qlogInsertStatement + strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", len(qlog.batch)-1)
 		vars := make([]interface{}, 0, len(qlog.batch)*9)
 		for _, i := range qlog.batch {
 			vars = append(vars, i.Address)
+			vars = append(vars, i.ClientName)
 			vars = append(vars, i.Consumer)
 			vars = append(vars, i.RequestDomain)
 			vars = append(vars, i.RequestType)
@@ -249,13 +263,9 @@ func (qlog *qlog) logDB(info *LogInfo, forceInsert bool) {
 
 func (qlog *qlog) log(info *LogInfo) {
 	// get values
-	address := info.Address
-	domain := info.RequestDomain
-	requestType := info.RequestType
 	response := info.Response
 	result := info.Result
 	rCon := info.RequestContext
-	consumerName := info.Consumer
 
 	// create builder
 	var builder strings.Builder
@@ -267,22 +277,29 @@ func (qlog *qlog) log(info *LogInfo) {
 
 	// log result if found
 	builder.WriteString("[")
-	builder.WriteString(address)
+	if info.ClientName != "" {
+		builder.WriteString(info.ClientName)
+		if qlog.fileLogger != nil {
+			fields["clientName"] = info.ClientName
+		}
+		builder.WriteString("|")
+	}
+	builder.WriteString(info.Address)
 	builder.WriteString("/")
 	builder.WriteString(rCon.Protocol)
 	builder.WriteString("|")
-	builder.WriteString(consumerName)
+	builder.WriteString(info.Consumer)
 	builder.WriteString("] q:[")
-	builder.WriteString(domain)
+	builder.WriteString(info.RequestDomain)
 	builder.WriteString("|")
-	builder.WriteString(requestType)
+	builder.WriteString(info.RequestType)
 	builder.WriteString("]->")
 	if qlog.fileLogger != nil {
-		fields["address"] = address
+		fields["address"] = info.Address
 		fields["protocol"] = rCon.Protocol
-		fields["consumer"] = consumerName
-		fields["requestDomain"] = domain
-		fields["requestType"] = requestType
+		fields["consumer"] = info.Consumer
+		fields["requestDomain"] = info.RequestDomain
+		fields["requestType"] = info.RequestType
 	}
 
 	if result != nil {
@@ -386,6 +403,50 @@ func (qlog *qlog) logWorker() {
 	for {
 		select {
 		case info := <-qlog.logInfoChan:
+			if info != nil {
+				// condition the log info item in this thread
+				if info.Request != nil && len(info.Request.Question) > 0 {
+					info.RequestDomain = info.Request.Question[0].Name
+					info.RequestType = dns.Type(info.Request.Question[0].Qtype).String()
+				}
+
+				if info.Response != nil {
+					answerValues := util.GetAnswerValues(info.Response)
+					if len(answerValues) > 0 {
+						info.ResponseText = answerValues[0]
+					}
+				}
+
+				if info.Result != nil {
+					info.Consumer = info.Result.Consumer
+					if info.Result.Blocked {
+						info.Blocked = true
+						if info.Result.BlockedList != nil {
+							info.BlockedList = info.Result.BlockedList.CanonicalName()
+						}
+						info.BlockedRule = info.Result.BlockedRule
+					}
+				}
+
+				if info.RequestContext != nil {
+					info.ConnectionType = info.RequestContext.Protocol
+				}
+
+				// if there is a reverselookup function use it to add a reverse lookup step
+				if qlog.rlookup != nil {
+					info.ClientName = qlog.rlookup(info.Address)
+					if strings.HasSuffix(info.ClientName, ".") {
+						info.ClientName = info.ClientName[:len(info.ClientName) - 1]
+					}
+				}	
+
+				// if no result from rlookup then try and lookup the netbios name from the host
+				if "" == info.ClientName {
+					// try netbios lookup on IP
+					info.ClientName, _ = util.LookupNetBIOSName(info.Address)
+				}
+			}
+
 			// only log to
 			if info != nil && ("" != qlog.qlConf.File || *(qlog.qlConf.Stdout)) {
 				qlog.log(info)
@@ -412,33 +473,10 @@ func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon
 	// create message for sending to various endpoints
 	msg := new(LogInfo)
 	msg.Address = address.String()
-	if request != nil && len(request.Question) > 0 {
-		msg.Request = request.Copy()
-		msg.RequestDomain = request.Question[0].Name
-		msg.RequestType = dns.Type(request.Question[0].Qtype).String()
-	}
-	if response != nil {
-		msg.Response = response.Copy()
-		answerValues := util.GetAnswerValues(response)
-		if len(answerValues) > 0 {
-			msg.ResponseText = answerValues[0]
-		}
-	}
+	msg.Request = request
+	msg.Response = response
 	msg.Result = result
-	if result != nil {
-		msg.Consumer = result.Consumer
-		if result.Blocked {
-			msg.Blocked = true
-			if result.BlockedList != nil {
-				msg.BlockedList = result.BlockedList.CanonicalName()
-			}
-			msg.BlockedRule = result.BlockedRule
-		}
-	}
-	if rCon != nil {
-		msg.RequestContext = rCon
-		msg.ConnectionType = rCon.Protocol
-	}
+	msg.RequestContext = rCon
 	msg.Created = time.Now()
 	// put on channel
 	qlog.logInfoChan <- msg
@@ -446,7 +484,7 @@ func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon
 
 func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	// select entries from qlog
-	selectStmt := "SELECT Address, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created FROM qlog"
+	selectStmt := "SELECT Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created FROM qlog"
 
 	// so we can dynamically build the where clause
 	whereClauses := make([]string, 0)
@@ -530,6 +568,7 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 
 	// only define once
 	var address string
+	var clientName string
 	var consumer string
 	var requestDomain string
 	var requestType string
@@ -540,13 +579,14 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	var created time.Time
 
 	for rows.Next() {
-		err = rows.Scan(&address, &consumer, &requestDomain, &requestType, &responseText, &blocked, &blockedList, &blockedRule, &created)
+		err = rows.Scan(&address, &clientName, &consumer, &requestDomain, &requestType, &responseText, &blocked, &blockedList, &blockedRule, &created)
 		if err != nil {
 			log.Errorf("Scanning qlog results: %s", err)
 			continue
 		}
 		logInfo := LogInfo{
 			Address:       address,
+			ClientName:    clientName,
 			Consumer:      consumer,
 			RequestDomain: requestDomain,
 			RequestType:   requestType,

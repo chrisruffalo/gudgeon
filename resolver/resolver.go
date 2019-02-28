@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -116,7 +115,7 @@ func (resolver *resolver) answer(rCon *RequestContext, context *ResolutionContex
 		response, err := source.Answer(rCon, context, request)
 
 		if err != nil {
-			log.Errorf(fmt.Sprintf("With source %s: ", source.Name()), err)
+			log.Errorf("Source '%s': %s", source.Name(), err)
 			continue
 		}
 

@@ -15,7 +15,8 @@ In no particular order these are the future improvements that are coming to Gudg
   * Searchable query log
   * Metrics graph widgets
 * Logging:
-  * Use actual, configurable, logging framework instead of fmt.Printf
+  * **Done:** Use actual, configurable, logging framework instead of fmt.Printf
+  * Implement file logging for main logger
 * Rules
   * **Done:** SQLite3 Storage engine (will require even lower memory but requires disk space/access and will slow down resolution some)
   * **Done:** Bloom-filter-based storage engine that can use SQLite3 to guard against false positives
