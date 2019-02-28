@@ -1,6 +1,9 @@
 package resolver
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/miekg/dns"
 
 	"github.com/chrisruffalo/gudgeon/cache"
@@ -47,14 +50,16 @@ func result(context *ResolutionContext) *ResolutionResult {
 }
 
 // returns a map of resolvers with name->resolver mapping
-func NewResolverMap(configuredResolvers []*config.GudgeonResolver) ResolverMap {
+func NewResolverMap(config *config.GudgeonConfig, configuredResolvers []*config.GudgeonResolver) ResolverMap {
 
 	// make a new map resolver
 	resolverMap := new(resolverMap)
 
 	// empty map of resolvers
 	resolverMap.resolvers = make(map[string]Resolver, 0)
-	resolverMap.cache = cache.New()
+	if *(config.Storage.CacheEnabled) {
+		resolverMap.cache = cache.New()
+	}
 
 	// build resolvesrs from configuration
 	for _, resolverConfig := range configuredResolvers {
@@ -105,16 +110,22 @@ func (resolverMap *resolverMap) AnswerMultiResolvers(rCon *RequestContext, resol
 		rCon = DefaultRequestContext()
 	}
 
+	errors := make([]string, 0)
+
 	for _, resolverName := range resolverNames {
 		response, result, err := resolverMap.answerWithContext(rCon, resolverName, context, request)
 		if err != nil {
-			// todo: log error
+			errors = append(errors, fmt.Sprintf("%s", err))
 			continue
 		}
 		if !util.IsEmptyResponse(response) {
 			// then return
 			return response, result, nil
 		}
+	}
+
+	if len(errors) > 0 {
+		return nil, nil, fmt.Errorf("%s", strings.Join(errors, ","))
 	}
 
 	return nil, nil, nil

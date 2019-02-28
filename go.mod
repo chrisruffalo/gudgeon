@@ -20,6 +20,7 @@ require (
 	github.com/pkg/profile v1.2.1
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
+	github.com/sirupsen/logrus v1.3.0
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 // indirect
 	github.com/twmb/murmur3 v0.0.0-20190212075929-930dc7964b30
 	github.com/willf/bitset v1.1.10 // indirect

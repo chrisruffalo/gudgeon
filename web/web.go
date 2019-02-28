@@ -10,6 +10,7 @@ import (
 	"github.com/GeertJohan/go.rice"
 	"github.com/gorilla/mux"
 	"github.com/json-iterator/go"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/metrics"
@@ -196,8 +197,9 @@ func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog 
 
 	// go serve
 	webConf := conf.Web
-	go http.ListenAndServe(fmt.Sprintf("%s:%d", webConf.Address, webConf.Port), router)
-	fmt.Printf("Started web ui on %s:%d\n", webConf.Address, webConf.Port)
+	address := fmt.Sprintf("%s:%d", webConf.Address, webConf.Port)
+	go http.ListenAndServe(address, router)
+	log.Infof("Started web ui on %s", address)
 
 	return nil
 }

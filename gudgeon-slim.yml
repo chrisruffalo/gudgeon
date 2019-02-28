@@ -5,16 +5,19 @@
 gudgeon:
   home: ./.gudgeon/
 
-  # using the hash32 storage is small (only 32bits per entry) and 
-  # is faster than the memory-based solution but you lose the
-  # ability to see the actual matched rule. this is a good trade
-  # off for embedded systems or other areas where memory is at a 
-  # premium. There is also a chance for false positivies but
-  # it should be fairly low... to offset that you can use "complex"
-  # rules in a whitelist. (Non-complex rules would have the same
-  # false positive issue.)
   storage:
+    # using the hash32 storage is small (only 32bits per entry) and 
+    # is faster than the memory-based solution but you lose the
+    # ability to see the actual matched rule. this is a good trade
+    # off for embedded systems or other areas where memory is at a 
+    # premium. There is also a chance for false positivies but
+    # it should be fairly low... to offset that you can use "complex"
+    # rules in a whitelist. (Non-complex rules would have the same
+    # false positive issue.)    
     rules: "hash32"
+    # disabling the cache means not storing results locally but it
+    # does mean that you have to reach out to the source each time
+    cache: true
 
   network:
     tcp: true
@@ -30,11 +33,11 @@ gudgeon:
 
   # the query log uses cycles, memory, and disk space
   query_log:
-    enabled: false
+    enabled: true
 
   # the metrics storage uses cycles, memory, and disk space
   metrics:
-    enabled: false
+    enabled: true
 
   # use google resolvers
   resolvers:

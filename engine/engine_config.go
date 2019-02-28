@@ -55,7 +55,7 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 	os.MkdirAll(engine.Root(), os.ModePerm)
 
 	// configure resolvers
-	engine.resolvers = resolver.NewResolverMap(conf.Resolvers)
+	engine.resolvers = resolver.NewResolverMap(conf, conf.Resolvers)
 
 	// get lists from the configuration
 	lists := conf.Lists

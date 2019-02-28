@@ -87,17 +87,19 @@ func (gocache *gocache) key(partition string, questions []dns.Question) string {
 		gocache.idMux.Unlock()
 	}
 
-	key := ""
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("%d", gocache.partitionIdxMap[partition]))
 	if len(questions) > 0 {
 		for _, question := range questions {
-			if len(key) > 0 {
-				key += delimeter
-			}
-			key += question.Name + delimeter + dns.Class(question.Qclass).String() + delimeter + dns.Type(question.Qtype).String()
+			builder.WriteString(delimeter)
+			builder.WriteString(question.Name)
+			builder.WriteString(delimeter)
+			builder.WriteString(dns.Class(question.Qclass).String())
+			builder.WriteString(delimeter)
+			builder.WriteString(dns.Type(question.Qtype).String())
 		}
 	}
-	key = fmt.Sprintf("%d%s%s", gocache.partitionIdxMap[partition], delimeter, key)
-	return strings.ToLower(strings.TrimSpace(key))
+	return strings.ToLower(builder.String())
 }
 
 func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.Msg) bool {
@@ -125,7 +127,7 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 	if ttl > 0 {
 		// copy response to envelope
 		envelope := new(envelope)
-		envelope.message = response.Copy()
+		envelope.message = response
 		envelope.time = time.Now()
 
 		// put in backing store key -> envelope

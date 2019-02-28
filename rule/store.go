@@ -2,9 +2,10 @@ package rule
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	gmetrics "github.com/chrisruffalo/gudgeon/metrics"
@@ -60,7 +61,7 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 		delegate = new(memoryStore)
 		backingStoreType = "memory"
 	}
-	fmt.Printf("Using '%s' rule store implementation\n", backingStoreType)
+	log.Infof("Using '%s' rule store implementation", backingStoreType)
 
 	// set backing store
 	store.backingStore = delegate
@@ -75,7 +76,7 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 		data, err := os.Open(config.PathToList(list))
 		if err != nil {
 			data.Close()
-			fmt.Printf("Error opening list file: %s\n", err)
+			log.Errorf("Could not open list file: %s", err)
 			continue
 		}
 
@@ -98,7 +99,7 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 		data.Close()
 
 		if listCounter > 0 {
-			fmt.Printf("Loaded %d rules from '%s'\n", listCounter, list.CanonicalName())
+			log.Infof("Loaded %d rules from '%s'", listCounter, list.CanonicalName())
 			if metrics != nil {
 				rulesCounter := metrics.GetCounter("rules-list-" + list.ShortName())
 				rulesCounter.Clear()
@@ -111,7 +112,7 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 	store.Finalize(storeRoot, config.Lists)
 
 	if totalCounter > 0 {
-		fmt.Printf("Loaded %d total rules\n", totalCounter)
+		log.Infof("Loaded %d total rules", totalCounter)
 		if metrics != nil {
 			totalRulesCounter := metrics.GetCounter(gmetrics.TotalRules)
 			totalRulesCounter.Inc(int64(totalCounter))

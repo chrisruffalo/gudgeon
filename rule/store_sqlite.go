@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/util"
@@ -36,7 +37,7 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	}
 	db, err := sql.Open("sqlite3", sessionDb)
 	if err != nil {
-		fmt.Printf("error: %s\n", err)
+		log.Errorf("Rule storage: %s", err)
 	}
 	store.db = db
 
@@ -51,7 +52,7 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 		stmt := "CREATE TABLE IF NOT EXISTS " + list.ShortName() + " ( Rule TEXT );"
 		_, err := store.db.Exec(stmt)
 		if err != nil {
-			fmt.Printf("error: %s\n", err)
+			log.Errorf("Rule storage: %s", err)
 		}
 	}
 }
@@ -67,20 +68,18 @@ func (store *sqlStore) insert(listName string, rules []string) {
 	}
 	pstmt, err := store.db.Prepare(stmt)
 	if err != nil {
-		fmt.Printf("Error preparing statement: %s\n", err)
+		log.Errorf("Preparing rule storage statement: %s", err)
 		return
 	}
 	defer pstmt.Close()
-	//fmt.Printf("stmt: %s, vars: %s\n", stmt, vars)
 	_, err = pstmt.Exec(vars...)
 	if err != nil {
-		fmt.Printf("Error during insert: %s\n", err)
+		log.Errorf("During rule storage insert: %s", err)
 	}
 }
 
 func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 	listName := list.ShortName()
-	//fmt.Printf("batch[%s][%d] = %s\n", listName, store.ptr[listName] + 1, rule)
 
 	store.batches[listName][store.ptr[listName]+1] = rule
 	store.ptr[listName] = store.ptr[listName] + 1
@@ -107,7 +106,7 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 		idxStmt := "CREATE INDEX IF NOT EXISTS idx_" + listName + "_Rule ON " + listName + " (Rule);"
 		_, err := store.db.Exec(idxStmt)
 		if err != nil {
-			fmt.Printf("Could not create index on table %s\n", listName)
+			log.Errorf("Could not create index on table %s: %s", listName, err)
 		}
 	}
 }
@@ -130,13 +129,13 @@ func (store *sqlStore) foundInList(list *config.GudgeonList, domains []string) (
 	pstmt, err := store.db.Prepare(stmt)
 	defer pstmt.Close()
 	if err != nil {
-		fmt.Printf("err: %s\n", err)
+		log.Errorf("Preparing rule storage statement: %s", err)
 	}
 
 	rows, err := pstmt.Query(dfaces...)
 	defer rows.Close()
 	if err != nil {
-		fmt.Printf("err: %s\n", err)
+		log.Errorf("Executing rule storage query: %s", err)
 	}
 
 	// check for rows

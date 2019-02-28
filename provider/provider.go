@@ -8,6 +8,7 @@ import (
 
 	"github.com/coreos/go-systemd/activation"
 	"github.com/miekg/dns"
+	log "github.com/sirupsen/logrus"			
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
@@ -39,9 +40,9 @@ func NewProvider() Provider {
 func (provider *provider) serve(netType string, addr string, sChan chan *dns.Server) {
 	server := &dns.Server{Addr: addr, Net: netType}
 	sChan <- server
-	fmt.Printf("%s on address: %s\n", strings.ToUpper(netType), addr)
+	log.Infof("Listen to %s on address: %s", strings.ToUpper(netType), addr)
 	if err := server.ListenAndServe(); err != nil {
-		fmt.Printf("Failed starting %s server: %s\n", netType, err.Error())
+		log.Errorf("Failed starting %s server: %s", netType, err.Error())
 		return
 	}
 }
@@ -51,18 +52,18 @@ func (provider *provider) listen(listener net.Listener, packetConn net.PacketCon
 	sChan <- server
 	if packetConn != nil {
 		if t, ok := packetConn.(*net.UDPConn); ok && t != nil {
-			fmt.Printf("Listen on datagram: %s\n", t.LocalAddr().String())
+			log.Infof("Listen on datagram: %s", t.LocalAddr().String())
 		} else {
-			fmt.Printf("Listen on unspecified datagram\n")
+			log.Info("Listen on unspecified datagram")
 		}
 		server.PacketConn = packetConn
 	} else if listener != nil {
-		fmt.Printf("Listen on stream: %s\n", listener.Addr().String())
+		log.Infof("Listen on stream: %s", listener.Addr().String())
 		server.Listener = listener
 	}
 
 	if err := server.ActivateAndServe(); err != nil {
-		fmt.Printf("Failed to listen: %s\n", err.Error())
+		log.Errorf("Failed to listen: %s", err.Error())
 		return
 	}
 }
@@ -106,7 +107,7 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	// we were having some errors during write that we need to figure out
 	// and this is a good(??) way to try and find them out.
 	if recovery := recover(); recovery != nil {
-		fmt.Printf("recovered from error: %v\n", recovery)
+		log.Errorf("recovered from error: %s", recovery)
 	}
 
 	if response != nil {
@@ -125,10 +126,6 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics, qlog qlog.QLog) error {
 	// get network config
 	netConf := config.Network
-	if netConf == nil {
-		// todo: log no network structure
-		return nil
-	}
 
 	// start out with no file socket descriptors
 	fileSockets := []*os.File{}
@@ -137,7 +134,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 	if *netConf.Systemd {
 		fileSockets = activation.Files(true)
 		if recovery := recover(); recovery != nil {
-			fmt.Printf("Could not use systemd activation: %s\n", recovery)
+			log.Errorf("Could not use systemd activation: %s", recovery)
 		}
 	}
 
@@ -146,7 +143,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 
 	// if no interfaces and either systemd isn't enabled or
 	if (interfaces == nil || len(interfaces) < 1) && (*netConf.Systemd && len(fileSockets) < 1) {
-		fmt.Printf("No interfaces provided through configuration file or systemd(enabled=%t)\n", *netConf.Systemd)
+		log.Errorf("No interfaces provided through configuration file or systemd(enabled=%t)", *netConf.Systemd)
 		return nil
 	}
 
@@ -183,7 +180,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 
 	// open interface connections
 	if *netConf.Systemd && len(fileSockets) > 0 {
-		fmt.Printf("Using [%d] systemd listeners...\n", len(fileSockets))
+		log.Infof("Using [%d] systemd listeners...", len(fileSockets))
 		for _, f := range fileSockets {
 			// check if udp
 			if pc, err := net.FilePacketConn(f); err == nil {
@@ -197,7 +194,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 	}
 
 	if len(interfaces) > 0 {
-		fmt.Printf("Using [%d] configured interfaces...\n", len(interfaces))
+		log.Infof("Using [%d] configured interfaces...", len(interfaces))
 		for _, iface := range interfaces {
 			addr := fmt.Sprintf("%s:%d", iface.IP, iface.Port)
 			if *iface.TCP {
@@ -216,20 +213,16 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 }
 
 func (provider *provider) Shutdown() error {
-	errors := make([]string, 0)
+
 	for _, server := range provider.servers {
 		if server != nil {
 			err := server.Shutdown()
 			if err != nil {
-				errors = append(errors, fmt.Sprintf("%s", err))
+				log.Errorf("During shutdown: %s", err)
 			} else {
-				fmt.Printf("Shtudown server: %s\n", server.Addr)
+				log.Infof("Shtudown server: %s", server.Addr)
 			}
 		}
-	}
-
-	if len(errors) > 0 {
-		return fmt.Errorf("Error(s) shutting down servers:\n%s\n", strings.Join(errors, "\n"))
 	}
 	return nil
 }

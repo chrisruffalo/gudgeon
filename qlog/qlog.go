@@ -14,6 +14,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/miekg/dns"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/resolver"
@@ -75,6 +76,9 @@ type QueryLogQuery struct {
 
 // store database location
 type qlog struct {
+	fileLogger  *log.Logger
+	stdLogger   *log.Logger
+
 	store       *sql.DB
 	qlConf      *config.GudgeonQueryLog
 	logInfoChan chan *LogInfo
@@ -99,6 +103,38 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 	// create new empty qlog
 	qlog := &qlog{}
 	qlog.qlConf = qlConf
+
+	// create distinct loggers for query output
+	if qlConf.File != "" {
+		// create destination and writer
+		dirpart := path.Dir(qlConf.File)
+		if _, err := os.Stat(dirpart); os.IsNotExist(err) {
+			os.MkdirAll(dirpart, os.ModePerm)
+		}
+
+		// attempt to open file
+		w, err := os.OpenFile(qlConf.File, os.O_RDWR | os.O_CREATE | os.O_APPEND, os.ModePerm)
+		if err != nil {
+			log.Errorf("While opening query log file: %s", err)
+		} else {
+			log.Infof("Logging queries to file: %s", qlConf.File)
+			qlog.fileLogger = log.New()
+			qlog.fileLogger.SetOutput(w)
+			qlog.fileLogger.SetLevel(log.InfoLevel)
+		    qlog.fileLogger.SetFormatter(&log.JSONFormatter{})				
+		}
+	} 
+
+	if *(qlConf.Stdout) {
+		log.Info("Logging queries to stdout")
+		qlog.stdLogger = log.New()
+		qlog.stdLogger.SetOutput(os.Stdout)
+		qlog.stdLogger.SetLevel(log.InfoLevel)
+	    qlog.stdLogger.SetFormatter(&log.TextFormatter{
+	        FullTimestamp: true,
+	        TimestampFormat: "2006-01-02 15:04:05PM MST",
+	    })
+	}	
 
 	// create log channel
 	qlog.batch = make([]*LogInfo, 0, qlConf.BatchSize)
@@ -169,7 +205,7 @@ func (qlog *qlog) prune() {
 	duration, _ := util.ParseDuration(qlog.qlConf.Duration)
 	_, err := qlog.store.Exec("DELETE FROM qlog WHERE Created <= ?", time.Now().Add(-1*duration))
 	if err != nil {
-		fmt.Printf("Error pruning qlog data: %s\n", err)
+		log.Errorf("Error pruning qlog data: %s", err)
 	}
 }
 
@@ -198,11 +234,11 @@ func (qlog *qlog) logDB(info *LogInfo, forceInsert bool) {
 		pstmt, err := qlog.store.Prepare(stmt)
 		defer pstmt.Close()
 		if err != nil {
-			fmt.Printf("Error preparing statement: %s\n", err)
+			log.Errorf("Error preparing statement: %s", err)
 		} else {
 			_, err = pstmt.Exec(vars...)
 			if err != nil {
-				fmt.Printf("Could not insert into db: %s\n", err)
+				log.Errorf("Could not insert into db: %s", err)
 			}
 		}
 
@@ -211,7 +247,7 @@ func (qlog *qlog) logDB(info *LogInfo, forceInsert bool) {
 	}
 }
 
-func (qlog *qlog) logStdout(info *LogInfo) {
+func (qlog *qlog) log(info *LogInfo) {
 	// get values
 	address := info.Address
 	domain := info.RequestDomain
@@ -224,61 +260,113 @@ func (qlog *qlog) logStdout(info *LogInfo) {
 	// create builder
 	var builder strings.Builder
 
+	var fields log.Fields
+	if qlog.fileLogger != nil {
+		fields = log.Fields{}
+	}
+
 	// log result if found
-	builder.WriteString(fmt.Sprintf("[%s/%s|%s] q:|%s|%s|->", address, rCon.Protocol, consumerName, domain, requestType))
+	builder.WriteString("[")
+	builder.WriteString(address)
+	builder.WriteString("/")
+	builder.WriteString(rCon.Protocol)
+	builder.WriteString("|")
+	builder.WriteString(consumerName)
+	builder.WriteString("] q:[")
+	builder.WriteString(domain)
+	builder.WriteString("|")
+	builder.WriteString(requestType)
+	builder.WriteString("]->")
+	if qlog.fileLogger != nil {
+		fields["address"] = address
+		fields["protocol"] = rCon.Protocol
+		fields["consumer"] = consumerName
+		fields["requestDomain"] = domain
+		fields["requestType"] = requestType
+	}
+
 	if result != nil {
-		logSuffix := "->"
 		if result.Blocked {
+			builder.WriteString("BLOCKED")
 			if result.BlockedList != nil {
-				listName := result.BlockedList.CanonicalName()
-				ruleText := result.BlockedRule
-				if ruleText != "" {
-					builder.WriteString(fmt.Sprintf(" BLOCKED[%s|%s]", listName, ruleText))
-				} else {
-					builder.WriteString(fmt.Sprintf(" BLOCKED[%s]", listName))
+				builder.WriteString("[")
+				builder.WriteString(result.BlockedList.CanonicalName())
+				if qlog.fileLogger != nil {
+					fields["blockedList"] = result.BlockedList.CanonicalName()
 				}
-			} else {
-				builder.WriteString("BLOCKED")
+				if result.BlockedRule != "" {					
+					builder.WriteString("|")
+					builder.WriteString(result.BlockedRule)
+					if qlog.fileLogger != nil {
+						fields["blockedRule"] = result.BlockedRule
+					}				
+				}
+				builder.WriteString("]")				
 			}
 		} else {
+			if result.Cached {
+				builder.WriteString("c:[")
+				builder.WriteString(result.Resolver)
+				builder.WriteString("]")
+				if qlog.fileLogger != nil {
+					fields["resolver"] = result.Resolver
+				}
+			} else {
+				builder.WriteString("r:[")
+				builder.WriteString(result.Resolver)
+				builder.WriteString("]")
+				builder.WriteString("->")
+				builder.WriteString("s:[")
+				builder.WriteString(result.Source)
+				builder.WriteString("]")
+				if qlog.fileLogger != nil {
+					fields["resolver"] = result.Resolver
+					fields["source"] = result.Source
+				}
+			}
+
+			builder.WriteString("->")
+
 			if len(response.Answer) > 0 {
 				answerValues := util.GetAnswerValues(response)
 				if len(answerValues) > 0 {
-					logSuffix += answerValues[0]
+					builder.WriteString(answerValues[0])
+					if qlog.fileLogger != nil {
+						fields["answer"] = answerValues[0]
+					}
 					if len(answerValues) > 1 {
 						builder.WriteString(fmt.Sprintf(" (+%d)", len(answerValues)-1))
 					}
 				} else {
 					builder.WriteString("(EMPTY RESPONSE)")
-				}
-			}
-
-			// nothing appended so look at SOA
-			if strings.TrimSpace(logSuffix) == "->" {
-				if len(response.Ns) > 0 && response.Ns[0].Header().Rrtype == dns.TypeSOA && len(response.Ns[0].String()) > 0 {
-					logSuffix += response.Ns[0].(*dns.SOA).Ns
-					if len(response.Ns) > 1 {
-						builder.WriteString(fmt.Sprintf(" (+%d)", len(response.Ns)-1))
+					if qlog.fileLogger != nil {
+						fields["answer"] = "<< NONE >>"
 					}
-				} else {
-					builder.WriteString("(EMPTY)")
 				}
-			}
-
-			if result.Cached {
-				builder.WriteString(fmt.Sprintf("c:[%s]%s", result.Resolver, logSuffix))
-			} else {
-				builder.WriteString(fmt.Sprintf("r:[%s]->s:[%s]%s", result.Resolver, result.Source, logSuffix))
 			}
 		}
 	} else if response.Rcode == dns.RcodeServerFailure {
-		builder.WriteString(fmt.Sprintf(" SERVFAIL:[%s]", result.Message))
+		// write as error and return
+		if qlog.fileLogger != nil {
+			qlog.fileLogger.WithFields(fields).Error(fmt.Sprintf("SERVFAIL:[%s]", result.Message))	
+		}
+		if qlog.stdLogger != nil {
+			builder.WriteString(fmt.Sprintf("SERVFAIL:[%s]", result.Message))
+			qlog.stdLogger.Error(builder.String())		
+		}
+		
+		return
 	} else {
-		builder.WriteString(fmt.Sprintf(" RESPONSE[%s]", dns.RcodeToString[response.Rcode]))
+		builder.WriteString(fmt.Sprintf("RESPONSE[%s]", dns.RcodeToString[response.Rcode]))
 	}
 
 	// output built string
-	fmt.Printf("%s\n", builder.String())
+	if qlog.fileLogger != nil {
+		qlog.fileLogger.WithFields(fields).Info(dns.RcodeToString[response.Rcode])	
+	}
+	if qlog.stdLogger != nil {
+		qlog.stdLogger.Info(builder.String())		
+	}
 }
 
 // this is the actual log worker that handles incoming log messages in a separate go routine
@@ -298,9 +386,9 @@ func (qlog *qlog) logWorker() {
 	for {
 		select {
 		case info := <-qlog.logInfoChan:
-			// only log to stdout if configured
-			if info != nil && *(qlog.qlConf.Stdout) {
-				qlog.logStdout(info)
+			// only log to 
+			if info != nil && ("" != qlog.qlConf.File || *(qlog.qlConf.Stdout)) {
+				qlog.log(info)
 			}
 			// only persist if configured, which is default
 			if *(qlog.qlConf.Persist) {
@@ -432,11 +520,7 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	// if rows is nil return empty array
 	if rows == nil || err != nil {
 		if err != nil {
-			fmt.Printf("query: '%s'\n", selectStmt)
-			if len(whereValues) > 0 {
-				fmt.Printf("values: '%v'\n", whereValues)
-			}
-			fmt.Printf("error: %s\n", err)
+			log.Errorf("Query log query failed: %s", err)
 		}
 		return []LogInfo{}
 	}
@@ -458,7 +542,7 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	for rows.Next() {
 		err = rows.Scan(&address, &consumer, &requestDomain, &requestType, &responseText, &blocked, &blockedList, &blockedRule, &created)
 		if err != nil {
-			fmt.Printf("Error scanning qlog results: %s\n", err)
+			log.Errorf("Scanning qlog results: %s", err)
 			continue
 		}
 		logInfo := LogInfo{

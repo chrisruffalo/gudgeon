@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"database/sql"
-	"fmt"
 	"math"
 	"os"
 	"path"
@@ -16,6 +15,7 @@ import (
 	"github.com/json-iterator/go"
 	"github.com/miekg/dns"
 	gometrics "github.com/rcrowley/go-metrics"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/resolver"
@@ -241,7 +241,7 @@ func (metrics *metrics) insert(currentTime time.Time) {
 	// make into json string
 	bytes, err := json.Marshal(all)
 	if err != nil {
-		fmt.Printf("Error marshalling json: %s\n", err)
+		log.Errorf("Error marshalling metrics json: %s", err)
 		return
 	}
 
@@ -249,12 +249,12 @@ func (metrics *metrics) insert(currentTime time.Time) {
 	pstmt, err := metrics.db.Prepare(stmt)
 	defer pstmt.Close()
 	if err != nil {
-		fmt.Printf("Error preparing statement: %s\n", err)
+		log.Errorf("Error preparing metrics statement: %s", err)
 		return
 	}
 	_, err = pstmt.Exec(metrics.lastInsert, currentTime, string(bytes), int(math.Round(currentTime.Sub(metrics.lastInsert).Seconds())))
 	if err != nil {
-		fmt.Printf("Error inserting metrics: %s\n", err)
+		log.Errorf("Error executing metrics statement: %s", err)
 		return
 	}
 
@@ -267,7 +267,7 @@ func (metrics *metrics) prune() {
 	duration, _ := util.ParseDuration(metrics.config.Metrics.Duration)
 	_, err := metrics.db.Exec("DELETE FROM metrics WHERE AtTime <= ?", time.Now().Add(-1*duration))
 	if err != nil {
-		fmt.Printf("Error pruning metrics data: %s\n", err)
+		log.Errorf("Error pruning metrics data: %s", err)
 	}
 }
 
@@ -290,7 +290,7 @@ func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, 
 	for rows.Next() {
 		err = rows.Scan(&atTime, &fromTime, &metricsJsonString, &intervalSeconds)
 		if err != nil {
-			fmt.Printf("Error scanning for metrics query: %s\n", err)
+			log.Errorf("Error scanning for metrics query: %s", err)
 			continue
 		}
 		// load entry values
@@ -312,7 +312,7 @@ func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, 
 func (metrics *metrics) load() {
 	rows, err := metrics.db.Query("SELECT MetricsJson FROM metrics ORDER BY AtTime DESC LIMIT 1")
 	if err != nil {
-		fmt.Printf("Could not load initial metrics information: %s\n", err)
+		log.Errorf("Could not load initial metrics information: %s", err)
 		return
 	}
 
@@ -320,7 +320,7 @@ func (metrics *metrics) load() {
 	for rows.Next() {
 		err = rows.Scan(&metricsJsonString)
 		if err != nil {
-			fmt.Printf("Error scanning for metrics results: %s\n", err)
+			log.Errorf("Error scanning for metrics results: %s", err)
 			continue
 		}
 		if "" != metricsJsonString {

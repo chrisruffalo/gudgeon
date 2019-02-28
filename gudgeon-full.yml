@@ -23,6 +23,7 @@ gudgeon:
     stdout: true    # should queries be logged to standard out
     batch: 50       # how many queries are batched together for inserts (max is 1000)
     interval: 1s    # how often to commit batches that aren't full (min is 500ms)
+    file: ./.gudgeon/logs/query.log # log queries to file AND stdout (you can set stdout to false and log to jsut the file)
 
   # metrics can be saved to disk for use by the ui or exported to something like prometheus
   metrics:

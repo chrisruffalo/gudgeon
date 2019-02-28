@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/miekg/dns"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/resolver"
@@ -264,26 +265,18 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 	if consumer.configConsumer.Block {
 		result = new(resolver.ResolutionResult)
 		result.Blocked = true
-
-		response = new(dns.Msg)
-		response.SetReply(request)
 	} else if blocked, list, ruleText := engine.domainBlockedForConsumer(consumer, domain); blocked {
 		// set blocked values
 		result = new(resolver.ResolutionResult)
 		result.Blocked = true
 		result.BlockedList = list
 		result.BlockedRule = ruleText
-
-		// just say that the response code is that the answer wasn't found
-		response = new(dns.Msg)
-		response.SetReply(request)
-		response.Rcode = dns.RcodeNameError
 	} else {
 		// if not blocked then actually try resolution, by grabbing the resolver names
 		resolvers := engine.getResolvers(consumer)
 		r, res, err := engine.resolvers.AnswerMultiResolvers(rCon, resolvers, request)
 		if err != nil {
-			// todo: log error in resolution
+			log.Errorf("Could not resolve <%s> for consumer '%s': %s", domain, consumer.configConsumer.Name, err)
 		} else {
 			response = r
 			result = res
@@ -294,9 +287,13 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 		}
 	}
 
-	// if no response is found at this point return NXDOMAIN
-	if util.IsEmptyResponse(response) {
+	// if no response is found at this point ensure it is created
+	if response == nil {
 		response = new(dns.Msg)
+	}
+
+	// set codes for response/reply
+	if util.IsEmptyResponse(response) {
 		response.SetReply(request)
 		response.Rcode = dns.RcodeNameError
 	}

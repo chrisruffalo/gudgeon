@@ -29,6 +29,7 @@ type GudgeonQueryLog struct {
 	Persist       *bool  `yaml:"persist"`
 	Duration      string `yaml:"duration"`
 	Stdout        *bool  `yaml:"stdout"`
+	File          string `yaml:"file"`
 	BatchSize     int    `yaml:"batch"`
 	BatchInterval string `yaml:"interval"`
 }
@@ -42,7 +43,11 @@ type GudgeonMetrics struct {
 
 // GudgeonStorage defines the different storage types for persistent/session data
 type GudgeonStorage struct {
+	// rule storage is used by the rule storage engine to decide which implementation to use
+	// values are like 'memory', 'sqlite', 'hash32', etc
 	RuleStorage string `yaml:"rules"`
+	// you can enable/disable the cache here, default is to enable
+	CacheEnabled *bool `yaml:"cache"`
 }
 
 // network interface information
@@ -253,11 +258,13 @@ func (config *GudgeonConfig) DataRoot() string {
 	return path.Join(config.Home, "data")
 }
 
-func Load(filename string) (*GudgeonConfig, error) {
+func Load(filename string) (*GudgeonConfig, []string, error) {
 	var config *GudgeonConfig
 
+	warnings := make([]string, 0)
+
 	if "" == filename {
-		fmt.Printf("Warning: No file provided with '-c' flag, using configuration defaults...\n")
+		warnings = append(warnings, "No file provided with '-c' flag, using configuration defaults...")
 		config = &GudgeonConfig{}
 	} else {
 		// config from config root
@@ -268,16 +275,13 @@ func Load(filename string) (*GudgeonConfig, error) {
 
 		// return nil config object without config file (propagate error)
 		if err != nil {
-			return nil, fmt.Errorf("Could not load file '%s', error: %s", filename, err)
+			return nil,  []string{}, fmt.Errorf("Load file '%s', error: %s", filename, err)
 		}
-
-		// log read file
-		fmt.Printf("Loading configuration from file: %s\n", filename)
 
 		// if file is read then unmarshal from data
 		yErr := yaml.Unmarshal(bytes, root)
 		if yErr != nil {
-			return nil, fmt.Errorf("Error unmarshaling file '%s', error: %s", filename, yErr)
+			return nil, []string{}, fmt.Errorf("Unmarshaling file '%s', error: %s", filename, yErr)
 		}
 
 		// get config
@@ -285,14 +289,8 @@ func Load(filename string) (*GudgeonConfig, error) {
 	}
 
 	// get warnings and errors
-	warnings, errors := config.verifyAndInit()
-
-	// print warnings
-	if len(warnings) > 0 {
-		for _, warn := range warnings {
-			fmt.Printf("Warning: %s\n", warn)
-		}
-	}
+	addWarnings, errors := config.verifyAndInit()
+	warnings = append(warnings, addWarnings...)
 
 	// bail and return errors
 	if len(errors) > 0 {
@@ -300,9 +298,9 @@ func Load(filename string) (*GudgeonConfig, error) {
 		for idx, err := range errors {
 			errorStrings[idx] = fmt.Sprintf("%s\n", err)
 		}
-		return nil, fmt.Errorf("Errors loading the configuration file:\n%s", strings.Join(errorStrings, ""))
+		return nil, []string{}, fmt.Errorf("Errors loading the configuration file:\n%s", strings.Join(errorStrings, ""))
 	}
 
 	// return configuration
-	return config, nil
+	return config, warnings, nil
 }

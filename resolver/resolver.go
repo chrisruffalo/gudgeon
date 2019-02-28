@@ -1,10 +1,12 @@
 package resolver
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/miekg/dns"
 	"github.com/ryanuber/go-glob"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/util"
@@ -114,8 +116,7 @@ func (resolver *resolver) answer(rCon *RequestContext, context *ResolutionContex
 		response, err := source.Answer(rCon, context, request)
 
 		if err != nil {
-			// todo: log error
-			//fmt.Printf("Error connecting to source %s: %s\n", source.Name(), err)
+			log.Errorf(fmt.Sprintf("With source %s: ", source.Name()), err)
 			continue
 		}
 
@@ -130,7 +131,6 @@ func (resolver *resolver) answer(rCon *RequestContext, context *ResolutionContex
 		}
 	}
 
-	// todo, maybe return more appropriate error?
 	return nil, nil
 }
 
@@ -166,7 +166,7 @@ func (resolver *resolver) searchDomains(rCon *RequestContext, context *Resolutio
 		// ask new question
 		searchResponse, err := resolver.answer(rCon, context, searchRequest)
 		if err != nil {
-			// todo: log
+			log.Errorf("During domain search: %s", err)
 			continue
 		}
 
@@ -234,7 +234,7 @@ func (resolver *resolver) Answer(rCon *RequestContext, context *ResolutionContex
 	context.Visited = append(context.Visited, resolver.name)
 
 	// check cache first (if available)
-	if context.ResolverMap != nil {
+	if context.ResolverMap != nil && context.ResolverMap.Cache() != nil {
 		cachedResponse, found := context.ResolverMap.Cache().Query(resolver.name, request)
 		if found && cachedResponse != nil && !util.IsEmptyResponse(cachedResponse) {
 			// if no resolver has been set then use that resolver name as the source name
@@ -262,7 +262,7 @@ func (resolver *resolver) Answer(rCon *RequestContext, context *ResolutionContex
 	}
 
 	// only cache non-nil response
-	if context != nil && context.ResolverMap != nil && !context.Stored && response != nil && !response.MsgHdr.Truncated {
+	if context.ResolverMap != nil && context.ResolverMap.Cache() != nil && !context.Stored && response != nil && !response.MsgHdr.Truncated {
 		// set as stored based on status of cache action
 		context.Stored = context.ResolverMap.Cache().Store(resolver.name, request, response)
 	}

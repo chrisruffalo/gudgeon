@@ -6,6 +6,7 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/ryanuber/go-glob"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/util"
 )
@@ -112,7 +113,7 @@ func newHostFileSource(sourceFile string) Source {
 	data, err := util.GetFileAsArray(sourceFile)
 	// on error return nil
 	if err != nil {
-		// todo: logging
+		log.Errorf("While opening '%s': %s", sourceFile, err)
 		return nil
 	}
 
