@@ -382,7 +382,7 @@ func (engine *engine) Reverse(address string) string {
 	for _, answer := range response.Answer {
 		if aRecord, ok := answer.(*dns.PTR); ok {
 			if aRecord != nil && aRecord.Ptr != "" {
-				return aRecord.Ptr
+				return strings.TrimSpace(aRecord.Ptr)
 			}
 		}
 	}

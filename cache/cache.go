@@ -108,12 +108,6 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 		return false
 	}
 
-	// create key from message
-	key := gocache.key(partition, request.Question)
-	if "" == key {
-		return false
-	}
-
 	// get ttl from parts and use lowest ttl as cache value
 	ttl := minTtl(dnsMaxTtl, response.Answer)
 	if len(response.Answer) < 1 {
@@ -125,6 +119,12 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 
 	// if ttl is 0 or less then we don't need to bother to store it at all
 	if ttl > 0 {
+		// create key from message
+		key := gocache.key(partition, request.Question)
+		if "" == key {
+			return false
+		}
+
 		// copy response to envelope
 		envelope := new(envelope)
 		envelope.message = response

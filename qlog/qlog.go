@@ -9,11 +9,13 @@ import (
 	"strings"
 	"time"
 
+	
 	"github.com/GeertJohan/go.rice"
 	"github.com/atrox/go-migrate-rice"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/miekg/dns"
+	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -81,6 +83,7 @@ type QueryLogQuery struct {
 // store database location
 type qlog struct {
 	rlookup    ReverseLookupFunction
+	cache      *cache.Cache
 
 	fileLogger *log.Logger
 	stdLogger  *log.Logger
@@ -111,6 +114,8 @@ func NewWithReverseLookup(conf  *config.GudgeonConfig, rlookup ReverseLookupFunc
 	if qlog != nil && rlookup != nil {
 		qlog.rlookup = rlookup
 	}
+	// create reverse lookup cache with given ttl and given reap interval
+	qlog.cache = cache.New(5 * time.Minute, 10 * time.Minute)
 
 	// create distinct loggers for query output
 	if qlConf.File != "" {
@@ -432,8 +437,15 @@ func (qlog *qlog) logWorker() {
 					info.ConnectionType = info.RequestContext.Protocol
 				}
 
+				// look in local cache for name
+				if value, found := qlog.cache.Get(info.Address); found {
+					if valueString, ok := value.(string); ok {
+						info.ClientName = valueString	
+					}					
+				}
+
 				// if there is a reverselookup function use it to add a reverse lookup step
-				if qlog.rlookup != nil {
+				if "" == info.ClientName && qlog.rlookup != nil {
 					info.ClientName = qlog.rlookup(info.Address)
 					if strings.HasSuffix(info.ClientName, ".") {
 						info.ClientName = info.ClientName[:len(info.ClientName) - 1]
@@ -443,7 +455,16 @@ func (qlog *qlog) logWorker() {
 				// if no result from rlookup then try and lookup the netbios name from the host
 				if "" == info.ClientName {
 					// try netbios lookup on IP
-					info.ClientName, _ = util.LookupNetBIOSName(info.Address)
+					var err error
+					info.ClientName, err = util.LookupNetBIOSName(info.Address)
+					if err != nil {
+						log.Errorf("During NETBIOS lookup: %s", err)
+					}
+				}
+
+				// store result
+				if "" != info.ClientName {
+					qlog.cache.Set(info.Address, info.ClientName, cache.DefaultExpiration)
 				}
 			}
 
