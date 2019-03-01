@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	
 	"github.com/GeertJohan/go.rice"
 	"github.com/atrox/go-migrate-rice"
 	"github.com/golang-migrate/migrate/v4"
@@ -38,8 +37,8 @@ type ReverseLookupFunction = func(addres string) string
 // and that is recovered via the Query method
 type LogInfo struct {
 	// client address
-	Address        string
-	ClientName     string
+	Address    string
+	ClientName string
 
 	// hold the information but aren't serialized
 	Request        *dns.Msg                   `json:"-"`
@@ -82,8 +81,8 @@ type QueryLogQuery struct {
 
 // store database location
 type qlog struct {
-	rlookup    ReverseLookupFunction
-	cache      *cache.Cache
+	rlookup ReverseLookupFunction
+	cache   *cache.Cache
 
 	fileLogger *log.Logger
 	stdLogger  *log.Logger
@@ -102,7 +101,7 @@ type QLog interface {
 	Stop()
 }
 
-func NewWithReverseLookup(conf  *config.GudgeonConfig, rlookup ReverseLookupFunction) (QLog, error) {
+func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunction) (QLog, error) {
 	qlConf := conf.QueryLog
 	if qlConf == nil || !*(qlConf.Enabled) {
 		return nil, nil
@@ -115,7 +114,7 @@ func NewWithReverseLookup(conf  *config.GudgeonConfig, rlookup ReverseLookupFunc
 		qlog.rlookup = rlookup
 	}
 	// create reverse lookup cache with given ttl and given reap interval
-	qlog.cache = cache.New(5 * time.Minute, 10 * time.Minute)
+	qlog.cache = cache.New(5*time.Minute, 10*time.Minute)
 
 	// create distinct loggers for query output
 	if qlConf.File != "" {
@@ -440,17 +439,17 @@ func (qlog *qlog) logWorker() {
 				// look in local cache for name
 				if value, found := qlog.cache.Get(info.Address); found {
 					if valueString, ok := value.(string); ok {
-						info.ClientName = valueString	
-					}					
+						info.ClientName = valueString
+					}
 				}
 
 				// if there is a reverselookup function use it to add a reverse lookup step
 				if "" == info.ClientName && qlog.rlookup != nil {
 					info.ClientName = qlog.rlookup(info.Address)
 					if strings.HasSuffix(info.ClientName, ".") {
-						info.ClientName = info.ClientName[:len(info.ClientName) - 1]
+						info.ClientName = info.ClientName[:len(info.ClientName)-1]
 					}
-				}	
+				}
 
 				// if no result from rlookup then try and lookup the netbios name from the host
 				if "" == info.ClientName {

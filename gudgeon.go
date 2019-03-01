@@ -51,9 +51,9 @@ func (gudgeon *Gudgeon) Start() error {
 
 	// components
 	var (
-		mets    metrics.Metrics
-        qlog    gqlog.QLog
-        eng     engine.Engine
+		mets metrics.Metrics
+		qlog gqlog.QLog
+		eng  engine.Engine
 	)
 
 	// create glue method to glue engine and query log together without binding them together

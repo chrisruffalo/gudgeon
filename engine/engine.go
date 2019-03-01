@@ -357,7 +357,6 @@ func (engine *engine) Reverse(address string) string {
 		return ""
 	}
 
-
 	m := &dns.Msg{
 		MsgHdr: dns.MsgHdr{
 			Authoritative:     true,
