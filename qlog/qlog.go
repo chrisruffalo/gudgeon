@@ -441,28 +441,27 @@ func (qlog *qlog) logWorker() {
 					if valueString, ok := value.(string); ok {
 						info.ClientName = valueString
 					}
-				}
-
-				// if there is a reverselookup function use it to add a reverse lookup step
-				if "" == info.ClientName && qlog.rlookup != nil {
-					info.ClientName = qlog.rlookup(info.Address)
-					if strings.HasSuffix(info.ClientName, ".") {
-						info.ClientName = info.ClientName[:len(info.ClientName)-1]
+				} else {
+					// if there is a reverselookup function use it to add a reverse lookup step
+					if "" == info.ClientName && qlog.rlookup != nil {
+						info.ClientName = qlog.rlookup(info.Address)
+						if strings.HasSuffix(info.ClientName, ".") {
+							info.ClientName = info.ClientName[:len(info.ClientName)-1]
+						}
 					}
-				}
 
-				// if no result from rlookup then try and lookup the netbios name from the host
-				if "" == info.ClientName {
-					// try netbios lookup on IP
-					var err error
-					info.ClientName, err = util.LookupNetBIOSName(info.Address)
-					if err != nil {
-						log.Errorf("During NETBIOS lookup: %s", err)
+					// if no result from rlookup then try and lookup the netbios name from the host
+					if "" == info.ClientName {
+						// try netbios lookup on IP
+						var err error
+						info.ClientName, err = util.LookupNetBIOSName(info.Address)
+						if err != nil {
+							// don't really need to see these
+							log.Tracef("During NETBIOS lookup: %s", err)
+						}
 					}
-				}
 
-				// store result
-				if "" != info.ClientName {
+					// store result, even empty results, to prevent continual lookups
 					qlog.cache.Set(info.Address, info.ClientName, cache.DefaultExpiration)
 				}
 			}
