@@ -37,8 +37,7 @@ type ReverseLookupFunction = func(addres string) string
 // and that is recovered via the Query method
 type LogInfo struct {
 	// client address
-	Address    string
-	ClientName string
+	Address        string
 
 	// hold the information but aren't serialized
 	Request        *dns.Msg                   `json:"-"`
@@ -48,6 +47,7 @@ type LogInfo struct {
 
 	// generated/calculated values
 	Consumer       string
+	ClientName     string
 	ConnectionType string
 	RequestDomain  string
 	RequestType    string
@@ -642,10 +642,10 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 
 		// add potentially nil values separately
 		if clientName.Valid {
-			clientName.Scan(&info.ClientName)
+			info.ClientName = clientName.String
 		}
 		if consumer.Valid {
-			consumer.Scan(&info.Consumer)
+			info.Consumer = consumer.String
 		}
 
 		results = append(results, info)
