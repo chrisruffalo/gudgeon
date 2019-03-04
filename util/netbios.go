@@ -12,7 +12,7 @@ import (
 // this is an experimental feature
 // pulled from: https://github.com/jpillora/icmpscan
 // i made some changes to make it a litte more readable
-// and, mmore importantly, to set the outbound dns flags
+// and, more importantly, to set the outbound dns flags
 // to 0 so this would work
 func LookupNetBIOSName(address string) (string, error) {
 	ip := net.ParseIP(address)
@@ -23,7 +23,9 @@ func LookupNetBIOSName(address string) (string, error) {
 	m := &dns.Msg{}
 	m.SetQuestion("CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.", dns.TypeSRV)
 
-	// forcibly set the flags to 0
+	// forcibly set the flags to 0, for some reaon I couldn't figure a way
+	// to do this in the dns library and this seems to be the best other shot
+	// for doing it
 	bytes, err := m.Pack()
 	bytes[2] = 0
 	bytes[3] = 0

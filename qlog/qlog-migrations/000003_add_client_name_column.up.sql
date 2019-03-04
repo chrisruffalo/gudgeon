@@ -1,2 +1,2 @@
 -- add new "ClientName" column to table
-ALTER TABLE qlog ADD ClientName TEXT;
+ALTER TABLE qlog ADD ClientName TEXT DEFAULT '';

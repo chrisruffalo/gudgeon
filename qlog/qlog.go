@@ -81,17 +81,18 @@ type QueryLogQuery struct {
 
 // store database location
 type qlog struct {
-	rlookup ReverseLookupFunction
-	cache   *cache.Cache
+	rlookup     ReverseLookupFunction
+	cache       *cache.Cache
+	mdnsCache   *cache.Cache
 
-	fileLogger *log.Logger
-	stdLogger  *log.Logger
+	fileLogger  *log.Logger
+	stdLogger   *log.Logger
 
-	store       *sql.DB
-	qlConf      *config.GudgeonQueryLog
-	logInfoChan chan *LogInfo
-	doneChan    chan bool
-	batch       []*LogInfo
+	store        *sql.DB
+	qlConf       *config.GudgeonQueryLog
+	logInfoChan  chan *LogInfo
+	doneChan     chan bool
+	batch        []*LogInfo
 }
 
 // public interface
@@ -115,6 +116,7 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 	}
 	// create reverse lookup cache with given ttl and given reap interval
 	qlog.cache = cache.New(5*time.Minute, 10*time.Minute)
+	qlog.mdnsCache = cache.New(cache.NoExpiration, 10*time.Minute)
 
 	// create distinct loggers for query output
 	if qlConf.File != "" {
@@ -153,6 +155,31 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 	qlog.logInfoChan = make(chan *LogInfo, qlConf.BatchSize*10) // support 10 "batches" in queue
 	qlog.doneChan = make(chan bool)
 	go qlog.logWorker()
+
+	// create background tasks/channels for mdns polling
+	msgChan := make(chan *dns.Msg)
+    go MulticastMdnsListen(msgChan)
+    go CacheMulticastMessages(qlog.mdnsCache, msgChan)
+    // and create exponential backoff for timer for multicast query
+    go func() {
+    	// create and start timer
+    	duration := 1 * time.Second
+    	mdnsQueryTimer := time.NewTimer(duration)
+
+    	// wait for time and do actions
+    	for _ = range mdnsQueryTimer.C {
+    		// make query
+    		MulticastMdnsQuery()
+
+    		// extend timer, should be exponential backoff but this is close enough
+    		duration = duration * 10
+    		if duration > time.Hour {
+    			duration = time.Hour
+    		}
+    		mdnsQueryTimer.Reset(duration)
+    	}
+    }()
+
 
 	// only build DB if persistence is enabled
 	if *(qlog.qlConf.Persist) {
@@ -390,6 +417,48 @@ func (qlog *qlog) log(info *LogInfo) {
 	}
 }
 
+func (qlog *qlog) getReverseName(address string) string {
+	// look in local cache for name
+	if value, found := qlog.cache.Get(address); found {
+		if valueString, ok := value.(string); ok {
+			return valueString
+		}
+	}
+
+	name := ""
+
+	// if there is a reverselookup function use it to add a reverse lookup step
+	if qlog.rlookup != nil {
+		name = qlog.rlookup(address)
+		if strings.HasSuffix(name, ".") {
+			name = name[:len(name)-1]
+		}
+	}
+
+	// look in the mdns cache 
+	if qlog.mdnsCache != nil {
+		name := ReadCachedHostname(qlog.mdnsCache, address)
+		if name != "" {
+			return name
+		}
+	}
+
+	// if no result from rlookup then try and lookup the netbios name from the host
+	if "" == name {
+		var err error
+		name, err = util.LookupNetBIOSName(address)
+		if err != nil {
+			// don't really need to see these
+			log.Tracef("During NETBIOS lookup: %s", err)
+		}
+	}
+
+	// store result, even empty results, to prevent continual lookups
+	qlog.cache.Set(address, name, cache.DefaultExpiration)
+
+	return name
+}
+
 // this is the actual log worker that handles incoming log messages in a separate go routine
 func (qlog *qlog) logWorker() {
 	// create ticker from conf
@@ -436,34 +505,8 @@ func (qlog *qlog) logWorker() {
 					info.ConnectionType = info.RequestContext.Protocol
 				}
 
-				// look in local cache for name
-				if value, found := qlog.cache.Get(info.Address); found {
-					if valueString, ok := value.(string); ok {
-						info.ClientName = valueString
-					}
-				} else {
-					// if there is a reverselookup function use it to add a reverse lookup step
-					if "" == info.ClientName && qlog.rlookup != nil {
-						info.ClientName = qlog.rlookup(info.Address)
-						if strings.HasSuffix(info.ClientName, ".") {
-							info.ClientName = info.ClientName[:len(info.ClientName)-1]
-						}
-					}
-
-					// if no result from rlookup then try and lookup the netbios name from the host
-					if "" == info.ClientName {
-						// try netbios lookup on IP
-						var err error
-						info.ClientName, err = util.LookupNetBIOSName(info.Address)
-						if err != nil {
-							// don't really need to see these
-							log.Tracef("During NETBIOS lookup: %s", err)
-						}
-					}
-
-					// store result, even empty results, to prevent continual lookups
-					qlog.cache.Set(info.Address, info.ClientName, cache.DefaultExpiration)
-				}
+				// get reverse lookup name
+				info.ClientName = qlog.getReverseName(info.Address)
 			}
 
 			// only log to
@@ -586,36 +629,26 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	results := make([]LogInfo, 0)
 
 	// only define once
-	var address string
-	var clientName string
-	var consumer string
-	var requestDomain string
-	var requestType string
-	var responseText string
-	var blocked bool
-	var blockedList string
-	var blockedRule string
-	var created time.Time
+	var clientName sql.NullString
+	var consumer sql.NullString
 
 	for rows.Next() {
-		err = rows.Scan(&address, &clientName, &consumer, &requestDomain, &requestType, &responseText, &blocked, &blockedList, &blockedRule, &created)
+		info := LogInfo{}
+		err = rows.Scan(&info.Address, &clientName, &consumer, &info.RequestDomain, &info.RequestType, &info.ResponseText, &info.Blocked, &info.BlockedList, &info.BlockedRule, &info.Created)
 		if err != nil {
 			log.Errorf("Scanning qlog results: %s", err)
 			continue
 		}
-		logInfo := LogInfo{
-			Address:       address,
-			ClientName:    clientName,
-			Consumer:      consumer,
-			RequestDomain: requestDomain,
-			RequestType:   requestType,
-			ResponseText:  responseText,
-			Blocked:       blocked,
-			BlockedList:   blockedList,
-			BlockedRule:   blockedRule,
-			Created:       created,
+
+		// add potentially nil values separately
+		if clientName.Valid {
+			clientName.Scan(&info.ClientName)
 		}
-		results = append(results, logInfo)
+		if consumer.Valid {
+			consumer.Scan(&info.Consumer)
+		}
+
+		results = append(results, info)
 	}
 
 	return results

@@ -1,3 +1,9 @@
+-- drop indexes for table
+DROP INDEX qlog_AddressIndex;
+DROP INDEX qlog_RequestDomainIndex;
+DROP INDEX qlog_BlockedIndex;
+DROP INDEX qlog_CreatedIndex;
+
 -- move existing qlog table
 ALTER TABLE qlog RENAME to _qlog_old;
 
@@ -13,11 +19,6 @@ CREATE TABLE qlog (
     BlockedRule   TEXT,
     Created       DATETIME
 );
--- indexes for table
-CREATE INDEX qlog_AddressIndex ON qlog (Address);
-CREATE INDEX qlog_RequestDomainIndex ON qlog (RequestDomain);
-CREATE INDEX qlog_BlockedIndex ON qlog (Blocked);
-CREATE INDEX qlog_CreatedIndex ON qlog (Created);
 
 -- move records into table
 INSERT INTO qlog (Address, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created)
@@ -25,4 +26,10 @@ INSERT INTO qlog (Address, Consumer, RequestDomain, RequestType, ResponseText, B
     FROM _qlog_old;
 
 -- drop old table
-DROP TABLE qlog_old;
+DROP TABLE _qlog_old;
+
+-- indexes for table after insert/drop
+CREATE INDEX qlog_AddressIndex ON qlog (Address);
+CREATE INDEX qlog_RequestDomainIndex ON qlog (RequestDomain);
+CREATE INDEX qlog_BlockedIndex ON qlog (Blocked);
+CREATE INDEX qlog_CreatedIndex ON qlog (Created);
