@@ -72,6 +72,7 @@ before_deploy:
   - BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
   - BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
   - BINARY_TARGET=gudgeon-linux-mips OS_ARCH=mips make tar
+  - BINARY_TARGET=gudgeon-linux-mipsle OS_ARCH=mipsle make tar
   # make docker build(s)
   - BINARY_TARGET=gudgeon-linux-amd64 make docker
   # push build(s) to docker cloud
