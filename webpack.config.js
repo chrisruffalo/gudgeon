@@ -12,12 +12,12 @@ module.exports = {
     context: __dirname + "/web/",
 
     entry: {
-        "gudgeon": "./app/js/gudgeon.js"
+        "gudgeon": "./app/js/gudgeon-index.js"
     },
 
     output: {
         path: __dirname + "/web/static",
-        filename: "js/[name].js",
+        filename: "js/[name].bundle.js",
         hotUpdateChunkFilename: 'hot/[id].[hash].hot-update.js',
         hotUpdateMainFilename: 'hot/[hash].hot-update.json'        
     },
@@ -63,8 +63,8 @@ module.exports = {
         new MiniCssExtractPlugin({
             // Options similar to the same options in webpackOptions.output
             // both options are optional
-            filename: "css/" + (devMode ? '[name].css' : '[name].[hash].css'),
-            chunkFilename: "css/" + ( devMode ? '[id].css' : '[id].[hash].css'),
+            filename: "css/" + (devMode ? '[name].bundle.css' : '[name].[hash].bundle.css'),
+            chunkFilename: "css/" + ( devMode ? '[id].bundle.css' : '[id].[hash].bundle.css'),
         }),
 
         //writes files on changes to src

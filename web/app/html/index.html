@@ -3,16 +3,18 @@
     <head>
         <meta charset="utf-8">
         <title>Gudgeon</title>
+         <meta id="appName" name="application-name" content="Gudgeon">
 
         <!-- webpack bundled css -->
-        <link rel="stylesheet" href="css/gudgeon.css">
-
-        <!-- webpack bundled dependencies -->
-        <script src="js/gudgeon.js"></script>
+        <link rel="stylesheet" href="css/gudgeon.bundle.css">
     </head>
  
     <body>
-        <div id="root"></div>
+      <noscript>Enabling JavaScript is required to run this app.</noscript>
+      <div id="root"></div>
+
+        <!-- webpack bundled dependencies -->
+        <script src="js/gudgeon.bundle.js"></script>
     </body>
 </html>
 
