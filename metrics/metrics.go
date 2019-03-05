@@ -35,7 +35,7 @@ const (
 	BlockedLifetimeQueries = "blocked-lifetime-queries"
 	QueryTime              = "query-time"
 	// cache entries
-	CurrentCacheEntries    = "cache-entries"
+	CurrentCacheEntries = "cache-entries"
 )
 
 type metricsInfo struct {
@@ -54,18 +54,18 @@ type MetricsEntry struct {
 
 type metrics struct {
 	// keep config
-	config          *config.GudgeonConfig
+	config *config.GudgeonConfig
 
 	registry        gometrics.Registry
 	metricsInfoChan chan *metricsInfo
 	db              *sql.DB
 
-	cacheSizeFunc   CacheSizeFunction
+	cacheSizeFunc CacheSizeFunction
 
 	// time management for interval insert
-	lastInsert      time.Time
-	ticker          *time.Ticker
-	doneTicker      chan bool
+	lastInsert time.Time
+	ticker     *time.Ticker
+	doneTicker chan bool
 }
 
 type CacheSizeFunction = func() int64
@@ -211,7 +211,6 @@ func New(config *config.GudgeonConfig) Metrics {
 		}
 		metrics.ticker.Stop()
 	}()
-
 
 	return metrics
 }

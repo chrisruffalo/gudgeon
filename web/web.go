@@ -84,7 +84,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 	if err != nil {
 		c.String(http.StatusServiceUnavailable, "Error retrieving metrics")
 		return
-	} 
+	}
 
 	// return encoded results
 	c.JSON(http.StatusOK, metricsEntries)
@@ -166,7 +166,7 @@ func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog 
 	})
 
 	// attach api
-	api := router.Group("/api") 
+	api := router.Group("/api")
 	{
 		// metrics api
 		api.GET("/metrics/current", web.GetMetrics)

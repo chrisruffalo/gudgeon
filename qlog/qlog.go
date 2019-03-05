@@ -37,7 +37,7 @@ type ReverseLookupFunction = func(addres string) string
 // and that is recovered via the Query method
 type LogInfo struct {
 	// client address
-	Address        string
+	Address string
 
 	// hold the information but aren't serialized
 	Request        *dns.Msg                   `json:"-"`
@@ -81,18 +81,18 @@ type QueryLogQuery struct {
 
 // store database location
 type qlog struct {
-	rlookup     ReverseLookupFunction
-	cache       *cache.Cache
-	mdnsCache   *cache.Cache
+	rlookup   ReverseLookupFunction
+	cache     *cache.Cache
+	mdnsCache *cache.Cache
 
-	fileLogger  *log.Logger
-	stdLogger   *log.Logger
+	fileLogger *log.Logger
+	stdLogger  *log.Logger
 
-	store        *sql.DB
-	qlConf       *config.GudgeonQueryLog
-	logInfoChan  chan *LogInfo
-	doneChan     chan bool
-	batch        []*LogInfo
+	store       *sql.DB
+	qlConf      *config.GudgeonQueryLog
+	logInfoChan chan *LogInfo
+	doneChan    chan bool
+	batch       []*LogInfo
 }
 
 // public interface
@@ -158,28 +158,27 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 
 	// create background tasks/channels for mdns polling
 	msgChan := make(chan *dns.Msg)
-    go MulticastMdnsListen(msgChan)
-    go CacheMulticastMessages(qlog.mdnsCache, msgChan)
-    // and create exponential backoff for timer for multicast query
-    go func() {
-    	// create and start timer
-    	duration := 1 * time.Second
-    	mdnsQueryTimer := time.NewTimer(duration)
+	go MulticastMdnsListen(msgChan)
+	go CacheMulticastMessages(qlog.mdnsCache, msgChan)
+	// and create exponential backoff for timer for multicast query
+	go func() {
+		// create and start timer
+		duration := 1 * time.Second
+		mdnsQueryTimer := time.NewTimer(duration)
 
-    	// wait for time and do actions
-    	for _ = range mdnsQueryTimer.C {
-    		// make query
-    		MulticastMdnsQuery()
+		// wait for time and do actions
+		for _ = range mdnsQueryTimer.C {
+			// make query
+			MulticastMdnsQuery()
 
-    		// extend timer, should be exponential backoff but this is close enough
-    		duration = duration * 10
-    		if duration > time.Hour {
-    			duration = time.Hour
-    		}
-    		mdnsQueryTimer.Reset(duration)
-    	}
-    }()
-
+			// extend timer, should be exponential backoff but this is close enough
+			duration = duration * 10
+			if duration > time.Hour {
+				duration = time.Hour
+			}
+			mdnsQueryTimer.Reset(duration)
+		}
+	}()
 
 	// only build DB if persistence is enabled
 	if *(qlog.qlConf.Persist) {
@@ -435,7 +434,7 @@ func (qlog *qlog) getReverseName(address string) string {
 		}
 	}
 
-	// look in the mdns cache 
+	// look in the mdns cache
 	if qlog.mdnsCache != nil {
 		name := ReadCachedHostname(qlog.mdnsCache, address)
 		if name != "" {
