@@ -115,7 +115,7 @@ func (resolver *resolver) answer(rCon *RequestContext, context *ResolutionContex
 		response, err := source.Answer(rCon, context, request)
 
 		if err != nil {
-			log.Errorf("Source '%s': %s", source.Name(), err)
+			log.Errorf("Source '%s' for question: '%s': %s", source.Name(), request.Question[0].Name, err)
 			continue
 		}
 

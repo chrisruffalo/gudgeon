@@ -17,3 +17,11 @@ build
 
 # ignore spec file since it is generated
 .copr/*.spec
+
+# no node modules
+node_modules
+node_modules/**
+package-lock.json
+
+# ignore webpack output dist folder
+web/static/**

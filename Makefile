@@ -54,6 +54,11 @@ NUMBER?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([
 RELEASE?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\3/' | sed 's/^$$/1/' )
 DESCRIPTOR?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\1/' | sed 's/^v$$//' )
 
+# npm webpack
+NPM?=$(shell which npm)
+WEBPACK=$(MKFILE_DIR)/node_modules/.bin/webpack
+WEBPACKCLI=$(WEBPACK)-cli
+
 # docker stuff
 DOCKER=$(shell which docker)
 DOCKER_PATH?=gudgeon
@@ -70,7 +75,7 @@ OS_ARCH?=x86_64
 BINARY_TARGET?=$(BINARY_NAME)-$(OS_TYPE)-$(OS_BIN_ARCH)
 
 # build tags can change by target platform, only linux builds for now though
-GO_BUILD_TAGS?=netgo linux sqlite3 
+GO_BUILD_TAGS?=netgo linux sqlite3 jsoniter
 GO_LD_FLAGS?=-s -w -extldflags "-static" -X main.Version="$(VERSION)" -X main.GitHash="$(GITHASH)"
 
 # patternfly artifact
@@ -78,13 +83,17 @@ PFVERSION=3.59.1
 PFARTIFACT=v$(PFVERSION)
 PFPATH=patternfly-$(PFVERSION)
 
+# vuetifyjs artifact
+VTVERSION=v1.5.4
+VTFYARTIFACT=vuetify-$(VTVERSION).zip
+
 # common FPM commands
 FMPARCH?=$(shell echo "$(OS_ARCH)" | sed -r 's/arm-?5/armhf/g' | sed -r 's/arm-?6/armhf/g' | sed -r 's/arm-?7/armhf/g')
 FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration "$(RELEASE)" --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/log/gudgeon" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --prefix / -C $(BUILD_DIR)/pkgtmp
 FPMSCRIPTS=$(FPMCOMMON) --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh
 
 all: test build
-.PHONY: all announce prepare test build clean minimize package rpm deb docker tar
+.PHONY: all announce prepare test build clean minimize package rpm deb docker tar npm webpack
 
 announce:
 		@echo "$(BINARY_NAME)"
@@ -101,35 +110,13 @@ prepare: ## Get all go tools and required libraries
 		$(GOCMD) get -u github.com/mitchellh/gox
 		$(GOCMD) get -u github.com/GeertJohan/go.rice/rice
 
-download: ## Download newest supplementary assets (todo: maybe replace with webpack?)
-		mkdir -p $(BUILD_DIR)/download/
-		mkdir -p $(BUILD_DIR)/vendor
-		$(CURLCMD) https://github.com/patternfly/patternfly/archive/$(PFARTIFACT).tar.gz -L -o $(BUILD_DIR)/download/$(PFARTIFACT).tar.gz
-		tar xf $(BUILD_DIR)/download/$(PFARTIFACT).tar.gz -C $(BUILD_DIR)/vendor
+npm: ## download project npm dependencies
+		$(NPM) install 	
 
-		rm -rf $(MKFILE_DIR)/web/assets/vendor/*
+webpack: ## prepare assets and build distribution
+		$(WEBPACKCLI) --config $(MKFILE_DIR)/webpack.config.js
 
-		mkdir -p $(MKFILE_DIR)/web/assets/vendor/img
-		mkdir -p $(MKFILE_DIR)/web/assets/vendor/fonts
-		cp $(BUILD_DIR)/vendor/$(PFPATH)/dist/img/* $(MKFILE_DIR)/web/assets/vendor/img/.
-		cp $(BUILD_DIR)/vendor/$(PFPATH)/dist/fonts/* $(MKFILE_DIR)/web/assets/vendor/fonts/.
-
-		mkdir -p $(MKFILE_DIR)/web/assets/vendor/css
-		cp $(BUILD_DIR)/vendor/$(PFPATH)/dist/css/patternfly.min.css $(MKFILE_DIR)/web/assets/vendor/css/patternfly.min.css
-		cp $(BUILD_DIR)/vendor/$(PFPATH)/dist/css/patternfly-additions.min.css $(MKFILE_DIR)/web/assets/vendor/css/patternfly-additions.min.css
-		$(CURLCMD) https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css -L -o $(MKFILE_DIR)/web/assets/vendor/css/vuetify.min.css
-
-		mkdir -p $(MKFILE_DIR)/web/assets/vendor/js
-		$(CURLCMD) https://cdn.jsdelivr.net/npm/vue -L -o $(MKFILE_DIR)/web/assets/vendor/js/vue.min.js
-		$(CURLCMD) https://unpkg.com/axios/dist/axios.min.js -L -o $(MKFILE_DIR)/web/assets/vendor/js/axios.min.js
-		$(CURLCMD) https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js -L -o $(MKFILE_DIR)/web/assets/vendor/js/jquery.min.js
-		$(CURLCMD) https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js -L -o $(MKFILE_DIR)/web/assets/vendor/js/bootstrap.min.js
-		$(CURLCMD) https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js -L -o $(MKFILE_DIR)/web/assets/vendor/js/vuetify.js
-		cp $(BUILD_DIR)/vendor/$(PFPATH)/dist/js/patternfly.min.js $(MKFILE_DIR)/web/assets/vendor/js/patternfly.min.js
-		rm -rf $(BUILD_DIR)/download
-		rm -rf $(BUILD_DIR)/vendor
-
-build: announce ## Build Binary
+build: announce  ## Build Binary
 		$(GODOWN)
 		mkdir -p $(BUILD_DIR)
 		$(RICECMD) embed-go $(RICEPATHS)
@@ -157,6 +144,8 @@ clean: ## Remove build artifacts
 		$(GOCLEAN)
 		# remove rice artifacts
 		$(RICECMD) clean $(RICEPATHS)
+		# remove dist from static assets
+		rm -rf ./web/static/*
 		# remove build dir
 		rm -rf $(BUILD_DIR)
 

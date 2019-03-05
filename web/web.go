@@ -3,13 +3,13 @@ package web
 import (
 	"fmt"
 	"net/http"
+	//"path"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/GeertJohan/go.rice"
-	"github.com/gorilla/mux"
-	"github.com/json-iterator/go"
+	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -30,37 +30,21 @@ func New() Web {
 	return &web{}
 }
 
-// write all metrics out to encoder
-var json = jsoniter.Config{
-	EscapeHTML:                    false,
-	MarshalFloatWith6Digits:       true,
-	ObjectFieldMustBeSimpleString: true,
-	SortMapKeys:                   false,
-	ValidateJsonRawMessage:        true,
-	DisallowUnknownFields:         false,
-}.Froze()
-
 // get metrics counter named in query
-func (web *web) GetMetrics(w http.ResponseWriter, r *http.Request) {
+func (web *web) GetMetrics(c *gin.Context) {
 	if web.metrics == nil {
-		http.Error(w, "Metrics not enabled", http.StatusNotFound)
+		c.String(http.StatusNotFound, "Metrics not enabled)")
 		return
 	}
 
-	// get all available metrics
-	response := web.metrics.GetAll()
-
-	json.NewEncoder(w).Encode(response)
+	c.JSON(http.StatusOK, web.metrics.GetAll())
 }
 
-func (web *web) QueryMetrics(w http.ResponseWriter, r *http.Request) {
+func (web *web) QueryMetrics(c *gin.Context) {
 	if web.metrics == nil {
-		http.Error(w, "Metrics not enabled", http.StatusNotFound)
+		c.String(http.StatusNotFound, "Metrics not enabled)")
 		return
 	}
-
-	// add in other query options from params
-	vals := r.URL.Query()
 
 	var (
 		queryStart *time.Time
@@ -68,8 +52,8 @@ func (web *web) QueryMetrics(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// look for and convert time (seconds since unix epoch) to local date
-	if start, ok := vals["start"]; ok && len(start) > 0 {
-		iStart, err := strconv.ParseInt(start[0], 10, 64)
+	if start := c.Query("start"); len(start) > 0 {
+		iStart, err := strconv.ParseInt(start, 10, 64)
 		if err != nil {
 			iStart = 0
 		}
@@ -77,8 +61,8 @@ func (web *web) QueryMetrics(w http.ResponseWriter, r *http.Request) {
 		queryStart = &startTime
 	}
 
-	if end, ok := vals["end"]; ok && len(end) > 0 {
-		iEnd, err := strconv.ParseInt(end[0], 10, 64)
+	if end := c.Query("end"); len(end) > 0 {
+		iEnd, err := strconv.ParseInt(end, 10, 64)
 		if err != nil {
 			endTime := time.Unix(iEnd, 0)
 			queryEnd = &endTime
@@ -98,20 +82,17 @@ func (web *web) QueryMetrics(w http.ResponseWriter, r *http.Request) {
 	// get results
 	metricsEntries, err := web.metrics.Query(*queryStart, *queryEnd)
 	if err != nil {
-		w.Write([]byte(fmt.Sprintf("%s", err)))
+		c.String(http.StatusServiceUnavailable, "Error retrieving metrics")
 		return
-	} else if len(metricsEntries) < 1 {
-		w.Write([]byte("[]"))
-		return
-	}
+	} 
 
 	// return encoded results
-	json.NewEncoder(w).Encode(metricsEntries)
+	c.JSON(http.StatusOK, metricsEntries)
 }
 
-func (web *web) GetQueryLogInfo(w http.ResponseWriter, r *http.Request) {
+func (web *web) GetQueryLogInfo(c *gin.Context) {
 	if web.queryLog == nil {
-		http.Error(w, "Query Log not enabled", http.StatusNotFound)
+		c.String(http.StatusNotFound, "Query log not enabled)")
 		return
 	}
 
@@ -121,62 +102,50 @@ func (web *web) GetQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 		query.Limit = 100 // default limit to 100 entries
 	}
 
-	// add in other query options from params
-	vals := r.URL.Query()
-
-	if limit, ok := vals["limit"]; ok && len(limit) > 0 {
-		if "none" == strings.ToLower(limit[0]) {
+	if limit := c.Query("limit"); len(limit) > 0 {
+		if "none" == strings.ToLower(limit) {
 			query.Limit = 0
 		} else {
-			iLimit, err := strconv.Atoi(limit[0])
+			iLimit, err := strconv.Atoi(limit)
 			if err == nil {
 				query.Limit = iLimit
 			}
 		}
 	}
 
-	if blocked, ok := vals["blocked"]; ok && len(blocked) > 0 {
-		bl := blocked[0]
-		if "true" == strings.ToLower(bl) {
+	if blocked := c.Query("blocked"); len(blocked) > 0 {
+		if "true" == strings.ToLower(blocked) {
 			boolHolder := true
 			query.Blocked = &boolHolder
-		} else if "false" == strings.ToLower(bl) {
+		} else if "false" == strings.ToLower(blocked) {
 			boolHolder := false
 			query.Blocked = &boolHolder
 		}
 	}
 
-	if requestDomains, ok := vals["rdomain"]; ok && len(requestDomains) > 0 {
-		query.RequestDomain = requestDomains[0]
+	if requestDomain := c.Query("rdomain"); len(requestDomain) > 0 {
+		query.RequestDomain = requestDomain
 	}
 
 	// look for and convert time (seconds since unix epoch) to local date
-	if after, ok := vals["after"]; ok && len(after) > 0 {
-		iAfter, err := strconv.ParseInt(after[0], 10, 64)
+	if after := c.Query("after"); len(after) > 0 {
+		iAfter, err := strconv.ParseInt(after, 10, 64)
 		if err == nil {
 			afterTime := time.Unix(iAfter, 0)
 			query.After = &afterTime
 		}
 	}
 
-	if before, ok := vals["before"]; ok && len(before) > 0 {
-		iBefore, err := strconv.ParseInt(before[0], 10, 64)
+	if before := c.Query("before"); len(before) > 0 {
+		iBefore, err := strconv.ParseInt(before, 10, 64)
 		if err == nil {
 			beforeTime := time.Unix(iBefore, 0)
 			query.Before = &beforeTime
 		}
 	}
 
-	// query against query log
-	results := web.queryLog.Query(query)
-
-	if len(results) == 0 {
-		w.Write([]byte("[]"))
-		return
-	}
-
-	// return encoded results
-	json.NewEncoder(w).Encode(results)
+	// query against query log and return encoded results
+	c.JSON(http.StatusOK, web.queryLog.Query(query))
 }
 
 func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog qlog.QLog) error {
@@ -185,20 +154,31 @@ func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog 
 	web.queryLog = qlog
 
 	// create new router
-	router := mux.NewRouter()
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+	router.Use(gin.Recovery())
 
-	// attach metrics
-	router.HandleFunc("/api/metrics/current", web.GetMetrics).Methods("GET")
-	router.HandleFunc("/api/metrics/query", web.QueryMetrics).Methods("GET")
-	router.HandleFunc("/api/log", web.GetQueryLogInfo).Methods("GET")
+	// if no route is matched, attempt to serve static assets
+	box := rice.MustFindBox("static").HTTPBox()
+	fileServer := http.StripPrefix("/", http.FileServer(box))
+	router.NoRoute(func(c *gin.Context) {
+		fileServer.ServeHTTP(c.Writer, c.Request)
+	})
 
-	// attach to static assets
-	router.PathPrefix("/").Handler(http.FileServer(rice.MustFindBox("assets").HTTPBox()))
+	// attach api
+	api := router.Group("/api") 
+	{
+		// metrics api
+		api.GET("/metrics/current", web.GetMetrics)
+		api.GET("/metrics/query", web.QueryMetrics)
+		// attach query log
+		api.GET("/log", web.GetQueryLogInfo)
+	}
 
 	// go serve
 	webConf := conf.Web
 	address := fmt.Sprintf("%s:%d", webConf.Address, webConf.Port)
-	go http.ListenAndServe(address, router)
+	go router.Run(address)
 	log.Infof("Started web ui on %s", address)
 
 	return nil

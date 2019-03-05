@@ -34,6 +34,8 @@ const (
 	BlockedQueries         = "blocked-session-queries"
 	BlockedLifetimeQueries = "blocked-lifetime-queries"
 	QueryTime              = "query-time"
+	// cache entries
+	CurrentCacheEntries    = "cache-entries"
 )
 
 type metricsInfo struct {
@@ -52,17 +54,21 @@ type MetricsEntry struct {
 
 type metrics struct {
 	// keep config
-	config *config.GudgeonConfig
+	config          *config.GudgeonConfig
 
 	registry        gometrics.Registry
 	metricsInfoChan chan *metricsInfo
 	db              *sql.DB
 
+	cacheSizeFunc   CacheSizeFunction
+
 	// time management for interval insert
-	lastInsert time.Time
-	ticker     *time.Ticker
-	doneTicker chan bool
+	lastInsert      time.Time
+	ticker          *time.Ticker
+	doneTicker      chan bool
 }
+
+type CacheSizeFunction = func() int64
 
 type Metrics interface {
 	GetAll() map[string]map[string]interface{}
@@ -70,6 +76,9 @@ type Metrics interface {
 	GetGauge(name string) gometrics.Gauge
 	GetCounter(name string) gometrics.Counter
 	GetTimer(name string) gometrics.Timer
+
+	// use cache function
+	UseCacheSizeFunction(function CacheSizeFunction)
 
 	// record relevant metrics based on request
 	RecordQueryMetrics(request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult)
@@ -100,6 +109,7 @@ func New(config *config.GudgeonConfig) Metrics {
 	// create metrics things that we want to be ready to at the first query every time
 	gometrics.GetOrRegisterCounter(TotalQueries, metrics.registry)
 	gometrics.GetOrRegisterCounter(TotalLifetimeQueries, metrics.registry)
+	gometrics.GetOrRegisterCounter(TotalIntervalQueries, metrics.registry)
 	gometrics.GetOrRegisterCounter(TotalRules, metrics.registry)
 	gometrics.GetOrRegisterCounter(CachedQueries, metrics.registry)
 	gometrics.GetOrRegisterCounter(BlockedQueries, metrics.registry)
@@ -158,38 +168,50 @@ func New(config *config.GudgeonConfig) Metrics {
 		// keep store handler
 		metrics.db = db
 
-		// prune metrics
-		metrics.prune()
-
-		// start ticker to persist data
-		duration, _ := util.ParseDuration(config.Metrics.Interval)
-		metrics.ticker = time.NewTicker(duration)
-		metrics.doneTicker = make(chan bool)
-		metrics.lastInsert = time.Now()
-
 		// init lifetime metric counts
 		metrics.load()
 
-		// start go function to monitor ticker
-		go func() {
-			for {
-				select {
-				case <-metrics.ticker.C:
-					// insert new metrics
-					metrics.insert(time.Now())
-					// prune old metrics
-					metrics.prune()
-				case <-metrics.doneTicker:
-					break
-				}
-			}
-			metrics.ticker.Stop()
-		}()
+		// prune metrics after load (in case the service has been down longer than the prune interval)
+		metrics.prune()
 	}
 
 	// create channel for incoming metrics and start recorder
 	metrics.metricsInfoChan = make(chan *metricsInfo, 100)
 	go metrics.record()
+
+	// start ticker to persist data and update periodic metrics
+	duration, _ := util.ParseDuration(config.Metrics.Interval)
+	metrics.ticker = time.NewTicker(duration)
+	metrics.doneTicker = make(chan bool)
+	metrics.lastInsert = time.Now()
+
+	// start go function to monitor ticker
+	go func() {
+		for {
+			select {
+			case <-metrics.ticker.C:
+				// capture runtime memory metrics into registry
+				//gometrics.CaptureRuntimeMemStatsOnce(metrics.registry)
+
+				// capture cache size
+				if metrics.cacheSizeFunc != nil {
+					gometrics.GetOrRegisterGauge(CurrentCacheEntries, metrics.registry).Update(metrics.cacheSizeFunc())
+				}
+
+				// only insert/prune if a db exists
+				if metrics.db != nil {
+					// insert new metrics
+					metrics.insert(time.Now())
+					// prune old metrics
+					metrics.prune()
+				}
+			case <-metrics.doneTicker:
+				break
+			}
+		}
+		metrics.ticker.Stop()
+	}()
+
 
 	return metrics
 }
@@ -238,6 +260,7 @@ func (metrics *metrics) record() {
 func (metrics *metrics) insert(currentTime time.Time) {
 	// get all metrics
 	all := metrics.GetAll()
+
 	// make into json string
 	bytes, err := json.Marshal(all)
 	if err != nil {
@@ -352,6 +375,10 @@ func (metrics *metrics) load() {
 			}
 		}
 	}
+}
+
+func (metrics *metrics) UseCacheSizeFunction(function CacheSizeFunction) {
+	metrics.cacheSizeFunc = function
 }
 
 func (metrics *metrics) RecordQueryMetrics(request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {

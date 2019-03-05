@@ -93,6 +93,7 @@ type Engine interface {
 	Resolve(domainName string) (string, error)
 	Reverse(address string) string
 	Handle(address *net.IP, protocol string, dnsWriter dns.ResponseWriter, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
+	CacheSize() int64
 }
 
 func (engine *engine) getConsumerForIp(consumerIp *net.IP) *consumer {
@@ -393,4 +394,11 @@ func (engine *engine) Reverse(address string) string {
 func (engine *engine) Handle(address *net.IP, protocol string, dnsWriter dns.ResponseWriter, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
 	// return results
 	return engine.performRequest(address, protocol, request)
+}
+
+func (engine *engine) CacheSize() int64 {
+	if engine.resolvers != nil && engine.resolvers.Cache() != nil {
+		return int64(engine.resolvers.Cache().Size())
+	}
+	return 0
 }

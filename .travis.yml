@@ -42,18 +42,19 @@ before_script:
   - make announce
   # install dependencies
   - sudo apt-get update
-  - sudo apt-get install -y upx-ucl ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib and g++-multilib
+  - sudo apt-get install -y upx-ucl ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib g++-multilib npm
   - gem install --no-ri --no-rdoc fpm
   # pull xgo container
   - travis_wait docker pull karalabe/xgo-latest
   # prepare build environment
-  - travis_wait make prepare  
+  - travis_wait make prepare
+  - travis_wait make npm
 
 # the script needs to build the binaries to be successful
 script:
   - make test
   # get third-party resources for build
-  - make download
+  - make webpack
   # build binaries
   - make GOOS_LIST="linux" GOARCH_LIST="386 amd64" build
   - travis_wait make buildxgo

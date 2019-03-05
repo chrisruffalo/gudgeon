@@ -91,6 +91,9 @@ func (gudgeon *Gudgeon) Start() error {
 		return err
 	}
 	gudgeon.engine = eng
+	if mets != nil {
+		mets.UseCacheSizeFunction(eng.CacheSize)
+	}
 
 	// create a new provider and start hosting
 	provider := provider.NewProvider()
