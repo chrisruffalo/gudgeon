@@ -1,6 +1,8 @@
-import React from "react";
+import React, { Component } from 'react';
 import ReactDOM from "react-dom";
+import "@patternfly/patternfly/patternfly.css"
+import "@patternfly/patternfly/components/Page/page.css"
 import "@patternfly/react-core/dist/styles/base.css";
-import Gudgeon from "./gudgeon";
+import { HorizontalPage } from './gudgeon'
 
-ReactDOM.render(<Gudgeon />, document.getElementById("root"));
+ReactDOM.render(<HorizontalPage />, document.getElementById("root"));

@@ -1,30 +1,46 @@
-import React, { Component } from 'react';
-import { Alert, AlertActionCloseButton } from '@patternfly/react-core';
-import './gudgeon.css';
+import React from 'react';
+import { 
+  Nav, 
+  NavItem,
+  NavList,
+  NavVariants,
+  Page, 
+  PageHeader, 
+  PageSection, 
+  PageSectionVariants 
+} from '@patternfly/react-core';
+import { QPSChart } from './metrics-chart.js'
 
-export default class App extends Component {
-  state = {
-    isShowing: true
-  };
-  dismissNotification = () => {
-    this.setState({ isShowing: false });
-  };
+export class HorizontalPage extends React.Component {
   render() {
-    const { isShowing } = this.state;
+    // header navigation
+    const NavigationBar = (
+      <div style={{ backgroundColor: '#292e34', paddingLeft: '1rem', paddingRight: '1rem' }}>
+        <Nav>
+          <NavList variant={NavVariants.horizontal}>
+            <NavItem preventDefault to="#dashboard" itemId={0}>
+              Dashboard
+            </NavItem>
+            <NavItem preventDefault to="#qlog" itemId={1}>
+              Query Log
+            </NavItem>
+          </NavList>
+        </Nav>
+      </div>      
+    );
+
+    // header glue
+    const Header = (
+      <PageHeader logo="Gudgeon"/>
+    );
+
     return (
-      <div className="app-container">
-        {isShowing && (
-          <div className="notification-container">
-            <Alert
-              variant="success"
-              title="Setup Complete"
-              action={<AlertActionCloseButton onClose={this.dismissNotification} />}
-            >
-              You have successfully launched your patternfly starter project.
-            </Alert>
-          </div>
-        )}
-      </div>
+      <Page header={Header}>
+        {NavigationBar}
+        <PageSection>
+          <QPSChart />
+        </PageSection>
+      </Page>
     );
   }
 }

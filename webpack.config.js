@@ -4,6 +4,7 @@ var webpack = require('webpack');
 var CopyWebpackPlugin = require('copy-webpack-plugin');
 var MiniCssExtractPlugin = require("mini-css-extract-plugin");
 var WriteFilesPlugin = require('write-file-webpack-plugin');
+var OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');
 
 const devMode = process.env.NODE_ENV !== 'production'
 
@@ -65,6 +66,15 @@ module.exports = {
             // both options are optional
             filename: "css/" + (devMode ? '[name].bundle.css' : '[name].[hash].bundle.css'),
             chunkFilename: "css/" + ( devMode ? '[id].bundle.css' : '[id].[hash].bundle.css'),
+        }),
+
+        new OptimizeCssAssetsPlugin({
+            assetNameRegExp: /\.bundle\.css$/g,
+            cssProcessor: require('cssnano'),
+            cssProcessorPluginOptions: {
+                preset: ['default', { discardComments: { removeAll: true } }],
+            },
+            canPrint: true
         }),
 
         //writes files on changes to src

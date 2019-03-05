@@ -33,6 +33,7 @@ const (
 	CachedQueries          = "cached-queries"
 	BlockedQueries         = "blocked-session-queries"
 	BlockedLifetimeQueries = "blocked-lifetime-queries"
+	BlockedIntervalQueries = "blocked-interval-queries"
 	QueryTime              = "query-time"
 	// cache entries
 	CurrentCacheEntries = "cache-entries"
@@ -252,6 +253,7 @@ func (metrics *metrics) record() {
 		if info.result != nil && info.result.Blocked {
 			metrics.GetCounter(BlockedQueries).Inc(1)
 			metrics.GetCounter(BlockedLifetimeQueries).Inc(1)
+			metrics.GetCounter(BlockedIntervalQueries).Inc(1)
 		}
 	}
 }
@@ -282,6 +284,7 @@ func (metrics *metrics) insert(currentTime time.Time) {
 
 	// clear and restart interval
 	metrics.GetCounter(TotalIntervalQueries).Clear()
+	metrics.GetCounter(BlockedIntervalQueries).Clear()
 	metrics.lastInsert = currentTime
 }
 
@@ -294,7 +297,7 @@ func (metrics *metrics) prune() {
 }
 
 func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, error) {
-	rows, err := metrics.db.Query("SELECT FromTime, AtTime, MetricsJson, IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime DESC", start, end)
+	rows, err := metrics.db.Query("SELECT FromTime, AtTime, MetricsJson, IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime ASC", start, end)
 	if err != nil {
 		return []*MetricsEntry{}, err
 	}

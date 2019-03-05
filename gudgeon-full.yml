@@ -20,7 +20,7 @@ gudgeon:
   query_log:
     enabled: true   # enabled by default, to disable query log set to "false"
     duration: 10d   # how long to keep queries on disk, older queries are deleted
-    stdout: true    # should queries be logged to standard out
+    stdout: false    # should queries be logged to standard out
     batch: 50       # how many queries are batched together for inserts (max is 1000)
     interval: 1s    # how often to commit batches that aren't full (min is 500ms)
     file: ./.gudgeon/logs/query.log # log queries to file AND stdout (you can set stdout to false and log to jsut the file)
