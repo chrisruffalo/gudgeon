@@ -45,7 +45,7 @@ BINARY_NAME=gudgeon
 
 # get version and hash from git if not passed in
 VERSION?=$(shell git describe --tags $$(git rev-list --tags --max-count=1) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/v\2/')
-LONGVERSION?=$(shell git describe | sed 's/^$$/$(VERSION)/')
+LONGVERSION?=$(shell git describe --tags | sed 's/^$$/$(VERSION)/')
 GITHASH?=$(shell git rev-parse HEAD | head -c7)
 NUMBER?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/' )
 RELEASE?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\3/' | sed 's/^$$/1/' )
