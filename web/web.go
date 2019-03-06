@@ -1,9 +1,9 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"net/http"
-	//"path"
 	"strconv"
 	"strings"
 	"time"
@@ -19,12 +19,14 @@ import (
 
 type web struct {
 	conf     *config.GudgeonConfig
+	server   *http.Server
 	metrics  metrics.Metrics
 	queryLog qlog.QLog
 }
 
 type Web interface {
 	Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog qlog.QLog) error
+	Stop()
 }
 
 func New() Web {
@@ -47,8 +49,8 @@ func (web *web) GetMetrics(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"metrics" : web.metrics.GetAll(),
-		"lists" : lists,
+		"metrics": web.metrics.GetAll(),
+		"lists":   lists,
 	})
 }
 
@@ -191,8 +193,29 @@ func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog 
 	// go serve
 	webConf := conf.Web
 	address := fmt.Sprintf("%s:%d", webConf.Address, webConf.Port)
-	go router.Run(address)
+	srv := &http.Server{
+		Addr:    address,
+		Handler: router,
+	}
+	web.server = srv
+	go func() {
+		// service connections
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Errorf("Starting server: %s", err)
+		}
+	}()
+
 	log.Infof("Started web ui on %s", address)
 
 	return nil
+}
+
+func (web *web) Stop() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := web.server.Shutdown(ctx); err != nil {
+		log.Errorf("Server Shutdown: %s", err)
+		return
+	}
+	ctx.Done()
 }

@@ -118,20 +118,28 @@ func (gudgeon *Gudgeon) Start() error {
 func (gudgeon *Gudgeon) Shutdown() {
 	// stop providers
 	if gudgeon.provider != nil {
+		log.Infof("Shutting down DNS endpoints...")
 		gudgeon.provider.Shutdown()
 	}
 
 	// stop web
+	if gudgeon.web != nil {
+		log.Infof("Shutting down Web service...")
+		gudgeon.web.Stop()
+	}
 
 	// stop metrics
 	if gudgeon.metrics != nil {
+		log.Infof("Shutting down Metrics service...")
 		gudgeon.metrics.Stop()
 	}
 
 	// stop query log
 	if gudgeon.qlog != nil {
+		log.Infof("Shutting down Query Log service...")
 		gudgeon.qlog.Stop()
 	}
+
 }
 
 func main() {

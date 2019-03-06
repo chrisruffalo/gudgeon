@@ -117,6 +117,7 @@ func New(config *config.GudgeonConfig) Metrics {
 	gometrics.GetOrRegisterCounter(BlockedIntervalQueries, metrics.registry)
 	gometrics.GetOrRegisterCounter(BlockedLifetimeQueries, metrics.registry)
 	gometrics.GetOrRegisterTimer(QueryTime, metrics.registry)
+	gometrics.GetOrRegisterGauge(CurrentCacheEntries, metrics.registry)
 
 	// open sql database and migrate to current version
 	if *(config.Metrics.Persist) {
@@ -141,7 +142,6 @@ func New(config *config.GudgeonConfig) Metrics {
 			// or a corrupted database
 			if _, rmErr := os.Stat(dbPath); !os.IsNotExist(rmErr) {
 				os.Remove(dbPath)
-
 			}
 			return nil
 		}
@@ -151,16 +151,19 @@ func New(config *config.GudgeonConfig) Metrics {
 
 		migrationDriver, err := migraterice.WithInstance(migrationsBox)
 		if err != nil {
+			log.Errorf("Could not get migration instances: %s", err)
 			return nil
 		}
 
 		dbDriver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
 		if err != nil {
+			log.Errorf("Could not open db: %s", err)
 			return nil
 		}
 
 		m, err := migrate.NewWithInstance("rice", migrationDriver, "sqlite3", dbDriver)
 		if err != nil {
+			log.Errorf("Could not migrate: %s", err)
 			return nil
 		}
 
@@ -197,7 +200,7 @@ func New(config *config.GudgeonConfig) Metrics {
 
 				// capture cache size
 				if metrics.cacheSizeFunc != nil {
-					gometrics.GetOrRegisterGauge(CurrentCacheEntries, metrics.registry).Update(metrics.cacheSizeFunc())
+					metrics.GetGauge(CurrentCacheEntries).Update(metrics.cacheSizeFunc())
 				}
 
 				// only insert/prune if a db exists
@@ -276,11 +279,11 @@ func (metrics *metrics) insert(currentTime time.Time) {
 
 	stmt := "INSERT INTO metrics (FromTime, AtTime, MetricsJson, IntervalSeconds) VALUES (?, ?, ?, ?)"
 	pstmt, err := metrics.db.Prepare(stmt)
-	defer pstmt.Close()
 	if err != nil {
 		log.Errorf("Error preparing metrics statement: %s", err)
 		return
 	}
+	defer pstmt.Close()
 	_, err = pstmt.Exec(metrics.lastInsert, currentTime, string(bytes), int(math.Round(currentTime.Sub(metrics.lastInsert).Seconds())))
 	if err != nil {
 		log.Errorf("Error executing metrics statement: %s", err)
@@ -334,7 +337,6 @@ func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, 
 		// add metrics to results
 		results = append(results, entry)
 	}
-	rows.Close()
 
 	return results, nil
 }
@@ -345,6 +347,7 @@ func (metrics *metrics) load() {
 		log.Errorf("Could not load initial metrics information: %s", err)
 		return
 	}
+	defer rows.Close()
 
 	var metricsJsonString string
 	for rows.Next() {
@@ -357,7 +360,6 @@ func (metrics *metrics) load() {
 			break
 		}
 	}
-	rows.Close()
 
 	// can't do anything with empty string, set, or object
 	metricsJsonString = strings.TrimSpace(metricsJsonString)
