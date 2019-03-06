@@ -36,10 +36,10 @@ fi
 NPMVSORT=$(echo -e "$(npm -v)\n5.0.0" | sort -V | tail -n1)
 if [[ "5.0.0" == "${NPMVSORT}" ]]; then
     # remove low version packages
-    sudo yum remove -f npm nodejs
+    yum remove -f npm nodejs
     # install node from nodesource
     curl -sL https://rpm.nodesource.com/setup_8.x | bash -
-    sudo yum install -y nodejs
+    yum install -y nodejs
 fi
 
 %build
