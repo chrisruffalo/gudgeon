@@ -1,9 +1,15 @@
 package version
 
+import (
+    "strings"
+)
+
 // pick up version from build process, but use these defaults
-var Version = "v0.3.X"
+var Version = "v0.4.X"
+var Release = "1"
 var GitHash = "0000000"
 var LongVersion = ""
+var Descriptor = ""
 
 type VersionInfo struct {
     Version     string
@@ -12,7 +18,7 @@ type VersionInfo struct {
 }
 
 func GetVersion() string {
-    return Version
+    return strings.TrimSpace(Version)
 }
 
 func GetLongVersion() string {
@@ -21,14 +27,30 @@ func GetLongVersion() string {
         return LongVersion
     }
     // add git hash to long version if available
-    if "" != GitHash {
-        return Version + "@git" + GitHash
+    version := GetVersion()
+    if "" != GetRelease() {
+        version = version + "-" + GetRelease()
     }
-    return GetVersion()
+    if "" != GetGitHash() {
+        version = version + "-git@" + GetGitHash()
+    }
+    if "" != GetDescriptor() {
+        version = version + " (" + GetDescriptor() + ")"
+    }
+
+    return strings.TrimSpace(version)
 }
 
 func GetGitHash() string {
-    return GitHash
+    return strings.TrimSpace(GitHash)
+}
+
+func GetRelease() string {
+    return strings.TrimSpace(Release)
+}
+
+func GetDescriptor() string {
+    return strings.TrimSpace(Descriptor)    
 }
 
 func Info() VersionInfo {

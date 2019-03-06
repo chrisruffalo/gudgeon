@@ -52,7 +52,7 @@ LONGVERSION?=$(shell git describe | sed 's/^$$/$(VERSION)/')
 GITHASH?=$(shell git rev-parse HEAD | head -c7)
 NUMBER?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/' )
 RELEASE?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\3/' | sed 's/^$$/1/' )
-DESCRIPTOR?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\1/' | sed 's/^v$$//' )
+DESCRIPTOR?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\1/' | sed 's/^v$$//' | sed 's/^\s$$//' )
 
 # npm webpack
 NPM?=$(shell which npm)
@@ -76,7 +76,7 @@ BINARY_TARGET?=$(BINARY_NAME)-$(OS_TYPE)-$(OS_BIN_ARCH)
 
 # build tags can change by target platform, only linux builds for now though
 GO_BUILD_TAGS?=netgo linux sqlite3 jsoniter
-GO_LD_FLAGS?=-s -w -extldflags "-static" -X main.Version="$(VERSION)" -X main.GitHash="$(GITHASH)"
+GO_LD_FLAGS?=-s -w -extldflags "-static" -X "github.com/chrisruffalo/gudgeon/version.Version=$(VERSION)" -X "github.com/chrisruffalo/gudgeon/version.GitHash=$(GITHASH)" -X "github.com/chrisruffalo/gudgeon/version.Release=$(RELEASE)" -X "github.com/chrisruffalo/gudgeon/version.Descriptor=$(DESCRIPTOR)" 
 
 # patternfly artifact
 PFVERSION=3.59.1
