@@ -104,7 +104,7 @@ export class MetricsCards extends React.Component {
 
     return (
       <Grid gutter="md">
-        <GridItem span={4} lg={3} sm={12}>
+        <GridItem span={4} lg={3} md={6} sm={12}>
           <Card>
             <CardHeader>Query Metrics</CardHeader>
             <CardBody>
@@ -115,7 +115,7 @@ export class MetricsCards extends React.Component {
             </CardBody>
           </Card>          
         </GridItem>
-        <GridItem span={4} lg={3} sm={12}>
+        <GridItem span={4} lg={3} md={6} sm={12}>
           <Card>
             <CardBody>
               <Table aria-label="Block Lists" variant={TableVariant.compact} cells={columns} rows={rows}>
@@ -125,7 +125,7 @@ export class MetricsCards extends React.Component {
             </CardBody>
           </Card>          
         </GridItem>
-        <GridItem span={4} lg={6} sm={12}>
+        <GridItem span={4} lg={6} md={12} sm={12}>
           <Card>
             <CardBody>
               <QPSChart />
