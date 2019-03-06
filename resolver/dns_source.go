@@ -19,6 +19,8 @@ const (
 	portDelimeter  = ":"
 	protoDelimeter = "/"
 )
+// how long to wait before source is active again
+var backoffInterval = 60 * time.Second
 
 var validProtocols = []string{"udp", "tcp", "tcp-tls"}
 
@@ -27,6 +29,8 @@ type dnsSource struct {
 	port          uint
 	remoteAddress string
 	protocol      string
+
+	backoffTime   *time.Time
 }
 
 func newDnsSource(sourceAddress string) Source {
@@ -108,6 +112,14 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 }
 
 func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	now := time.Now()
+	if dnsSource.backoffTime != nil && now.Before(*dnsSource.backoffTime) {
+		// "asleep" during backoff interval
+		return nil, nil
+	}
+	// the backoff time is irrelevant now
+	dnsSource.backoffTime = nil
+
 	// this is considered a recursive query so don't if recursion was not requested
 	if request == nil || !request.MsgHdr.RecursionDesired {
 		return nil, nil
@@ -124,6 +136,8 @@ func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionCont
 	// forward message without interference
 	response, err := dnsSource.query(protocol, request, dnsSource.remoteAddress)
 	if err != nil {
+		backoff := time.Now().Add(backoffInterval)
+		dnsSource.backoffTime = &backoff
 		return nil, err
 	}
 
@@ -131,7 +145,7 @@ func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionCont
 	// response.SetReply(request)
 
 	// set source as answering source
-	if context != nil {
+	if context != nil && !util.IsEmptyResponse(response) && context.SourceUsed == "" {
 		context.SourceUsed = dnsSource.Name() + "/" + protocol
 	}
 

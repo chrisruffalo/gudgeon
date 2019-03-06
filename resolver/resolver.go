@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -119,7 +118,7 @@ func (resolver *resolver) answer(rCon *RequestContext, context *ResolutionContex
 
 		if err != nil {
 			errCounter++
-			log.Errorf("Source '%s' for question: '%s': %s", source.Name(), request.Question[0].Name, err)
+			log.Errorf("Resolver '%s' for question: '%s': %s", source.Name(), request.Question[0].Name, err)
 			continue
 		}
 
@@ -139,7 +138,7 @@ func (resolver *resolver) answer(rCon *RequestContext, context *ResolutionContex
 
 	// log error because no sources managed to resolve in this resolver
 	if errCounter > 0 {
-		return nil, fmt.Errorf("No response from %d sources (%d empty, %d errors) in resolver: %s", len(resolver.sources), emptyCounter, errCounter, resolver.name)
+		log.Debugf("No response from %d sources (%d empty, %d errors) in resolver: %s", len(resolver.sources), emptyCounter, errCounter, resolver.name)
 	}
 	return nil, nil
 }

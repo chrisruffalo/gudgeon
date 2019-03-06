@@ -1,6 +1,8 @@
 import React from 'react';
 import Axios from 'axios';
 import { ChartArea, ChartGroup, ChartLegend, ChartVoronoiContainer } from '@patternfly/react-charts';
+import gudgeonStyles from '../../css/gudgeon-app.css';
+import { css } from '@patternfly/react-styles';
 
 export class QPSChart extends React.Component {
   containerRef = React.createRef();
@@ -105,7 +107,7 @@ export class QPSChart extends React.Component {
     const container = <ChartVoronoiContainer labels={this.getTooltipLabel} />;
 
     return (
-      <div ref={this.containerRef}>
+      <div ref={this.containerRef} className={css(gudgeonStyles.maxHeight)}>
         <div className="chart-overflow">
           <ChartGroup containerComponent={container} height={200} width={width}>
             <ChartArea scale={{ x: "time", y: "linear" }} data={data} x={ (d) => d.AtTime } y={ (d) => this.getDataItem(d, 'gudgeon-total-interval-queries') } />
