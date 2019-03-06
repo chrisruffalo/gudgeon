@@ -18,6 +18,7 @@ import (
 // going over that requires abandoning the prepared statements and using string building and
 // direct insertion
 const sqlBatchSize = 999
+const sqlDbName = "rules.db"
 
 type sqlStore struct {
 	db      *sql.DB
@@ -31,7 +32,7 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	store.ptr = make(map[string]int)
 
 	// get session storage location
-	sessionDb := path.Join(sessionRoot, "rules.db")
+	sessionDb := path.Join(sessionRoot, sqlDbName)
 	if _, err := os.Stat(sessionRoot); os.IsNotExist(err) {
 		os.MkdirAll(sessionRoot, os.ModePerm)
 	}
@@ -92,6 +93,15 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 }
 
 func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList) {
+	// close and re-open db
+	store.db.Close()
+	sessionDb := path.Join(sessionRoot, sqlDbName)
+	db, err := sql.Open("sqlite3", sessionDb+"?_sync=OFF&_mutex=NO&_locking=NORMAL&_journal=MEMORY")
+	if err != nil {
+		log.Errorf("Rule storage: %s", err)
+	}
+	store.db = db
+
 	for _, list := range lists {
 		listName := list.ShortName()
 		// finalize inserts
