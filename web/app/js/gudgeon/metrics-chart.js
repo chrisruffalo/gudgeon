@@ -7,15 +7,21 @@ export class QPSChart extends React.Component {
   state = {
     width: 0,
     data: [],
-    lastAtTime: (Math.floor(Date.now()/1000) - (60 * 60)).toString()
+    lastAtTime: null
   };
 
   updateData() {
+    // get from state but allow state to be reset to null without additional logic
+    var { lastAtTime } = this.state
+    if ( null == lastAtTime ) {
+      lastAtTime = (Math.floor(Date.now()/1000) - (60 * 60)).toString()
+    }
+
     Axios
       .get("api/metrics/query", {
         params: {
           // one hour ago
-          start: this.state.lastAtTime,
+          start: lastAtTime,
         }
       })
       .then(response => {

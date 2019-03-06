@@ -62,7 +62,10 @@ export class Gudgeon extends React.Component {
           <p class={css(gudgeonStyles.footerText)}>&copy; Chris Ruffalo 2019</p>
           <p class={css(gudgeonStyles.footerText)}><a href="https://github.com/chrisruffalo/gudgeon">@GitHub</a></p>
         </SplitItem>
-        <SplitItem><p class={css(gudgeonStyles.footerText)}>{ version.longversion }</p></SplitItem>
+        <SplitItem>
+          <p class={css(gudgeonStyles.footerText)}>{ version.version }</p>
+          <p class={css(gudgeonStyles.footerText)}>git@{ version.githash }</p>
+        </SplitItem>
       </Split>      
       </div>      
     );    

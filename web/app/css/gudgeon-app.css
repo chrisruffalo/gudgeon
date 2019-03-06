@@ -1,7 +1,13 @@
-.maxHeight {
-    height: 100%;
-}
-
 .footerText {
     color: rgb(255,255,255);
+}
+
+@media only screen and (min-width: 992px) {
+    .maxHeight {
+        height: 100%;
+    }
+}
+
+@media only screen and (max-width: 768px) {
+    .maxHeight { }
 }
