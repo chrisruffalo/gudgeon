@@ -96,7 +96,7 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 	// close and re-open db
 	store.db.Close()
 	sessionDb := path.Join(sessionRoot, sqlDbName)
-	db, err := sql.Open("sqlite3", sessionDb+"?_sync=OFF&_mutex=NO&_locking=NORMAL&_journal=MEMORY")
+	db, err := sql.Open("sqlite3", sessionDb+"?mode=ro&_sync=OFF&_mutex=NO&_locking=NORMAL&_journal=MEMORY")
 	if err != nil {
 		log.Errorf("Rule storage: %s", err)
 	}
