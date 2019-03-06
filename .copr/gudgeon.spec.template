@@ -34,7 +34,7 @@ fi
 
 # install newer version of npm if not available
 NPMVSORT=$(echo -e "$(npm -v)\n5.0.0" | sort -V | tail -n1)
-if [[ "5.0.0" == "${NPMVSORT}"]]; then
+if [[ "5.0.0" == "${NPMVSORT}" ]]; then
     # remove low version packages
     sudo yum remove -f npm nodejs
     # install node from nodesource
