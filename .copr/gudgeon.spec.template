@@ -32,6 +32,16 @@ if ! which go; then
     chmod +x /tmp/golang/go/bin/go
 fi
 
+# install newer version of npm if not available
+NPMVSORT=$(echo -e "$(npm -v)\n5.0.0" | sort -V | tail -n1)
+if [[ "5.0.0" == "${NPMVSORT}"]]; then
+    # remove low version packages
+    sudo yum remove -f npm nodejs
+    # install node from nodesource
+    curl -sL https://rpm.nodesource.com/setup_8.x | bash -
+    sudo yum install -y nodejs
+fi
+
 %build
 export PATH="/tmp/golang/go/bin:$PATH"
 go version
