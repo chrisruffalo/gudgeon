@@ -1,5 +1,11 @@
 import React from 'react';
 import { 
+  Card,
+  CardItem,
+  CardHeader,
+  CardBody,
+  Grid,
+  GridItem,
   Nav, 
   NavItem,
   NavList,
@@ -9,9 +15,9 @@ import {
   PageSection, 
   PageSectionVariants 
 } from '@patternfly/react-core';
-import { QPSChart } from './metrics-chart.js'
+import { MetricsCards } from './metrics-cards.js'
 
-export class HorizontalPage extends React.Component {
+export class Gudgeon extends React.Component {
   render() {
     // header navigation
     const NavigationBar = (
@@ -38,7 +44,7 @@ export class HorizontalPage extends React.Component {
       <Page header={Header}>
         {NavigationBar}
         <PageSection>
-          <QPSChart />
+          <MetricsCards />          
         </PageSection>
       </Page>
     );

@@ -114,6 +114,7 @@ func New(config *config.GudgeonConfig) Metrics {
 	gometrics.GetOrRegisterCounter(TotalRules, metrics.registry)
 	gometrics.GetOrRegisterCounter(CachedQueries, metrics.registry)
 	gometrics.GetOrRegisterCounter(BlockedQueries, metrics.registry)
+	gometrics.GetOrRegisterCounter(BlockedIntervalQueries, metrics.registry)
 	gometrics.GetOrRegisterCounter(BlockedLifetimeQueries, metrics.registry)
 	gometrics.GetOrRegisterTimer(QueryTime, metrics.registry)
 
@@ -254,6 +255,10 @@ func (metrics *metrics) record() {
 			metrics.GetCounter(BlockedQueries).Inc(1)
 			metrics.GetCounter(BlockedLifetimeQueries).Inc(1)
 			metrics.GetCounter(BlockedIntervalQueries).Inc(1)
+
+			if info.result.BlockedList != nil {
+				metrics.GetCounter("rules-blocked-" + info.result.BlockedList.ShortName()).Inc(1)
+			}
 		}
 	}
 }

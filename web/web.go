@@ -18,6 +18,7 @@ import (
 )
 
 type web struct {
+	conf     *config.GudgeonConfig
 	metrics  metrics.Metrics
 	queryLog qlog.QLog
 }
@@ -37,7 +38,18 @@ func (web *web) GetMetrics(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, web.metrics.GetAll())
+	lists := make([]map[string]string, 0, len(web.conf.Lists))
+	for _, list := range web.conf.Lists {
+		listEntry := make(map[string]string)
+		listEntry["short"] = list.ShortName()
+		listEntry["name"] = list.CanonicalName()
+		lists = append(lists, listEntry)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"metrics" : web.metrics.GetAll(),
+		"lists" : lists,
+	})
 }
 
 func (web *web) QueryMetrics(c *gin.Context) {
@@ -152,6 +164,7 @@ func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog 
 	// set metrics endpoint
 	web.metrics = metrics
 	web.queryLog = qlog
+	web.conf = conf
 
 	// create new router
 	gin.SetMode(gin.ReleaseMode)

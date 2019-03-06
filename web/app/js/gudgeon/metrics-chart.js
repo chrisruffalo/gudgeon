@@ -80,15 +80,14 @@ export class QPSChart extends React.Component {
     return (
       <div ref={this.containerRef}>
         <div className="chart-overflow">
-          <ChartGroup containerComponent={container} height={100} width={width}>
+          <ChartGroup containerComponent={container} height={200} width={width}>
             <ChartArea scale={{ x: "time", y: "linear" }} data={data} x={ (d) => d.AtTime } y={ (d) => this.getDataItem(d, 'gudgeon-total-interval-queries') } />
             <ChartArea scale={{ x: "time", y: "linear" }} data={data} x={ (d) => d.AtTime } y={ (d) => this.getDataItem(d, 'gudgeon-blocked-interval-queries') } />
           </ChartGroup>
         </div>
         <ChartLegend
-          title="Actions Per Second"
           data={[{ name: 'Queries' }, { name: 'Blocked' }]}
-          height={100}
+          height={50}
           width={width}
         />
       </div>

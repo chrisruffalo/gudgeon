@@ -41,7 +41,8 @@ export GITHASH=@HASH_TOKEN@
 export GOOS_LIST=linux
 export GARCH_LIST=$(uname -m)
 make prepare
-make download
+make npm
+make webpack
 make build
 make compress
 
