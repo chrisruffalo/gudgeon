@@ -107,18 +107,18 @@ export class MetricsCards extends React.Component {
     return (
       <Grid gutter="md">
         <GridItem span={4} lg={3} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxCard)}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
             <CardHeader>Query Metrics</CardHeader>
             <CardBody>
-              Lifetime Queries {this.state.data.metrics['gudgeon-total-lifetime-queries'].count } <br/>
-              Lifetime Blocks {this.state.data.metrics['gudgeon-blocked-lifetime-queries'].count } <br/>
-              Session Queries {this.state.data.metrics['gudgeon-total-session-queries'].count } <br/>
-              Session Blocks {this.state.data.metrics['gudgeon-blocked-session-queries'].count }
+              <p>Lifetime Queries {this.state.data.metrics['gudgeon-total-lifetime-queries'].count }</p>
+              <p>Lifetime Blocks {this.state.data.metrics['gudgeon-blocked-lifetime-queries'].count }</p>
+              <p>Session Queries {this.state.data.metrics['gudgeon-total-session-queries'].count }</p>
+              <p>Session Queries {this.state.data.metrics['gudgeon-total-session-queries'].count }</p>
             </CardBody>
           </Card>          
         </GridItem>
         <GridItem span={4} lg={3} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxCard)}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
               <Table aria-label="Block Lists" variant={TableVariant.compact} cells={columns} rows={rows}>
                 <TableHeader />
@@ -128,7 +128,7 @@ export class MetricsCards extends React.Component {
           </Card>          
         </GridItem>
         <GridItem span={4} lg={6} md={12} sm={12}>
-          <Card className={css(gudgeonStyles.maxCard)}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
               <QPSChart />
             </CardBody>

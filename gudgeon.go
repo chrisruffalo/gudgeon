@@ -16,8 +16,8 @@ import (
 	"github.com/chrisruffalo/gudgeon/provider"
 	gqlog "github.com/chrisruffalo/gudgeon/qlog"
 	"github.com/chrisruffalo/gudgeon/util"
-	"github.com/chrisruffalo/gudgeon/web"
 	"github.com/chrisruffalo/gudgeon/version"
+	"github.com/chrisruffalo/gudgeon/web"
 )
 
 // default divider
