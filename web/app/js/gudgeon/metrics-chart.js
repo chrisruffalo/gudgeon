@@ -44,7 +44,14 @@ export class QPSChart extends React.Component {
     window.removeEventListener('resize', this.handleResize);
   }
 
-  getTooltipLabel = datum => `${this.prettyDate(datum.AtTime)}\nQueries : ${this.getDataItem(datum, 'gudgeon-total-interval-queries')}\nBlocked: ${this.getDataItem(datum, 'gudgeon-blocked-interval-queries')}`;
+  getTooltipLabel = (datum) => {
+    var queries = this.getDataItem(datum, 'gudgeon-total-interval-queries');
+    var blocked = this.getDataItem(datum, 'gudgeon-blocked-interval-queries');
+    if (blocked == 0 && queries == 0) {
+      return null;
+    }
+    return `${this.prettyDate(datum.AtTime)}\nQueries : ${queries}\nBlocked: ${blocked}`;
+  }
 
   handleResize = () => {
     this.setState({ width: this.containerRef.current.clientWidth });

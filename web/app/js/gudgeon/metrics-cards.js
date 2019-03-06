@@ -19,7 +19,9 @@ import {
   TableBody, 
   TableVariant 
 } from '@patternfly/react-table';
-import { QPSChart } from './metrics-chart.js'
+import { QPSChart } from './metrics-chart.js';
+import gudgeonStyles from '../../css/gudgeon-app.css';
+import { css } from '@patternfly/react-styles';
 
 export class MetricsCards extends React.Component {
   constructor(props) {
@@ -105,7 +107,7 @@ export class MetricsCards extends React.Component {
     return (
       <Grid gutter="md">
         <GridItem span={4} lg={3} md={6} sm={12}>
-          <Card>
+          <Card className={css(gudgeonStyles.maxCard)}>
             <CardHeader>Query Metrics</CardHeader>
             <CardBody>
               Lifetime Queries {this.state.data.metrics['gudgeon-total-lifetime-queries'].count } <br/>
@@ -116,7 +118,7 @@ export class MetricsCards extends React.Component {
           </Card>          
         </GridItem>
         <GridItem span={4} lg={3} md={6} sm={12}>
-          <Card>
+          <Card className={css(gudgeonStyles.maxCard)}>
             <CardBody>
               <Table aria-label="Block Lists" variant={TableVariant.compact} cells={columns} rows={rows}>
                 <TableHeader />
@@ -126,7 +128,7 @@ export class MetricsCards extends React.Component {
           </Card>          
         </GridItem>
         <GridItem span={4} lg={6} md={12} sm={12}>
-          <Card>
+          <Card className={css(gudgeonStyles.maxCard)}>
             <CardBody>
               <QPSChart />
             </CardBody>

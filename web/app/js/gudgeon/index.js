@@ -15,7 +15,7 @@ import {
   PageSection, 
   PageSectionVariants 
 } from '@patternfly/react-core';
-import { MetricsCards } from './metrics-cards.js'
+import { MetricsCards } from './metrics-cards.js';
 
 export class Gudgeon extends React.Component {
   render() {
