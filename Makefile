@@ -114,7 +114,7 @@ npm: ## download project npm dependencies
 		$(NPM) install 	
 
 webpack: ## prepare assets and build distribution
-		$(WEBPACKCLI) --config $(MKFILE_DIR)/webpack.config.js
+		$(NPM) run build:prod
 
 build: announce  ## Build Binary
 		$(GODOWN)
