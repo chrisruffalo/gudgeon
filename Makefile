@@ -36,9 +36,6 @@ SQLITE_DEP?=https://sqlite.org/2019/sqlite-autoconf-3270100.tar.gz
 RICECMD=$(abspath $(GOBIN)/rice)
 RICEPATHS=-i ./qlog/ -i ./web/ -i ./metrics/
 
-# upx command (minimizes/compresses binaries)
-UPXCMD=upx
-
 # fpm command (gem for creating packages)
 FPMCMD=fpm
 
@@ -130,10 +127,6 @@ buildxgo: announce ## Use xgo to build arm targets with sqlite installed, this o
 		$(XGOCMD) --dest $(BUILD_DIR) --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
 		# remove rice artifacts
 		$(RICECMD) clean $(RICEPATHS)		
-
-compress: ## Attempt to compress binaries with UPX
-		$(UPXCMD) -q $(BUILD_DIR)/$(BINARY_NAME)* || true
-		rm -f $(BUILD_DIR)/*.upx || true
 
 test: ## Do Unit Tests
 		$(GODOWN)

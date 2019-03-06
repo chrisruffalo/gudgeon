@@ -44,7 +44,6 @@ make prepare
 make npm
 make webpack
 make build
-make compress
 
 %install
 %make_install

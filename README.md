@@ -74,12 +74,11 @@ Prerequisites
 * Ability to use Makefiles (`make` command installed)
 * Git
 * Go >= 1.11 (module support is *required*)
-* `upx` (for binary compression)
-* `fpm` (for building deb/rpm)
 * Docker (for building docker images or xgo support)
-* System specific static artifacts for NPM, GLIBC, and Sqlite3
-  * Fedora: make automake gcc gcc-c++ upx curl sqlite sqlite-devel glibc glibc-static glibc-headers glibc-devel npm
-  * Ubuntu: upx-ucl ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib and g++-multilib npm
+* System specific static artifacts for Ruby, NPM, GLIBC, and Sqlite3
+  * Fedora: make automake gcc gcc-c++ curl sqlite sqlite-devel glibc glibc-static glibc-headers glibc-devel npm
+  * Ubuntu: ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib and g++-multilib npm
+* `fpm` (for building deb/rpm)  
 
 With the prerequisites installed you can build Gudgeon by...
 * Preparing your environment with needed Go tools with `[]$ make prepare`
