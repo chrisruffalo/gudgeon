@@ -54,6 +54,11 @@ module.exports = {
                 flatten: true
             },
             {
+                from: { glob: __dirname + '/web/app/html/*.tmpl'},
+                to: __dirname + '/web/static/',
+                flatten: true
+            },            
+            {
                 from: { glob: './node_modules/@patternfly/patternfly/assets/images/*.*'},
                 to: './img',
                 flatten: true

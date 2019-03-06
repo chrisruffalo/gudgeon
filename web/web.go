@@ -17,6 +17,10 @@ import (
 	"github.com/chrisruffalo/gudgeon/qlog"
 )
 
+const (
+	templateFileExtension = ".tmpl"
+)
+
 type web struct {
 	conf     *config.GudgeonConfig
 	server   *http.Server
@@ -106,7 +110,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 
 func (web *web) GetQueryLogInfo(c *gin.Context) {
 	if web.queryLog == nil {
-		c.String(http.StatusNotFound, "Query log not enabled)")
+		c.String(http.StatusNotFound, "Query log not enabled")
 		return
 	}
 
@@ -175,10 +179,9 @@ func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog 
 
 	// if no route is matched, attempt to serve static assets
 	box := rice.MustFindBox("static").HTTPBox()
-	fileServer := http.StripPrefix("/", http.FileServer(box))
-	router.NoRoute(func(c *gin.Context) {
-		fileServer.ServeHTTP(c.Writer, c.Request)
-	})
+
+	// use middleware
+	router.Use(Serve(box))
 
 	// attach api
 	api := router.Group("/api")

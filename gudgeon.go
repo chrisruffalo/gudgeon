@@ -17,15 +17,11 @@ import (
 	gqlog "github.com/chrisruffalo/gudgeon/qlog"
 	"github.com/chrisruffalo/gudgeon/util"
 	"github.com/chrisruffalo/gudgeon/web"
+	"github.com/chrisruffalo/gudgeon/version"
 )
 
 // default divider
 var divider = "==============================="
-
-// pick up version from build process, but use these defaults
-var Version = "v0.3.X"
-var GitHash = "0000000"
-var LongVersion = Version
 
 type Gudgeon struct {
 	config   *config.GudgeonConfig
@@ -143,11 +139,6 @@ func (gudgeon *Gudgeon) Shutdown() {
 }
 
 func main() {
-	// add git hash to long version if available
-	if "" != GitHash {
-		LongVersion = Version + "@git" + GitHash
-	}
-
 	// set initial log instance configuration
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
@@ -157,7 +148,7 @@ func main() {
 	})
 
 	// load command options
-	opts, err := config.Options(LongVersion)
+	opts, err := config.Options(version.GetLongVersion())
 	if err != nil {
 		log.Errorf("%s", err)
 		os.Exit(1)
@@ -165,7 +156,7 @@ func main() {
 
 	// debug print config
 	log.Info(divider)
-	log.Infof("Gudgeon %s", LongVersion)
+	log.Infof("Gudgeon %s", version.GetLongVersion())
 	log.Info(divider)
 
 	// start profiling if enabled
