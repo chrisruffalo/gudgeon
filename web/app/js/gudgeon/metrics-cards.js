@@ -113,7 +113,7 @@ export class MetricsCards extends React.Component {
               <p>Lifetime Queries {this.state.data.metrics['gudgeon-total-lifetime-queries'].count }</p>
               <p>Lifetime Blocks {this.state.data.metrics['gudgeon-blocked-lifetime-queries'].count }</p>
               <p>Session Queries {this.state.data.metrics['gudgeon-total-session-queries'].count }</p>
-              <p>Session Queries {this.state.data.metrics['gudgeon-total-session-queries'].count }</p>
+              <p>Session Blocks {this.state.data.metrics['gudgeon-blocked-session-queries'].count }</p>
             </CardBody>
           </Card>          
         </GridItem>

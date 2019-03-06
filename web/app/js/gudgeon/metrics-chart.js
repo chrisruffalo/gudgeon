@@ -6,7 +6,8 @@ export class QPSChart extends React.Component {
   containerRef = React.createRef();
   state = {
     width: 0,
-    data: null
+    data: [],
+    lastAtTime: (Math.floor(Date.now()/1000) - (60 * 60)).toString()
   };
 
   updateData() {
@@ -14,16 +15,26 @@ export class QPSChart extends React.Component {
       .get("api/metrics/query", {
         params: {
           // one hour ago
-          start: (Math.floor(Date.now()/1000) - (60 * 60)).toString(),
+          start: this.state.lastAtTime,
         }
       })
       .then(response => {
-        const newState = Object.assign({}, this.state, { data: response.data });
-        this.setState(newState)
+        if ( response != null && response.data != null && response.data.length > 0 ) {
+          var { data } = this.state
+          // concat query data
+          var newData = data.concat(response.data)
+          // update at time
+          var lastElement = response.data[response.data.length - 1];
+          var newAtTime = (Math.floor(new Date(lastElement.AtTime) / 1000) + 1).toString() // time is in ms we need in s
+          // change state
+          const newState = Object.assign({}, this.state, { data: newData, lastAtTime: newAtTime });
+          this.setState(newState)
+        }
 
+        // set timeout and update data again
         setTimeout(() => {
           this.updateData()
-        },5000);
+        },10000);
       });
   }
 
@@ -35,6 +46,9 @@ export class QPSChart extends React.Component {
       this.setState(newState)
       window.addEventListener('resize', this.handleResize);
     });
+
+    // log
+    console.log("mounted component...");
 
     // update data
     this.updateData();
