@@ -8,7 +8,6 @@ import (
 
 func TestSqliteRuleStore(t *testing.T) {
     defer leaktest.Check(t)()
-
 	testStore(defaultRuleData, func() RuleStore { return &sqlStore{} }, t)
 }
 

@@ -207,3 +207,9 @@ func (store *sqlStore) FindMatch(lists []*config.GudgeonList, domain string) (Ma
 
 	return MatchNone, nil, ""
 }
+
+func (store *sqlStore) Close() {
+	if store.db != nil {
+		store.db.Close()
+	}
+}

@@ -96,3 +96,7 @@ func (store *memoryStore) FindMatch(lists []*config.GudgeonList, domain string) 
 
 	return MatchNone, nil, ""
 }
+
+func (store *memoryStore) Close() {
+	// default no-op
+}

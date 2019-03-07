@@ -31,6 +31,8 @@ type RuleStore interface {
 	Finalize(sessionRoot string, lists []*config.GudgeonList)
 
 	FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string)
+
+	Close()
 }
 
 // stores are created from lists of files inside a configuration

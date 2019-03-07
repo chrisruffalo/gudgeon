@@ -37,15 +37,16 @@ type ruleStoreCreator func() RuleStore
 func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing.T) {
 	tmpDir := testutil.TempDir()
 
-	// create single store for test
-	store := createRuleStore()
-
 	for idx, data := range ruleData {
 		// create rule and rule list
 		ruleType := "block"
 		if data.ruleType == ALLOW {
 			ruleType = "allow"
 		}
+
+		// create single store for test
+		store := createRuleStore()
+
 
 		lists := []*config.GudgeonList{&config.GudgeonList{Name: fmt.Sprintf("Test List %d", idx), Type: ruleType}}
 		// load rules into target store
@@ -78,6 +79,8 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 				t.Errorf("Rules of type %d expected to not match '%s' but did", data.ruleType, expectedNoMatch)
 			}
 		}
+
+		store.Close()
 	}
 }
 

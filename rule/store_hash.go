@@ -102,3 +102,7 @@ func (store *hashStore) FindMatch(lists []*config.GudgeonList, domain string) (M
 
 	return MatchNone, nil, ""
 }
+
+func (store *hashStore) Close() {
+	// default no-op
+}

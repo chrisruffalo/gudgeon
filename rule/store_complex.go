@@ -89,3 +89,7 @@ func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string)
 
 	return MatchNone, nil, ""
 }
+
+func (store *complexStore) Close() {
+	// default no-op
+}
