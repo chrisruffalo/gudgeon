@@ -24,6 +24,11 @@ gudgeon:
     batch: 50       # how many queries are batched together for inserts (max is 1000)
     interval: 1s    # how often to commit batches that aren't full (min is 500ms)
     file: ./.gudgeon/logs/query.log # log queries to file AND stdout (you can set stdout to false and log to jsut the file)
+    lookup: true    # enable reverse lookups (default: true)
+    mdns: true      # if lookup is enabled, use mdns/avahi/zeroconf/bonjour for getting device/computer names (default: true)
+                    # if this is enabled, ip reverse lookups are used first
+    netbios: true   # if lookup is enabled, use netbios to lookup unamed services (after ip lookup and mdns lookup)
+
 
   # metrics can be saved to disk for use by the ui or exported to something like prometheus
   metrics:

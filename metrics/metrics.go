@@ -192,6 +192,9 @@ func New(config *config.GudgeonConfig) Metrics {
 
 	// start go function to monitor ticker
 	go func() {
+		defer metrics.ticker.Stop()
+		defer close(metrics.doneTicker)
+
 		for {
 			select {
 			case <-metrics.ticker.C:
@@ -211,10 +214,9 @@ func New(config *config.GudgeonConfig) Metrics {
 					metrics.prune()
 				}
 			case <-metrics.doneTicker:
-				break
+				return
 			}
 		}
-		metrics.ticker.Stop()
 	}()
 
 	return metrics
@@ -284,6 +286,7 @@ func (metrics *metrics) insert(currentTime time.Time) {
 		return
 	}
 	defer pstmt.Close()
+	
 	_, err = pstmt.Exec(metrics.lastInsert, currentTime, string(bytes), int(math.Round(currentTime.Sub(metrics.lastInsert).Seconds())))
 	if err != nil {
 		log.Errorf("Error executing metrics statement: %s", err)
@@ -400,6 +403,9 @@ func (metrics *metrics) RecordQueryMetrics(request *dns.Msg, response *dns.Msg, 
 }
 
 func (metrics *metrics) Stop() {
+	// stop meters and timers
+	gometrics.GetOrRegisterTimer(QueryTime, metrics.registry).Stop()
+
 	// close db and shutdown timer if it exists
 	if metrics.db != nil {
 		metrics.doneTicker <- true
@@ -407,4 +413,7 @@ func (metrics *metrics) Stop() {
 		metrics.prune()
 		metrics.db.Close()
 	}
+
+	// close metrics info channel
+	close(metrics.metricsInfoChan)
 }

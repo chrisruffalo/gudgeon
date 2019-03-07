@@ -4,7 +4,7 @@ mkfile_dir:=$(abspath $(notdir $(patsubst %/,%,$(dir $(mkfile_path)))))
 spec_path?=$(abspath $(mkfile_dir)/gudgeon.spec)
 outdir?=$(abspath $(mkfile_dir)/../build/)
 
-LONGVERSION?=$$(git describe)
+LONGVERSION?=$$(git describe --tags)
 VERSION?=$$(git describe --tags $$(git rev-list --tags --max-count=1) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/v\2/')
 GITHASH?=$$(git rev-parse HEAD | head -c7)
 NUMBER?=$$(echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/' )

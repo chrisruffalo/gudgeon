@@ -206,6 +206,18 @@ func (ql *GudgeonQueryLog) verifyAndInit() ([]string, []error) {
 		ql.Stdout = boolPointer(true)
 	}
 
+	if ql.ReverseLookup == nil {
+		ql.ReverseLookup = boolPointer(true)
+	}
+
+	if ql.MdnsLookup == nil {
+		ql.MdnsLookup = boolPointer(true)
+	}
+
+	if ql.NetbiosLookup == nil {
+		ql.NetbiosLookup = boolPointer(true)
+	}
+
 	if "" == ql.Duration {
 		ql.Duration = "7d"
 	}

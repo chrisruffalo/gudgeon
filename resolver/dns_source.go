@@ -100,15 +100,23 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 			return nil, err
 		}
 	}
-	defer co.Close()
 
 	// write message
 	if err := co.WriteMsg(request); err != nil {
+		co.Close()
 		return nil, err
 	}
 
 	// read response
-	return co.ReadMsg()
+	response, err := co.ReadMsg()
+	if err != nil {
+		co.Close()
+		return nil, err
+	}
+
+	// close and return response
+	co.Close()
+	return response, nil
 }
 
 func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {

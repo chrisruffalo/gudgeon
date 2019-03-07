@@ -67,12 +67,14 @@ func (store *sqlStore) insert(listName string, rules []string) {
 	for idx, _ := range rules {
 		vars[idx] = rules[idx]
 	}
+	
 	pstmt, err := store.db.Prepare(stmt)
 	if err != nil {
 		log.Errorf("Preparing rule storage statement: %s", err)
 		return
 	}
 	defer pstmt.Close()
+
 	_, err = pstmt.Exec(vars...)
 	if err != nil {
 		log.Errorf("During rule storage insert: %s", err)

@@ -32,6 +32,9 @@ type GudgeonQueryLog struct {
 	File          string `yaml:"file"`
 	BatchSize     int    `yaml:"batch"`
 	BatchInterval string `yaml:"interval"`
+	ReverseLookup *bool  `yaml:"lookup"`
+	MdnsLookup    *bool  `yaml:"mdns"`
+	NetbiosLookup *bool  `yaml:"netbios"`
 }
 
 type GudgeonMetrics struct {

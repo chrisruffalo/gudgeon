@@ -115,8 +115,36 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 		qlog.rlookup = rlookup
 	}
 	// create reverse lookup cache with given ttl and given reap interval
-	qlog.cache = cache.New(5*time.Minute, 10*time.Minute)
-	qlog.mdnsCache = cache.New(cache.NoExpiration, 10*time.Minute)
+	if *qlConf.ReverseLookup {
+		qlog.cache = cache.New(5*time.Minute, 10*time.Minute)
+		if *qlConf.MdnsLookup {
+			qlog.mdnsCache = cache.New(cache.NoExpiration, 10*time.Minute)
+
+			// create background channel for listening
+			msgChan := make(chan *dns.Msg)
+			go MulticastMdnsListen(msgChan)
+			go CacheMulticastMessages(qlog.mdnsCache, msgChan)
+			// and create exponential backoff for timer for multicast query
+			go func() {
+				// create and start timer
+				duration := 1 * time.Second
+				mdnsQueryTimer := time.NewTimer(duration)
+
+				// wait for time and do actions
+				for _ = range mdnsQueryTimer.C {
+					// make query
+					MulticastMdnsQuery()
+
+					// extend timer, should be exponential backoff but this is close enough
+					duration = duration * 10
+					if duration > time.Hour {
+						duration = time.Hour
+					}
+					mdnsQueryTimer.Reset(duration)
+				}
+			}()			
+		}
+	}
 
 	// create distinct loggers for query output
 	if qlConf.File != "" {
@@ -150,35 +178,11 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 		})
 	}
 
-	// create log channel
+	// create log channel for queuing up batches
 	qlog.batch = make([]*LogInfo, 0, qlConf.BatchSize)
 	qlog.logInfoChan = make(chan *LogInfo, qlConf.BatchSize*10) // support 10 "batches" in queue
 	qlog.doneChan = make(chan bool)
 	go qlog.logWorker()
-
-	// create background tasks/channels for mdns polling
-	msgChan := make(chan *dns.Msg)
-	go MulticastMdnsListen(msgChan)
-	go CacheMulticastMessages(qlog.mdnsCache, msgChan)
-	// and create exponential backoff for timer for multicast query
-	go func() {
-		// create and start timer
-		duration := 1 * time.Second
-		mdnsQueryTimer := time.NewTimer(duration)
-
-		// wait for time and do actions
-		for _ = range mdnsQueryTimer.C {
-			// make query
-			MulticastMdnsQuery()
-
-			// extend timer, should be exponential backoff but this is close enough
-			duration = duration * 10
-			if duration > time.Hour {
-				duration = time.Hour
-			}
-			mdnsQueryTimer.Reset(duration)
-		}
-	}()
 
 	// only build DB if persistence is enabled
 	if *(qlog.qlConf.Persist) {
@@ -417,6 +421,10 @@ func (qlog *qlog) log(info *LogInfo) {
 }
 
 func (qlog *qlog) getReverseName(address string) string {
+	if !*qlog.qlConf.ReverseLookup {
+		return ""
+	}
+
 	// look in local cache for name
 	if value, found := qlog.cache.Get(address); found {
 		if valueString, ok := value.(string); ok {
@@ -427,7 +435,7 @@ func (qlog *qlog) getReverseName(address string) string {
 	name := ""
 
 	// if there is a reverselookup function use it to add a reverse lookup step
-	if qlog.rlookup != nil {
+	if *qlog.qlConf.ReverseLookup && qlog.rlookup != nil {
 		name = qlog.rlookup(address)
 		if strings.HasSuffix(name, ".") {
 			name = name[:len(name)-1]
@@ -435,7 +443,7 @@ func (qlog *qlog) getReverseName(address string) string {
 	}
 
 	// look in the mdns cache
-	if qlog.mdnsCache != nil {
+	if *qlog.qlConf.MdnsLookup && qlog.mdnsCache != nil {
 		name := ReadCachedHostname(qlog.mdnsCache, address)
 		if name != "" {
 			return name
@@ -443,7 +451,7 @@ func (qlog *qlog) getReverseName(address string) string {
 	}
 
 	// if no result from rlookup then try and lookup the netbios name from the host
-	if "" == name {
+	if *qlog.qlConf.NetbiosLookup && "" == name {
 		var err error
 		name, err = util.LookupNetBIOSName(address)
 		if err != nil {
@@ -452,8 +460,10 @@ func (qlog *qlog) getReverseName(address string) string {
 		}
 	}
 
-	// store result, even empty results, to prevent continual lookups
-	qlog.cache.Set(address, name, cache.DefaultExpiration)
+	if qlog.cache != nil {
+		// store result, even empty results, to prevent continual lookups
+		qlog.cache.Set(address, name, cache.DefaultExpiration)
+	}
 
 	return name
 }
@@ -463,8 +473,10 @@ func (qlog *qlog) logWorker() {
 	// create ticker from conf
 	duration, _ := util.ParseDuration(qlog.qlConf.BatchInterval)
 	ticker := time.NewTicker(duration)
+	defer ticker.Stop()
 	// prune every hour (also prunes on startup)
 	pruneTicker := time.NewTicker(1 * time.Hour)
+	defer pruneTicker.Stop()
 
 	// stop the timer immediately if we aren't persisting records
 	if !*(qlog.qlConf.Persist) {
@@ -517,17 +529,14 @@ func (qlog *qlog) logWorker() {
 				qlog.logDB(info, info == nil)
 			}
 		case <-qlog.doneChan:
-			break
+			defer func(){qlog.doneChan<-true}()
+			return
 		case <-ticker.C:
 			qlog.logDB(nil, true)
 		case <-pruneTicker.C:
 			qlog.prune()
 		}
 	}
-
-	// stop tickers
-	ticker.Stop()
-	pruneTicker.Stop()
 }
 
 func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
@@ -658,6 +667,12 @@ func (qlog *qlog) Stop() {
 	qlog.logInfoChan <- nil
 	// be done
 	qlog.doneChan <- true
+	<-qlog.doneChan
+
+	// close channels
+	close(qlog.doneChan)
+	close(qlog.logInfoChan)
+
 	// prune old records
 	qlog.prune()
 	// close db
