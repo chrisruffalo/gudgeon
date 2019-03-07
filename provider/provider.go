@@ -101,10 +101,13 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 		response.Rcode = dns.RcodeServerFailure
 
 		// log that there is no engine to service request?
+		log.Errorf("No engine to process request")
 	}
 
 	// write response to response writer
 	writer.WriteMsg(response)
+	// close the writer since it's done
+	writer.Close()
 
 	// we were having some errors during write that we need to figure out
 	// and this is a good(??) way to try and find them out.
@@ -112,15 +115,19 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 		log.Errorf("recovered from error: %s", recovery)
 	}
 
-	if response != nil {
+	if response != nil && (provider.qlog != nil || provider.metrics != nil) {
+		//copy request/response for upstream logging
+		nRequest := request.Copy()
+		nResponse := response.Copy()
+
 		// write to query log
 		if provider.qlog != nil {
-			provider.qlog.Log(address, request, response, rCon, result)
+			provider.qlog.Log(address, nRequest, nResponse, rCon, result)
 		}
 
 		// write metrics
 		if provider.metrics != nil {
-			provider.metrics.RecordQueryMetrics(request, response, rCon, result)
+			provider.metrics.RecordQueryMetrics(nRequest, nResponse, rCon, result)
 		}
 	}
 }
