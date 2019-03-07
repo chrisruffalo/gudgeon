@@ -6,6 +6,9 @@ gudgeon:
   # filesystem locations for gudgeon data
   home: ./.gudgeon/
 
+  storage:
+    rules: "memory"
+
   # global values
   global:
     maxTtl: 86400 # one day
