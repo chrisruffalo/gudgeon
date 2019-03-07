@@ -19,6 +19,7 @@ const (
 	portDelimeter  = ":"
 	protoDelimeter = "/"
 )
+
 // how long to wait before source is active again
 var backoffInterval = 60 * time.Second
 
@@ -30,7 +31,7 @@ type dnsSource struct {
 	remoteAddress string
 	protocol      string
 
-	backoffTime   *time.Time
+	backoffTime *time.Time
 }
 
 func newDnsSource(sourceAddress string) Source {

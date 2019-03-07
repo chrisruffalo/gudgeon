@@ -40,7 +40,7 @@ func NewProvider() Provider {
 func (provider *provider) serve(netType string, addr string) *dns.Server {
 	server := &dns.Server{Addr: addr, Net: netType}
 	log.Infof("Listen to %s on address: %s", strings.ToUpper(netType), addr)
-	go func () {
+	go func() {
 		if err := server.ListenAndServe(); err != nil {
 			log.Errorf("Failed starting %s server: %s", netType, err.Error())
 		}
@@ -202,7 +202,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 				if server != nil {
 					provider.servers = append(provider.servers, server)
 					server = nil
-				}				
+				}
 			}
 			if *iface.UDP {
 				server = provider.serve("udp", addr)

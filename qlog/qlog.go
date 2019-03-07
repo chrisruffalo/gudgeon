@@ -142,7 +142,7 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 					}
 					mdnsQueryTimer.Reset(duration)
 				}
-			}()			
+			}()
 		}
 	}
 
@@ -334,6 +334,7 @@ func (qlog *qlog) log(info *LogInfo) {
 		fields["consumer"] = info.Consumer
 		fields["requestDomain"] = info.RequestDomain
 		fields["requestType"] = info.RequestType
+		fields["cached"] = false
 	}
 
 	if result != nil {
@@ -361,6 +362,7 @@ func (qlog *qlog) log(info *LogInfo) {
 				builder.WriteString("]")
 				if qlog.fileLogger != nil {
 					fields["resolver"] = result.Resolver
+					fields["cached"] = "true"
 				}
 			} else {
 				builder.WriteString("r:[")
@@ -529,7 +531,7 @@ func (qlog *qlog) logWorker() {
 				qlog.logDB(info, info == nil)
 			}
 		case <-qlog.doneChan:
-			defer func(){qlog.doneChan<-true}()
+			defer func() { qlog.doneChan <- true }()
 			return
 		case <-ticker.C:
 			qlog.logDB(nil, true)

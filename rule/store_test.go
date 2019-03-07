@@ -47,7 +47,6 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 		// create single store for test
 		store := createRuleStore()
 
-
 		lists := []*config.GudgeonList{&config.GudgeonList{Name: fmt.Sprintf("Test List %d", idx), Type: ruleType}}
 		// load rules into target store
 		store.Init(tmpDir, nil, lists)

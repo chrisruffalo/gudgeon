@@ -114,7 +114,6 @@ func (store *bloomStore) FindMatch(lists []*config.GudgeonList, domain string) (
 	return MatchNone, nil, ""
 }
 
-
 func (store *bloomStore) Close() {
 	// default no-op
 }

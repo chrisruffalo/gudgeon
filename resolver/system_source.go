@@ -103,9 +103,6 @@ func (source *systemSource) Answer(rCon *RequestContext, context *ResolutionCont
 
 	// set source as answering source if the source is not nil
 	if context != nil && !util.IsEmptyResponse(response) {
-		// don't cache responses
-		context.Stored = true
-
 		// update source used
 		context.SourceUsed = source.Name()
 	}

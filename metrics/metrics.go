@@ -286,7 +286,7 @@ func (metrics *metrics) insert(currentTime time.Time) {
 		return
 	}
 	defer pstmt.Close()
-	
+
 	_, err = pstmt.Exec(metrics.lastInsert, currentTime, string(bytes), int(math.Round(currentTime.Sub(metrics.lastInsert).Seconds())))
 	if err != nil {
 		log.Errorf("Error executing metrics statement: %s", err)
