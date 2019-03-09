@@ -118,13 +118,13 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 	if *qlConf.ReverseLookup {
 		qlog.cache = cache.New(5*time.Minute, 10*time.Minute)
 		if *qlConf.MdnsLookup {
-			qlog.mdnsCache = cache.New(cache.NoExpiration, 10*time.Minute)
+			qlog.mdnsCache = cache.New(cache.NoExpiration, cache.NoExpiration)
 
 			// create background channel for listening
 			msgChan := make(chan *dns.Msg)
 			go MulticastMdnsListen(msgChan)
 			go CacheMulticastMessages(qlog.mdnsCache, msgChan)
-			// and create exponential backoff for timer for multicast query
+			// and create backoff for timer for multicast query
 			go func() {
 				// create and start timer
 				duration := 1 * time.Second
@@ -207,7 +207,6 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 			// or a corrupted database
 			if _, rmErr := os.Stat(dbPath); !os.IsNotExist(rmErr) {
 				os.Remove(dbPath)
-
 			}
 			return nil, err
 		}
@@ -271,7 +270,9 @@ func (qlog *qlog) logDB(info *LogInfo, forceInsert bool) {
 			if idx > 0 {
 				builder.WriteString(", ")
 			}
-			// todo: figure out how to escape this sql just in case something stupid happens
+			// todo: figure out how to escape this sql just in case something happens
+			// and a user manges to configure themselves in such a way they also
+			// do a sql injection attack
 			builder.WriteString("(")
 			builder.WriteString("\"")
 			builder.WriteString(i.Address)
@@ -503,21 +504,29 @@ func (qlog *qlog) getReverseName(address string) string {
 func (qlog *qlog) logWorker() {
 	// create ticker from conf
 	duration, _ := util.ParseDuration(qlog.qlConf.BatchInterval)
-	ticker := time.NewTicker(duration)
-	defer ticker.Stop()
+	flushTimer := time.NewTimer(duration)
+	defer flushTimer.Stop()
 	// prune every hour (also prunes on startup)
-	pruneTicker := time.NewTicker(1 * time.Hour)
-	defer pruneTicker.Stop()
+	pruneTimer := time.NewTimer(1 * time.Hour)
+	defer pruneTimer.Stop()
 
 	// stop the timer immediately if we aren't persisting records
 	if !*(qlog.qlConf.Persist) {
-		ticker.Stop()
+		flushTimer.Stop()
 	}
+
+	// when the function is over the shutdown method waits for
+	// a message back on the doneChan to know that we are done
+	// shutting down
+	defer func() { qlog.doneChan <- true }()
 
 	// loop until...
 	for {
 		select {
 		case info := <-qlog.logInfoChan:
+			// don't update on top of this
+			flushTimer.Stop()
+
 			if info != nil {
 				// condition the log info item in this thread
 				if info.Request != nil && len(info.Request.Question) > 0 {
@@ -559,13 +568,17 @@ func (qlog *qlog) logWorker() {
 			if *(qlog.qlConf.Persist) {
 				qlog.logDB(info, info == nil)
 			}
+
+			// restart timer
+			flushTimer.Reset(duration)
 		case <-qlog.doneChan:
-			defer func() { qlog.doneChan <- true }()
 			return
-		case <-ticker.C:
+		case <-flushTimer.C:
 			qlog.logDB(nil, true)
-		case <-pruneTicker.C:
+			flushTimer.Reset(duration)
+		case <-pruneTimer.C:
 			qlog.prune()
+			pruneTimer.Reset(1 * time.Hour)
 		}
 	}
 }
