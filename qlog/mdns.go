@@ -33,6 +33,7 @@ func MulticastMdnsQuery() {
 	defer co.Close()
 
 	co.WriteMsg(m)
+	log.Info("Sent mDNS Multicast Query")
 }
 
 func MulticastMdnsListen(msgChan chan *dns.Msg) {

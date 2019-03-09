@@ -103,7 +103,7 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 		if listCounter > 0 {
 			log.Infof("Loaded %d rules from '%s'", listCounter, list.CanonicalName())
 			if metrics != nil {
-				rulesCounter := metrics.GetCounter("rules-list-" + list.ShortName())
+				rulesCounter := metrics.Get("rules-list-" + list.ShortName())
 				rulesCounter.Clear()
 				rulesCounter.Inc(int64(listCounter))
 			}
@@ -116,7 +116,7 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 	if totalCounter > 0 {
 		log.Infof("Loaded %d total rules", totalCounter)
 		if metrics != nil {
-			totalRulesCounter := metrics.GetCounter(gmetrics.TotalRules)
+			totalRulesCounter := metrics.Get(gmetrics.TotalRules)
 			totalRulesCounter.Inc(int64(totalCounter))
 		}
 	}

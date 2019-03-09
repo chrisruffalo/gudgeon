@@ -5,13 +5,8 @@ import {
   CardItem,
   CardHeader,
   CardBody,
-  DataList,
-  DataListItem,
-  DataListCell,
   Grid,
   GridItem,
-  Split,
-  SplitItem
 } from '@patternfly/react-core';
 import { 
   Table, 
@@ -52,18 +47,30 @@ export class MetricsCards extends React.Component {
       'Rules',
       'Blocked'
     ],
-    rows: []
+    rows: [],
+    timer: null
   };  
 
   updateData() {
     Axios
       .get("api/metrics/current")
       .then(response => {
+        this.setState({ data: response.data })
         this.updateMetricsState(response.data)
 
-        setTimeout(() => {
+        var newTimer = setTimeout(() => {
           this.updateData()
-        },1000); // update every second
+        },2000); // update every 2s
+
+        // update the data in the state
+        this.setState({ timer: newTimer })
+      }).catch((error) => {
+        var newTimer = setTimeout(() => {
+          this.updateData()
+        },15000); // on error try again in 15s 
+
+        // update the data in the state
+        this.setState({ timer: newTimer })
       });
   }
 
@@ -77,32 +84,41 @@ export class MetricsCards extends React.Component {
       var newRow = [];
       newRow.push(element['name'])
       var key = element['short']
-      if ( data.metrics['gudgeon-rules-list-' + key ] != null ){
-        newRow.push(data.metrics['gudgeon-rules-list-' + key ].count);
-      } else {
-        return;
-      }
-
-      if ( data.metrics['gudgeon-rules-blocked-' + key] != null ) {
-        newRow.push(data.metrics['gudgeon-rules-blocked-' + key].count);
-      } else {
-        newRow.push(0);
-      }
+      newRow.push(this.getDataMetric(data, 'rules-list-' + key));
+      newRow.push(this.getDataMetric(data, 'rules-blocked-' + key));
       rows.push(newRow);
     });
 
     // update the data in the state
-    const newState = Object.assign({}, this.state, { data: data, rows: rows });
-    this.setState(newState)
+    this.setState({ rows: rows })
+  }
+
+  getDataMetric(data, key) {
+    if ( data.metrics == null ) {
+      return 0
+    }
+    if ( data.metrics["gudgeon-" + key] == null ) {
+      return 0
+    }
+    return data.metrics["gudgeon-" + key].count
   }
 
   componentDidMount() {
     // update data
     this.updateData();
   }  
+
+  componentWillUnmount() {
+    var { timer } = this.state
+    if ( timer != null ) {
+      clearTimeout(timer)
+      const newState = Object.assign({}, this.state, { timer: null });
+      this.setState(newState)
+    }
+  }
   
   render() {
-    const { columns, rows } = this.state;
+    const { columns, data, rows } = this.state;
 
     return (
       <Grid gutter="md">
@@ -110,10 +126,10 @@ export class MetricsCards extends React.Component {
           <Card className={css(gudgeonStyles.maxHeight)}>
             <CardHeader>Query Metrics</CardHeader>
             <CardBody>
-              <p>Lifetime Queries {this.state.data.metrics['gudgeon-total-lifetime-queries'].count }</p>
-              <p>Lifetime Blocks {this.state.data.metrics['gudgeon-blocked-lifetime-queries'].count }</p>
-              <p>Session Queries {this.state.data.metrics['gudgeon-total-session-queries'].count }</p>
-              <p>Session Blocks {this.state.data.metrics['gudgeon-blocked-session-queries'].count }</p>
+              <p>Lifetime Queries { this.getDataMetric(data, 'total-lifetime-queries') }</p>
+              <p>Lifetime Blocks { this.getDataMetric(data, 'blocked-lifetime-queries') }</p>
+              <p>Session Queries { this.getDataMetric(data, 'total-session-queries') }</p>
+              <p>Session Blocks { this.getDataMetric(data, 'blocked-session-queries') }</p>
             </CardBody>
           </Card>          
         </GridItem>

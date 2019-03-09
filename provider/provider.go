@@ -116,14 +116,14 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	if response != nil && (provider.qlog != nil || provider.metrics != nil) {
-		// write to query log
-		if provider.qlog != nil {
-			provider.qlog.Log(address, request, response, rCon, result)
-		}
-
 		// write metrics
 		if provider.metrics != nil {
 			provider.metrics.RecordQueryMetrics(request, response, rCon, result)
+		}
+
+		// write to query log
+		if provider.qlog != nil {
+			provider.qlog.Log(address, request, response, rCon, result)
 		}
 	}
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import Axios from 'axios';
+import { PrettyDate } from './helpers.js';
 import { ChartArea, ChartGroup, ChartLegend, ChartVoronoiContainer } from '@patternfly/react-charts';
 import gudgeonStyles from '../../css/gudgeon-app.css';
 import { css } from '@patternfly/react-styles';
@@ -9,7 +10,8 @@ export class QPSChart extends React.Component {
   state = {
     width: 0,
     data: [],
-    lastAtTime: null
+    lastAtTime: null,
+    timer: null
   };
 
   updateData() {
@@ -40,29 +42,36 @@ export class QPSChart extends React.Component {
         }
 
         // set timeout and update data again
-        setTimeout(() => {
+        var newTimer = setTimeout(() => {
           this.updateData()
         },10000);
+
+        // update the data in the state
+        const newState = Object.assign({}, this.state, { timer: newTimer });
+        this.setState(newState)        
       });
   }
 
   componentDidMount() {
     // resize
     setTimeout(() => {
-      //this.setState({ width: this.containerRef.current.clientWidth, data: this.data });
       const newState = Object.assign({}, this.state, { width: this.containerRef.current.clientWidth });
       this.setState(newState)
       window.addEventListener('resize', this.handleResize);
     });
-
-    // log
-    console.log("mounted component...");
 
     // update data
     this.updateData();
   }
 
   componentWillUnmount() {
+    var { timer } = this.state
+    if ( timer != null ) {
+      clearTimeout(timer)
+      const newState = Object.assign({}, this.state, { timer: null });
+      this.setState(newState)
+    }
+
     window.removeEventListener('resize', this.handleResize);
   }
 
@@ -72,7 +81,7 @@ export class QPSChart extends React.Component {
     if (blocked == 0 && queries == 0) {
       return null;
     }
-    return `${this.prettyDate(datum.AtTime)}\nQueries : ${queries}\nBlocked: ${blocked}`;
+    return `${PrettyDate(datum.AtTime)}\nQueries : ${queries}\nBlocked: ${blocked}`;
   }
 
   handleResize = () => {
@@ -82,24 +91,6 @@ export class QPSChart extends React.Component {
   getDataItem(dataItem, valueKey) {
     return dataItem != null && dataItem.Values != null && dataItem.Values[valueKey] != null ? dataItem.Values[valueKey].count : 0;
   };
-
-  goDateOptions = {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    year: 'numeric', 
-    month: '2-digit', 
-    day: '2-digit',
-    timeZoneName: "short"
-  };
-
-  prettyDate(date) {
-    if ( date == null ) {
-      return "";
-    }
-
-    return new Date(Date.parse(date)).toLocaleString(undefined, this.goDateOptions);
-  }
 
   render() {
     const { width } = this.state;

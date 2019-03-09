@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/GeertJohan/go.rice"
@@ -14,7 +15,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/json-iterator/go"
 	"github.com/miekg/dns"
-	gometrics "github.com/rcrowley/go-metrics"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -49,15 +49,40 @@ type metricsInfo struct {
 type MetricsEntry struct {
 	FromTime        time.Time
 	AtTime          time.Time
-	Values          map[string]map[string]interface{}
+	Values          map[string]*Metric
 	IntervalSeconds int
+}
+
+type Metric struct {
+	Count int64 `json:"count"`
+}
+
+func (metric *Metric) Set(newValue int64) *Metric {
+	metric.Count = newValue
+	return metric
+}
+
+func (metric *Metric) Inc(byValue int64) *Metric {
+	metric.Count = metric.Count + byValue
+	return metric
+}
+
+func (metric *Metric) Clear() *Metric {
+	metric.Set(0)
+	return metric
+}
+
+func (metric *Metric) Value() int64 {
+	return metric.Count
 }
 
 type metrics struct {
 	// keep config
 	config *config.GudgeonConfig
 
-	registry        gometrics.Registry
+	metricsMap   map[string]*Metric
+	metricsMutex sync.RWMutex
+
 	metricsInfoChan chan *metricsInfo
 	db              *sql.DB
 
@@ -72,11 +97,8 @@ type metrics struct {
 type CacheSizeFunction = func() int64
 
 type Metrics interface {
-	GetAll() map[string]map[string]interface{}
-	GetMeter(name string) gometrics.Meter
-	GetGauge(name string) gometrics.Gauge
-	GetCounter(name string) gometrics.Counter
-	GetTimer(name string) gometrics.Timer
+	GetAll() map[string]*Metric
+	Get(name string) *Metric
 
 	// use cache function
 	UseCacheSizeFunction(function CacheSizeFunction)
@@ -103,23 +125,10 @@ var json = jsoniter.Config{
 
 func New(config *config.GudgeonConfig) Metrics {
 	metrics := &metrics{
-		config:   config,
-		registry: gometrics.NewPrefixedRegistry(MetricsPrefix),
+		config:     config,
+		metricsMap: make(map[string]*Metric),
 	}
 
-	// create metrics things that we want to be ready to at the first query every time
-	gometrics.GetOrRegisterCounter(TotalQueries, metrics.registry)
-	gometrics.GetOrRegisterCounter(TotalLifetimeQueries, metrics.registry)
-	gometrics.GetOrRegisterCounter(TotalIntervalQueries, metrics.registry)
-	gometrics.GetOrRegisterCounter(TotalRules, metrics.registry)
-	gometrics.GetOrRegisterCounter(CachedQueries, metrics.registry)
-	gometrics.GetOrRegisterCounter(BlockedQueries, metrics.registry)
-	gometrics.GetOrRegisterCounter(BlockedIntervalQueries, metrics.registry)
-	gometrics.GetOrRegisterCounter(BlockedLifetimeQueries, metrics.registry)
-	gometrics.GetOrRegisterTimer(QueryTime, metrics.registry)
-	gometrics.GetOrRegisterGauge(CurrentCacheEntries, metrics.registry)
-
-	// open sql database and migrate to current version
 	if *(config.Metrics.Persist) {
 		// get path to long-standing data ({home}/'data') and make sure it exists
 		dataDir := config.DataRoot()
@@ -135,7 +144,7 @@ func New(config *config.GudgeonConfig) Metrics {
 		}
 
 		dbPath := path.Join(dbDir, "metrics.db")
-		db, err := sql.Open("sqlite3", dbPath)
+		db, err := sql.Open("sqlite3", dbPath+"?cache=shared&journal_mode=WAL")
 		if err != nil {
 			// if the file exists try removing it and opening it again
 			// this could be because of change in database file formats
@@ -145,6 +154,7 @@ func New(config *config.GudgeonConfig) Metrics {
 			}
 			return nil
 		}
+		db.SetMaxOpenConns(1)
 
 		// do migrations
 		migrationsBox := rice.MustFindBox("metrics-migrations")
@@ -199,11 +209,11 @@ func New(config *config.GudgeonConfig) Metrics {
 			select {
 			case <-metrics.ticker.C:
 				// capture runtime memory metrics into registry
-				//gometrics.CaptureRuntimeMemStatsOnce(metrics.registry)
+				// todo
 
 				// capture cache size
 				if metrics.cacheSizeFunc != nil {
-					metrics.GetGauge(CurrentCacheEntries).Update(metrics.cacheSizeFunc())
+					metrics.Get(CurrentCacheEntries).Set(metrics.cacheSizeFunc())
 				}
 
 				// only insert/prune if a db exists
@@ -222,47 +232,48 @@ func New(config *config.GudgeonConfig) Metrics {
 	return metrics
 }
 
-func (metrics *metrics) GetMeter(name string) gometrics.Meter {
-	return gometrics.GetOrRegisterMeter(name, metrics.registry)
+func (metrics *metrics) GetAll() map[string]*Metric {
+	metrics.metricsMutex.RLock()
+	defer metrics.metricsMutex.RUnlock()
+	return metrics.metricsMap
 }
 
-func (metrics *metrics) GetGauge(name string) gometrics.Gauge {
-	return gometrics.GetOrRegisterGauge(name, metrics.registry)
-}
+func (metrics *metrics) Get(name string) *Metric {
+	metrics.metricsMutex.RLock()
+	if metric, found := metrics.metricsMap[MetricsPrefix+name]; found {
+		defer metrics.metricsMutex.RUnlock()
+		return metric
+	}
+	metrics.metricsMutex.RUnlock()
+	metrics.metricsMutex.Lock()
+	defer metrics.metricsMutex.Unlock()
 
-func (metrics *metrics) GetCounter(name string) gometrics.Counter {
-	return gometrics.GetOrRegisterCounter(name, metrics.registry)
-}
-
-func (metrics *metrics) GetTimer(name string) gometrics.Timer {
-	return gometrics.GetOrRegisterTimer(name, metrics.registry)
-}
-
-func (metrics *metrics) GetAll() map[string]map[string]interface{} {
-	return metrics.registry.GetAll()
+	metric := &Metric{Count: 0}
+	metrics.metricsMap[MetricsPrefix+name] = metric
+	return metric
 }
 
 func (metrics *metrics) record() {
 	// get information from channel
 	for info := range metrics.metricsInfoChan {
 		// first add count to total queries
-		metrics.GetCounter(TotalQueries).Inc(1)
-		metrics.GetCounter(TotalLifetimeQueries).Inc(1)
-		metrics.GetCounter(TotalIntervalQueries).Inc(1)
+		metrics.Get(TotalQueries).Inc(1)
+		metrics.Get(TotalLifetimeQueries).Inc(1)
+		metrics.Get(TotalIntervalQueries).Inc(1)
 
 		// add cache hits
 		if info.result != nil && info.result.Cached {
-			metrics.GetCounter(CachedQueries).Inc(1)
+			metrics.Get(CachedQueries).Inc(1)
 		}
 
 		// add blocked queries
 		if info.result != nil && info.result.Blocked {
-			metrics.GetCounter(BlockedQueries).Inc(1)
-			metrics.GetCounter(BlockedLifetimeQueries).Inc(1)
-			metrics.GetCounter(BlockedIntervalQueries).Inc(1)
+			metrics.Get(BlockedQueries).Inc(1)
+			metrics.Get(BlockedLifetimeQueries).Inc(1)
+			metrics.Get(BlockedIntervalQueries).Inc(1)
 
 			if info.result.BlockedList != nil {
-				metrics.GetCounter("rules-blocked-" + info.result.BlockedList.ShortName()).Inc(1)
+				metrics.Get("rules-blocked-" + info.result.BlockedList.ShortName()).Inc(1)
 			}
 		}
 	}
@@ -294,8 +305,8 @@ func (metrics *metrics) insert(currentTime time.Time) {
 	}
 
 	// clear and restart interval
-	metrics.GetCounter(TotalIntervalQueries).Clear()
-	metrics.GetCounter(BlockedIntervalQueries).Clear()
+	metrics.Get(TotalIntervalQueries).Clear()
+	metrics.Get(BlockedIntervalQueries).Clear()
 	metrics.lastInsert = currentTime
 }
 
@@ -371,20 +382,13 @@ func (metrics *metrics) load() {
 	}
 
 	// unmarshal object
-	var data map[string]map[string]interface{}
+	var data map[string]*Metric
 	json.Unmarshal([]byte(metricsJsonString), &data)
 
 	preload := []string{TotalLifetimeQueries, BlockedLifetimeQueries}
 	for _, key := range preload {
-		if metric, found := data[MetricsPrefix+key]; found {
-			if count, foundCount := metric["count"]; foundCount {
-				if val, ok := count.(float64); ok {
-					gometrics.GetOrRegisterCounter(key, metrics.registry).Inc(int64(val))
-				}
-				if val, ok := count.(int64); ok {
-					gometrics.GetOrRegisterCounter(key, metrics.registry).Inc(int64(val))
-				}
-			}
+		if foundMetric, found := data[MetricsPrefix+key]; found {
+			metrics.Get(key).Set(foundMetric.Value())
 		}
 	}
 }
@@ -403,9 +407,6 @@ func (metrics *metrics) RecordQueryMetrics(request *dns.Msg, response *dns.Msg, 
 }
 
 func (metrics *metrics) Stop() {
-	// stop meters and timers
-	gometrics.GetOrRegisterTimer(QueryTime, metrics.registry).Stop()
-
 	// close db and shutdown timer if it exists
 	if metrics.db != nil {
 		metrics.doneTicker <- true

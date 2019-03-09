@@ -40,6 +40,7 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	if err != nil {
 		log.Errorf("Rule storage: %s", err)
 	}
+	db.SetMaxOpenConns(1)
 	store.db = db
 
 	// pre-create tabels
@@ -98,10 +99,11 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 	// close and re-open db
 	store.db.Close()
 	sessionDb := path.Join(sessionRoot, sqlDbName)
-	db, err := sql.Open("sqlite3", sessionDb+"?mode=ro&_sync=OFF&_mutex=NO&_locking=NORMAL&_journal=MEMORY")
+	db, err := sql.Open("sqlite3", sessionDb+"?mode=ro&cache=shared")
 	if err != nil {
 		log.Errorf("Rule storage: %s", err)
 	}
+	db.SetMaxOpenConns(1)
 	store.db = db
 
 	for _, list := range lists {

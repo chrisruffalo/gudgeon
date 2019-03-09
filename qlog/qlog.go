@@ -24,7 +24,7 @@ import (
 
 const (
 	// constant insert statement
-	qlogInsertStatement = "insert into qlog (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	qlogInsertStatement = "insert into qlog (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES"
 )
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
@@ -180,7 +180,7 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 
 	// create log channel for queuing up batches
 	qlog.batch = make([]*LogInfo, 0, qlConf.BatchSize)
-	qlog.logInfoChan = make(chan *LogInfo, qlConf.BatchSize*10) // support 10 "batches" in queue
+	qlog.logInfoChan = make(chan *LogInfo, qlConf.BatchSize*25) // support 25 "batches" in queue
 	qlog.doneChan = make(chan bool)
 	go qlog.logWorker()
 
@@ -200,7 +200,7 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 		}
 
 		dbPath := path.Join(dbDir, "qlog.db")
-		db, err := sql.Open("sqlite3", dbPath)
+		db, err := sql.Open("sqlite3", dbPath+"?cache=shared&journal_mode=WAL")
 		if err != nil {
 			// if the file exists try removing it and opening it again
 			// this could be because of change in database file formats
@@ -211,6 +211,7 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 			}
 			return nil, err
 		}
+		db.SetMaxOpenConns(1)
 
 		// do migrations
 		migrationsBox := rice.MustFindBox("qlog-migrations")
@@ -264,30 +265,58 @@ func (qlog *qlog) logDB(info *LogInfo, forceInsert bool) {
 
 	// insert whole batch and reset batch
 	if (forceInsert || len(qlog.batch) >= qlog.qlConf.BatchSize) && len(qlog.batch) > 0 {
-		// attempt to insert statements
-		stmt := qlogInsertStatement + strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", len(qlog.batch)-1)
-		vars := make([]interface{}, 0, len(qlog.batch)*9)
-		for _, i := range qlog.batch {
-			vars = append(vars, i.Address)
-			vars = append(vars, i.ClientName)
-			vars = append(vars, i.Consumer)
-			vars = append(vars, i.RequestDomain)
-			vars = append(vars, i.RequestType)
-			vars = append(vars, i.ResponseText)
-			vars = append(vars, i.Blocked)
-			vars = append(vars, i.BlockedList)
-			vars = append(vars, i.BlockedRule)
-			vars = append(vars, i.Created)
-		}
-		pstmt, err := qlog.store.Prepare(stmt)
-		defer pstmt.Close()
-		if err != nil {
-			log.Errorf("Error preparing statement: %s", err)
-		} else {
-			_, err = pstmt.Exec(vars...)
-			if err != nil {
-				log.Errorf("Could not insert into db: %s", err)
+		var builder strings.Builder
+		builder.WriteString(qlogInsertStatement)
+		for idx, i := range qlog.batch {
+			if idx > 0 {
+				builder.WriteString(", ")
 			}
+			// todo: figure out how to escape this sql just in case something stupid happens
+			builder.WriteString("(")
+			builder.WriteString("\"")
+			builder.WriteString(i.Address)
+			builder.WriteString("\",")
+			builder.WriteString("\"")
+			builder.WriteString(i.ClientName)
+			builder.WriteString("\",")
+			builder.WriteString("\"")
+			builder.WriteString(i.Consumer)
+			builder.WriteString("\",")
+			builder.WriteString("\"")
+			builder.WriteString(i.RequestDomain)
+			builder.WriteString("\",")
+			builder.WriteString("\"")
+			builder.WriteString(i.RequestType)
+			builder.WriteString("\",")
+			builder.WriteString("\"")
+			builder.WriteString(i.ResponseText)
+			builder.WriteString("\",")
+			builder.WriteString(fmt.Sprintf("%t", i.Blocked))
+			builder.WriteString(", ")
+			builder.WriteString("\"")
+			builder.WriteString(i.BlockedList)
+			builder.WriteString("\",")
+			builder.WriteString("\"")
+			builder.WriteString(i.BlockedRule)
+			builder.WriteString("\",")
+			builder.WriteString("\"")
+			builder.WriteString(i.Created.Format("2006-01-02 15:04:05.999-07:00"))
+			builder.WriteString("\"")
+			builder.WriteString(")")
+		}
+
+		tx, err := qlog.store.Begin()
+		if err != nil {
+			log.Errorf("Could not start transaction: %s", err)
+			return
+		}
+
+		_, err = tx.Exec(builder.String())
+		if err != nil {
+			tx.Rollback()
+			log.Errorf("Could not insert into db: %s", err)
+		} else {
+			tx.Commit()
 		}
 
 		// remake batch for inserting

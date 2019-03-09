@@ -46,6 +46,10 @@ func (web *web) GetMetrics(c *gin.Context) {
 
 	lists := make([]map[string]string, 0, len(web.conf.Lists))
 	for _, list := range web.conf.Lists {
+		if strings.ToLower(list.Type) == "allow" {
+			continue
+		}
+
 		listEntry := make(map[string]string)
 		listEntry["short"] = list.ShortName()
 		listEntry["name"] = list.CanonicalName()

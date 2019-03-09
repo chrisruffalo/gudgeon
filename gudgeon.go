@@ -190,7 +190,7 @@ func main() {
 
 	// print log file information
 	if "" != filename {
-		log.Infof("Loaded log file: %s", filename)
+		log.Infof("Configuration file: %s", filename)
 	}
 
 	// create new Gudgeon instance

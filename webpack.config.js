@@ -6,7 +6,7 @@ var MiniCssExtractPlugin = require("mini-css-extract-plugin");
 var WriteFilesPlugin = require('write-file-webpack-plugin');
 var OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');
 
-const devMode = process.env.NODE_ENV !== 'production'
+const devMode = process.env.NODE_ENV !== 'production';
 
 module.exports = {
     
@@ -46,6 +46,23 @@ module.exports = {
             "window.jQuery": "jquery"
         }),
 
+        //creates distribution css file rather than inlining styles
+        new MiniCssExtractPlugin({
+            // Options similar to the same options in webpackOptions.output
+            // both options are optional
+            filename: "css/" + (devMode ? '[name].bundle.css' : '[name].[hash].bundle.css'),
+            chunkFilename: "css/" + ( devMode ? '[id].bundle.css' : '[id].[hash].bundle.css'),
+        }),
+
+        new OptimizeCssAssetsPlugin({
+            assetNameRegExp: /\.bundle\.css$/g,
+            cssProcessor: require('cssnano'),
+            cssProcessorPluginOptions: {
+                preset: ['default', { discardComments: { removeAll: true } }],
+            },
+            canPrint: true
+        }),
+
         //copy patternfly assets for demo app
         new CopyWebpackPlugin([
             {
@@ -64,23 +81,6 @@ module.exports = {
                 flatten: true
             },            
         ]),
-
-        //creates distribution css file rather than inlining styles
-        new MiniCssExtractPlugin({
-            // Options similar to the same options in webpackOptions.output
-            // both options are optional
-            filename: "css/" + (devMode ? '[name].bundle.css' : '[name].[hash].bundle.css'),
-            chunkFilename: "css/" + ( devMode ? '[id].bundle.css' : '[id].[hash].bundle.css'),
-        }),
-
-        new OptimizeCssAssetsPlugin({
-            assetNameRegExp: /\.bundle\.css$/g,
-            cssProcessor: require('cssnano'),
-            cssProcessorPluginOptions: {
-                preset: ['default', { discardComments: { removeAll: true } }],
-            },
-            canPrint: true
-        }),
 
         //writes files on changes to src
         new WriteFilesPlugin()        

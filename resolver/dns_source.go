@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -22,6 +23,7 @@ const (
 
 // how long to wait before source is active again
 var backoffInterval = 60 * time.Second
+var defaultTimeout = 1 * time.Second
 
 var validProtocols = []string{"udp", "tcp", "tcp-tls"}
 
@@ -32,6 +34,7 @@ type dnsSource struct {
 	protocol      string
 
 	backoffTime *time.Time
+	tlsConfig   *tls.Config
 }
 
 func newDnsSource(sourceAddress string) Source {
@@ -76,6 +79,9 @@ func newDnsSource(sourceAddress string) Source {
 		}
 	}
 
+	// set up tls config
+	source.tlsConfig = &tls.Config{InsecureSkipVerify: true}
+
 	// save/parse remote address once
 	source.remoteAddress = fmt.Sprintf("%s%s%d", source.dnsServer, portDelimeter, source.port)
 
@@ -89,18 +95,24 @@ func (dnsSource *dnsSource) Name() string {
 func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress string) (*dns.Msg, error) {
 	var err error
 
-	co := new(dns.Conn)
+	// create new request context
+	context, _ := context.WithTimeout(context.Background(), defaultTimeout)
+
+	co := &dns.Conn{}
+	dialer := &net.Dialer{}
 	if coType == "tcp-tls" {
-		dialer := &net.Dialer{}
-		dialer.Timeout = 2 * time.Second
-		if co.Conn, err = tls.DialWithDialer(dialer, "tcp", remoteAddress, nil); err != nil {
+		if conn, err := dialer.DialContext(context, "tcp", remoteAddress); err != nil {
 			return nil, err
+		} else {
+			co.Conn = tls.Client(conn, dnsSource.tlsConfig)
+			defer conn.Close()
 		}
 	} else {
-		if co.Conn, err = net.DialTimeout(coType, remoteAddress, 2*time.Second); err != nil {
+		if co.Conn, err = dialer.DialContext(context, coType, remoteAddress); err != nil {
 			return nil, err
 		}
 	}
+	defer co.Conn.Close()
 
 	// write message
 	if err := co.WriteMsg(request); err != nil {
