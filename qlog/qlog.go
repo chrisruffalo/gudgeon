@@ -430,8 +430,13 @@ func (qlog *qlog) log(info *LogInfo) {
 				} else {
 					builder.WriteString("(EMPTY RESPONSE)")
 					if qlog.fileLogger != nil {
-						fields["answer"] = "<< NONE >>"
+						fields["answer"] = "<< EMPTY >>"
 					}
+				}
+			} else {
+				builder.WriteString("(NO INFO RESPONSE)")
+				if qlog.fileLogger != nil {
+					fields["answer"] = "<< NONE >>"
 				}
 			}
 		}
