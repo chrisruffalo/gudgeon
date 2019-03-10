@@ -326,7 +326,7 @@ func (qlog *qlog) flush() {
 		tx.Commit()
 	}
 	rows, _ := result.RowsAffected()
-	log.Debugf("Wrote %d query log records", rows)
+	log.Infof("Wrote %d query log records", rows)
 
 	// remake batch for inserting
 	qlog.batch = make([]*LogInfo, 0, initialQueueSize)
@@ -512,10 +512,7 @@ func (qlog *qlog) logWorker() {
 	// create ticker from conf
 	duration, err := util.ParseDuration(qlog.qlConf.BatchInterval)
 	if err != nil {
-		log.Errorf("Parsing duration: %s", err)
 		duration = 1 * time.Second
-	} else {
-		log.Infof("Log flush duration: %d", duration)
 	}
 	flushTimer := time.NewTimer(duration)
 	defer flushTimer.Stop()
@@ -526,6 +523,7 @@ func (qlog *qlog) logWorker() {
 	// stop the timer immediately if we aren't persisting records
 	if !*(qlog.qlConf.Persist) {
 		flushTimer.Stop()
+		pruneTimer.Stop()
 	}
 
 	// loop until...
@@ -581,9 +579,11 @@ func (qlog *qlog) logWorker() {
 			defer func() { qlog.doneChan <- true }()
 			return
 		case <-flushTimer.C:
+			log.Tracef("Flush timer triggered")
 			qlog.flush()
 			flushTimer.Reset(duration)
 		case <-pruneTimer.C:
+			log.Tracef("Prune timer triggered")
 			qlog.prune()
 			pruneTimer.Reset(1 * time.Hour)
 		}
@@ -672,15 +672,16 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	if query.Skip > 0 {
 		selectStmt = selectStmt + fmt.Sprintf(" OFFSET %d", query.Skip)
 	}
+
 	// make query
 	rows, err = qlog.store.Query(selectStmt, whereValues...)
+	if err != nil {
+		log.Errorf("Query log query failed: %s", err)
+		return []LogInfo{}
+	}
 	defer rows.Close()
-
 	// if rows is nil return empty array
-	if rows == nil || err != nil {
-		if err != nil {
-			log.Errorf("Query log query failed: %s", err)
-		}
+	if rows == nil {
 		return []LogInfo{}
 	}
 
