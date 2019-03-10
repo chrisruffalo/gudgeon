@@ -30,7 +30,7 @@ type GudgeonQueryLog struct {
 	Duration      string `yaml:"duration"`
 	Stdout        *bool  `yaml:"stdout"`
 	File          string `yaml:"file"`
-	BatchSize     int    `yaml:"batch"`
+	QueueSize     int    `yaml:"queue"`
 	BatchInterval string `yaml:"interval"`
 	ReverseLookup *bool  `yaml:"lookup"`
 	MdnsLookup    *bool  `yaml:"mdns"`

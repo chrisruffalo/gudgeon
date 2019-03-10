@@ -24,8 +24,8 @@ gudgeon:
     enabled: true   # enabled by default, to disable query log set to "false"
     duration: 10d   # how long to keep queries on disk, older queries are deleted
     stdout: false   # should queries be logged to standard out
-    batch: 1000     # how many queries are batched together for inserts (default is 250, max is 10000)
-    interval: 1s    # how often to flush/commit batches that aren't full (min is 500ms, default is 1s)
+    queue: 1000     # how large of a queue to allow before blocking connections on the query log
+    interval: 1s    # how often to flush/commit the query log queue to the database file
     file: ./.gudgeon/logs/query.log # log queries to file AND stdout (you can set stdout to false and log to jsut the file)
     lookup: true    # enable reverse lookups (default: true)
     mdns: true      # if lookup is enabled, use mdns/avahi/zeroconf/bonjour for getting device/computer names (default: true)

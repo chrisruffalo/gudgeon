@@ -152,7 +152,10 @@ func New(config *config.GudgeonConfig) Metrics {
 			if _, rmErr := os.Stat(dbPath); !os.IsNotExist(rmErr) {
 				os.Remove(dbPath)
 			}
-			return nil
+			db, err = sql.Open("sqlite3", dbPath+"?cache=shared&journal_mode=WAL")
+			if err != nil {
+				return nil
+			}
 		}
 		db.SetMaxOpenConns(1)
 

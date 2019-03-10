@@ -242,12 +242,12 @@ func (ql *GudgeonQueryLog) verifyAndInit() ([]string, []error) {
 		ql.BatchInterval = "1s"
 	}
 
-	if ql.BatchSize < 1 {
+	if ql.QueueSize < 1 {
 		// silently use default in cases where it was probably not specified
-		ql.BatchSize = 250
-	} else if ql.BatchSize > 10000 {
-		warnings = append(warnings, fmt.Sprintf("A batch size greater than 10000 is probably too high, using max value (1000)"))
-		ql.BatchSize = 10000
+		ql.QueueSize = 250
+	} else if ql.QueueSize > 10000 {
+		warnings = append(warnings, fmt.Sprintf("A queue size greater than 10000 is probably too high, using max value (10000)"))
+		ql.QueueSize = 10000
 	}
 
 	return warnings, []error{}

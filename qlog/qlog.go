@@ -23,6 +23,7 @@ import (
 )
 
 const (
+	initialQueueSize = 10
 	// constant insert statement
 	qlogInsertStatement = "insert into qlog (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES"
 )
@@ -179,8 +180,8 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 	}
 
 	// create log channel for queuing up batches
-	qlog.batch = make([]*LogInfo, 0, qlConf.BatchSize)
-	qlog.logInfoChan = make(chan *LogInfo, qlConf.BatchSize*25) // support 25 "batches" in queue
+	qlog.batch = make([]*LogInfo, 0, initialQueueSize)
+	qlog.logInfoChan = make(chan *LogInfo, qlConf.QueueSize) // support 25 "batches" in queue
 	qlog.doneChan = make(chan bool)
 	go qlog.logWorker()
 
@@ -256,73 +257,79 @@ func (qlog *qlog) prune() {
 	}
 }
 
-func (qlog *qlog) logDB(info *LogInfo, forceInsert bool) {
+func (qlog *qlog) queue(info *LogInfo) {
 	// only add to batch if not nil
 	if info != nil {
 		qlog.batch = append(qlog.batch, info)
 	}
+}
 
-	// insert whole batch and reset batch
-	if (forceInsert || len(qlog.batch) >= qlog.qlConf.BatchSize) && len(qlog.batch) > 0 {
-		var builder strings.Builder
-		builder.WriteString(qlogInsertStatement)
-		for idx, i := range qlog.batch {
-			if idx > 0 {
-				builder.WriteString(", ")
-			}
-			// todo: figure out how to escape this sql just in case something happens
-			// and a user manges to configure themselves in such a way they also
-			// do a sql injection attack
-			builder.WriteString("(")
-			builder.WriteString("\"")
-			builder.WriteString(i.Address)
-			builder.WriteString("\",")
-			builder.WriteString("\"")
-			builder.WriteString(i.ClientName)
-			builder.WriteString("\",")
-			builder.WriteString("\"")
-			builder.WriteString(i.Consumer)
-			builder.WriteString("\",")
-			builder.WriteString("\"")
-			builder.WriteString(i.RequestDomain)
-			builder.WriteString("\",")
-			builder.WriteString("\"")
-			builder.WriteString(i.RequestType)
-			builder.WriteString("\",")
-			builder.WriteString("\"")
-			builder.WriteString(i.ResponseText)
-			builder.WriteString("\",")
-			builder.WriteString(fmt.Sprintf("%t", i.Blocked))
-			builder.WriteString(", ")
-			builder.WriteString("\"")
-			builder.WriteString(i.BlockedList)
-			builder.WriteString("\",")
-			builder.WriteString("\"")
-			builder.WriteString(i.BlockedRule)
-			builder.WriteString("\",")
-			builder.WriteString("\"")
-			builder.WriteString(i.Created.Format("2006-01-02 15:04:05.999-07:00"))
-			builder.WriteString("\"")
-			builder.WriteString(")")
-		}
-
-		tx, err := qlog.store.Begin()
-		if err != nil {
-			log.Errorf("Could not start transaction: %s", err)
-			return
-		}
-
-		_, err = tx.Exec(builder.String())
-		if err != nil {
-			tx.Rollback()
-			log.Errorf("Could not insert into db: %s", err)
-		} else {
-			tx.Commit()
-		}
-
-		// remake batch for inserting
-		qlog.batch = make([]*LogInfo, 0, qlog.qlConf.BatchSize)
+func (qlog *qlog) flush() {
+	// can't flush if nothing to flush
+	if len(qlog.batch) < 1 {
+		return
 	}
+
+	var builder strings.Builder
+	builder.WriteString(qlogInsertStatement)
+	for idx, i := range qlog.batch {
+		if idx > 0 {
+			builder.WriteString(", ")
+		}
+		// todo: figure out how to escape this sql just in case something happens
+		// and a user manges to configure themselves in such a way they also
+		// do a sql injection attack
+		builder.WriteString("(")
+		builder.WriteString("\"")
+		builder.WriteString(i.Address)
+		builder.WriteString("\",")
+		builder.WriteString("\"")
+		builder.WriteString(i.ClientName)
+		builder.WriteString("\",")
+		builder.WriteString("\"")
+		builder.WriteString(i.Consumer)
+		builder.WriteString("\",")
+		builder.WriteString("\"")
+		builder.WriteString(i.RequestDomain)
+		builder.WriteString("\",")
+		builder.WriteString("\"")
+		builder.WriteString(i.RequestType)
+		builder.WriteString("\",")
+		builder.WriteString("\"")
+		builder.WriteString(i.ResponseText)
+		builder.WriteString("\",")
+		builder.WriteString(fmt.Sprintf("%t", i.Blocked))
+		builder.WriteString(", ")
+		builder.WriteString("\"")
+		builder.WriteString(i.BlockedList)
+		builder.WriteString("\",")
+		builder.WriteString("\"")
+		builder.WriteString(i.BlockedRule)
+		builder.WriteString("\",")
+		builder.WriteString("\"")
+		builder.WriteString(i.Created.Format("2006-01-02 15:04:05.999-07:00"))
+		builder.WriteString("\"")
+		builder.WriteString(")")
+	}
+
+	tx, err := qlog.store.Begin()
+	if err != nil {
+		log.Errorf("Could not start transaction: %s", err)
+		return
+	}
+
+	result, err := tx.Exec(builder.String())
+	if err != nil {
+		tx.Rollback()
+		log.Errorf("Could not insert into db: %s", err)
+	} else {
+		tx.Commit()
+	}
+	rows, _ := result.RowsAffected()
+	log.Debugf("Wrote %d query log records", rows)
+
+	// remake batch for inserting
+	qlog.batch = make([]*LogInfo, 0, initialQueueSize)
 }
 
 func (qlog *qlog) log(info *LogInfo) {
@@ -503,7 +510,13 @@ func (qlog *qlog) getReverseName(address string) string {
 // this is the actual log worker that handles incoming log messages in a separate go routine
 func (qlog *qlog) logWorker() {
 	// create ticker from conf
-	duration, _ := util.ParseDuration(qlog.qlConf.BatchInterval)
+	duration, err := util.ParseDuration(qlog.qlConf.BatchInterval)
+	if err != nil {
+		log.Errorf("Parsing duration: %s", err)
+		duration = 1 * time.Second
+	} else {
+		log.Infof("Log flush duration: %d", duration)
+	}
 	flushTimer := time.NewTimer(duration)
 	defer flushTimer.Stop()
 	// prune every hour (also prunes on startup)
@@ -515,17 +528,10 @@ func (qlog *qlog) logWorker() {
 		flushTimer.Stop()
 	}
 
-	// when the function is over the shutdown method waits for
-	// a message back on the doneChan to know that we are done
-	// shutting down
-	defer func() { qlog.doneChan <- true }()
-
 	// loop until...
 	for {
 		select {
 		case info := <-qlog.logInfoChan:
-			// don't update on top of this
-			flushTimer.Stop()
 
 			if info != nil {
 				// condition the log info item in this thread
@@ -566,15 +572,16 @@ func (qlog *qlog) logWorker() {
 			}
 			// only persist if configured, which is default
 			if *(qlog.qlConf.Persist) {
-				qlog.logDB(info, info == nil)
+				qlog.queue(info)
 			}
-
-			// restart timer
-			flushTimer.Reset(duration)
 		case <-qlog.doneChan:
+			// when the function is over the shutdown method waits for
+			// a message back on the doneChan to know that we are done
+			// shutting down
+			defer func() { qlog.doneChan <- true }()
 			return
 		case <-flushTimer.C:
-			qlog.logDB(nil, true)
+			qlog.flush()
 			flushTimer.Reset(duration)
 		case <-pruneTimer.C:
 			qlog.prune()
@@ -707,8 +714,6 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 }
 
 func (qlog *qlog) Stop() {
-	// flush batches
-	qlog.logInfoChan <- nil
 	// be done
 	qlog.doneChan <- true
 	<-qlog.doneChan
@@ -717,6 +722,8 @@ func (qlog *qlog) Stop() {
 	close(qlog.doneChan)
 	close(qlog.logInfoChan)
 
+	// flush pending records
+	qlog.flush()
 	// prune old records
 	qlog.prune()
 	// close db
