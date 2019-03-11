@@ -87,6 +87,11 @@ func TestProviderLocalResolution(t *testing.T) {
 			}
 
 			// check response
+			if response == nil {
+				t.Errorf("Nil response for question:\n%s\n-----\n%s", m, response)
+				continue
+			}
+
 			if len(response.Answer) < 1 {
 				t.Errorf("No answers for question:\n%s\n-----\n%s", m, response)
 				continue
