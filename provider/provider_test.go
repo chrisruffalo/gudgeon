@@ -2,6 +2,7 @@ package provider
 
 import (
 	"testing"
+	"time"
 
 	"github.com/miekg/dns"
 
@@ -24,6 +25,7 @@ func TestProviderStartStop(t *testing.T) {
 	// create a new provider and start hosting
 	provider := NewProvider()
 	provider.Host(config, engine, nil, nil)
+	time.Sleep(5 * time.Second)
 
 	// make sure they shut down
 	provider.Shutdown()
@@ -57,6 +59,7 @@ func TestProviderLocalResolution(t *testing.T) {
 	// create a new provider and start hosting
 	provider := NewProvider()
 	provider.Host(config, engine, nil, nil)
+	time.Sleep(5 * time.Second)
 
 	// create dns sources and use it
 	sources := []resolver.Source{resolver.NewSource("127.0.0.1:25353/tcp"), resolver.NewSource("127.0.0.1:25353/tcp")}

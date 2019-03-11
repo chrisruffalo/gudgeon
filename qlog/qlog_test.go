@@ -93,7 +93,7 @@ func TestQueryLogQuery(t *testing.T) {
 	query := &QueryLogQuery{
 		Address: "192.168.0.2",
 	}
-	results := qlog.Query(query)
+	results, _ := qlog.Query(query)
 	if len(results) != totalEntries/2 {
 		t.Errorf("Address query returned unexpected results: %d but expected %d", len(results), totalEntries/2)
 	}
@@ -103,7 +103,7 @@ func TestQueryLogQuery(t *testing.T) {
 		Skip:  10,
 		Limit: totalEntries / 4,
 	}
-	results = qlog.Query(query)
+	results, _ = qlog.Query(query)
 	if len(results) != totalEntries/4 {
 		t.Errorf("Limit query returned unexpected results: %d but expected %d", len(results), totalEntries/4)
 	}
@@ -113,7 +113,7 @@ func TestQueryLogQuery(t *testing.T) {
 	query = &QueryLogQuery{
 		Blocked: &ptrTrue,
 	}
-	results = qlog.Query(query)
+	results, _ = qlog.Query(query)
 	if len(results) != totalEntries/4 {
 		t.Errorf("Blocked query returned unexpected results: %d but expected %d", len(results), totalEntries/4)
 	}
@@ -124,7 +124,7 @@ func TestQueryLogQuery(t *testing.T) {
 		RequestType: "AAAA",
 		Limit:       10,
 	}
-	results = qlog.Query(query)
+	results, _ = qlog.Query(query)
 	if len(results) > 10 || len(results) < 1 {
 		t.Errorf("Limited type query returned unexpected results: %d but expected %d", len(results), 10)
 	}
@@ -133,7 +133,7 @@ func TestQueryLogQuery(t *testing.T) {
 	query = &QueryLogQuery{
 		RequestDomain: "google.com.",
 	}
-	results = qlog.Query(query)
+	results, _ = qlog.Query(query)
 	if len(results) != (totalEntries - totalEntries/20) {
 		t.Errorf("Domain query returned unexpected results: %d but expected %d", len(results), totalEntries-totalEntries/20)
 	}
