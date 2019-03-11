@@ -96,10 +96,13 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 	var err error
 
 	// create new request context
-	context, _ := context.WithTimeout(context.Background(), defaultTimeout)
+	context, cancel := context.WithTimeout(context.Background(), 2*defaultTimeout)
+	defer cancel()
 
 	co := &dns.Conn{}
-	dialer := &net.Dialer{}
+	dialer := &net.Dialer{
+		Timeout: defaultTimeout,
+	}
 	if coType == "tcp-tls" {
 		if conn, err := dialer.DialContext(context, "tcp", remoteAddress); err != nil {
 			return nil, err

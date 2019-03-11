@@ -45,10 +45,10 @@ before_script:
   - sudo apt-get install -y upx-ucl ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib g++-multilib npm
   - gem install --no-ri --no-rdoc fpm
   # pull xgo container
-  - travis_wait docker pull karalabe/xgo-latest
+  - travis_retry travis_wait docker pull karalabe/xgo-latest
   # prepare build environment
-  - travis_wait make prepare
-  - travis_wait make npm
+  - travis_retry travis_wait make prepare
+  - travis_retry travis_wait make npm
 
 # the script needs to build the binaries to be successful
 script:

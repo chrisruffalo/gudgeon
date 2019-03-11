@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/json-iterator/go"
 	"github.com/miekg/dns"
+	"github.com/shirou/gopsutil/process"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -37,6 +39,12 @@ const (
 	QueryTime              = "query-time"
 	// cache entries
 	CurrentCacheEntries = "cache-entries"
+	// rutnime metrics
+	GoRoutines         = "goroutines"
+	CurrentlyAllocated = "currently-allocated-bytes"
+	// cpu metrics
+	CPUHundredsPercent = "cpu-hundreds-percent" // 17 == 0.17 percent, expressed in integer terms
+
 )
 
 type metricsInfo struct {
@@ -203,7 +211,10 @@ func New(config *config.GudgeonConfig) Metrics {
 	metrics.doneTicker = make(chan bool)
 	metrics.lastInsert = time.Now()
 
-	// start go function to monitor ticker
+	// update metrics initially
+	metrics.update()
+
+	// start go function to monitor ticker and update metrics
 	go func() {
 		defer metrics.ticker.Stop()
 		defer close(metrics.doneTicker)
@@ -211,13 +222,8 @@ func New(config *config.GudgeonConfig) Metrics {
 		for {
 			select {
 			case <-metrics.ticker.C:
-				// capture runtime memory metrics into registry
-				// todo
-
-				// capture cache size
-				if metrics.cacheSizeFunc != nil {
-					metrics.Get(CurrentCacheEntries).Set(metrics.cacheSizeFunc())
-				}
+				// update periodic metrics
+				metrics.update()
 
 				// only insert/prune if a db exists
 				if metrics.db != nil {
@@ -254,6 +260,33 @@ func (metrics *metrics) Get(name string) *Metric {
 	metric := &Metric{Count: 0}
 	metrics.metricsMap[MetricsPrefix+name] = metric
 	return metric
+}
+
+func (metrics *metrics) update() {
+	// get pid
+	pid := os.Getpid()
+
+	// get process
+	process, err := process.NewProcess(int32(pid))
+	if err == nil && process != nil {
+		percent, err := process.CPUPercent()
+		if err == nil {
+			metrics.Get(CPUHundredsPercent).Set(int64(percent * 100))
+		}
+	}
+
+	// capture goroutines
+	metrics.Get(GoRoutines).Set(int64(runtime.NumGoroutine()))
+
+	// capture memory metrics
+	memoryStats := &runtime.MemStats{}
+	runtime.ReadMemStats(memoryStats)
+	metrics.Get(CurrentlyAllocated).Set(int64(memoryStats.Alloc))
+
+	// capture cache size
+	if metrics.cacheSizeFunc != nil {
+		metrics.Get(CurrentCacheEntries).Set(metrics.cacheSizeFunc())
+	}
 }
 
 func (metrics *metrics) record() {

@@ -1,7 +1,9 @@
 package util
 
 import (
+	"context"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -30,22 +32,31 @@ func LookupNetBIOSName(address string) (string, error) {
 	bytes[2] = 0
 	bytes[3] = 0
 
-	conn, err := net.DialTimeout("udp", ip.String()+":137", 2*time.Second)
+	// create a context that cancels the request after a timeout
+	context, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// dialer that fail after timeout
+	dialer := &net.Dialer{
+		Timeout: 2 * time.Second,
+	}
+
+	conn, err := dialer.DialContext(context, "tcp", ip.String()+":137")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Dialing: %s", err)
 	}
 	defer conn.Close()
 
 	// write message
 	if _, err = conn.Write(bytes); err != nil {
-		return "", err
+		return "", fmt.Errorf("Writing: %s", err)
 	}
 
 	// response is 512 bytes
 	rbytes := make([]byte, 512)
 	_, err = conn.Read(rbytes)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Reading: %s", err)
 	}
 
 	// read the Num Answer bytes

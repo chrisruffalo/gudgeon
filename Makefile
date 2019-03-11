@@ -13,6 +13,7 @@ LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed -r 's/i?686/386/' | sed
 GOOS_LIST?=linux
 GOARCH_LIST?=$(LOCALARCH)
 XGO_TARGETS?=linux/arm-5,linux/arm-6,linux/mips,linux/mipsle
+XGO_GOMIPS?=softfloat
 
 # go commands and paths
 GOPATH?=$(HOME)/go
@@ -106,6 +107,7 @@ prepare: ## Get all go tools and required libraries
 		$(GOCMD) get -u github.com/karalabe/xgo
 		$(GOCMD) get -u github.com/mitchellh/gox
 		$(GOCMD) get -u github.com/GeertJohan/go.rice/rice
+		$(GODOWN)
 
 npm: ## download project npm dependencies
 		$(NPM) install 	
@@ -124,7 +126,7 @@ build: announce  ## Build Binary
 buildxgo: announce ## Use xgo to build arm targets with sqlite installed, this only works **from inside the go path** (until xgo gets module support, anyway)
 		mkdir -p $(BUILD_DIR)
 		$(RICECMD) embed-go $(RICEPATHS)
-		$(XGOCMD) --dest $(BUILD_DIR) --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
+		GOMIPS=$(XGO_GOMIPS) $(XGOCMD) --dest $(BUILD_DIR) --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
 		# remove rice artifacts
 		$(RICECMD) clean $(RICEPATHS)		
 
