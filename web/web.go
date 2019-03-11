@@ -135,6 +135,12 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 		}
 	}
 
+	if skipped := c.Query("skip"); len(skipped) > 0 {
+		if iSkipped, err := strconv.Atoi(skipped); err == nil {
+			query.Skip = iSkipped
+		}
+	}
+
 	if blocked := c.Query("blocked"); len(blocked) > 0 {
 		if "true" == strings.ToLower(blocked) {
 			boolHolder := true
@@ -145,8 +151,20 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 		}
 	}
 
+	if address := c.Query("address"); len(address) > 0 {
+		query.Address = address
+	}
+
 	if requestDomain := c.Query("rdomain"); len(requestDomain) > 0 {
 		query.RequestDomain = requestDomain
+	}
+
+	if clientName := c.Query("clientName"); len(clientName) > 0 {
+		query.ClientName = clientName
+	}
+
+	if responseText := c.Query("responseText"); len(responseText) > 0 {
+		query.ResponseText = responseText
 	}
 
 	// look for and convert time (seconds since unix epoch) to local date
@@ -164,6 +182,14 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 			beforeTime := time.Unix(iBefore, 0)
 			query.Before = &beforeTime
 		}
+	}
+
+	if sort := c.Query("sortby"); len(sort) > 0 {
+		query.SortBy = strings.ToLower(sort)
+	}
+
+	if direction := c.Query("direction"); len(direction) > 0 {
+		query.Direction = strings.ToUpper(direction)
 	}
 
 	results, resultLen := web.queryLog.Query(query)

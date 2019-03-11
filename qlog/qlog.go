@@ -65,9 +65,11 @@ type LogInfo struct {
 type QueryLogQuery struct {
 	// query on fields
 	Address        string
+	ClientName     string
 	ConnectionType string
 	RequestDomain  string
 	RequestType    string
+	ResponseText   string
 	Blocked        *bool
 	// query on created time
 	After  *time.Time
@@ -76,8 +78,8 @@ type QueryLogQuery struct {
 	Skip  int
 	Limit int
 	// query sort
-	SortBy  string
-	Reverse *bool
+	SortBy    string
+	Direction string
 }
 
 // store database location
@@ -614,61 +616,82 @@ func (qlog *qlog) Query(query *QueryLogQuery) ([]LogInfo, uint64) {
 	countStmt := "SELECT COUNT(*) FROM qlog"
 
 	// so we can dynamically build the where clause
-	whereClauses := make([]string, 0)
+	orClauses := []string{"1 = 1"}
+	whereClauses := []string{"1 = 1"}
+	orValues := make([]interface{}, 0)
 	whereValues := make([]interface{}, 0)
 
 	// result holding
 	var rows *sql.Rows
 	var err error
 
-	// build query
-	if query.After != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("Created > $%d", len(whereClauses)+1))
-		whereValues = append(whereValues, query.After)
-	}
-	if query.Before != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("Created < $%d", len(whereClauses)+1))
-		whereValues = append(whereValues, query.Before)
+	// or clause
+	if "" != query.Address {
+		orClauses = append(orClauses, "Address like ?")
+		orValues = append(orValues, "%"+query.Address+"%")
 	}
 
-	if "" != query.Address {
-		whereClauses = append(whereClauses, fmt.Sprintf("Address = $%d", len(whereClauses)+1))
-		whereValues = append(whereValues, query.Address)
+	if "" != query.ClientName {
+		orClauses = append(orClauses, "ClientName like ?")
+		orValues = append(orValues, "%"+query.ClientName+"%")
 	}
 
 	if "" != query.RequestDomain {
-		whereClauses = append(whereClauses, fmt.Sprintf("RequestDomain = $%d", len(whereClauses)+1))
-		whereValues = append(whereValues, query.RequestDomain)
+		orClauses = append(orClauses, "RequestDomain like ?")
+		orValues = append(orValues, "%"+query.RequestDomain+"%")
+	}
+
+	if "" != query.ResponseText {
+		orClauses = append(orClauses, "ResponseText like ?")
+		orValues = append(orValues, "%"+query.ResponseText+"%")
 	}
 
 	if query.Blocked != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("Blocked = $%d", len(whereClauses)+1))
+		whereClauses = append(whereClauses, "Blocked = ?")
 		whereValues = append(whereValues, query.Blocked)
 	}
 
-	// finalize query part
-	if len(whereClauses) > 0 {
-		selectStmt = selectStmt + " WHERE " + strings.Join(whereClauses, " AND ")
-		// copy current select statement to use for length query if needed
-		countStmt = countStmt + " WHERE " + strings.Join(whereClauses, " AND ")
+	if query.After != nil {
+		whereClauses = append(whereClauses, "Created > ?")
+		whereValues = append(whereValues, query.After)
 	}
 
-	// sort
-	sortBy := "Created"
-	sortReversed := query.Reverse
-	direction := "ASC"
+	if query.Before != nil {
+		whereClauses = append(whereClauses, "Created < ?")
+		whereValues = append(whereValues, query.Before)
+	}
+
+	// finalize query part
+	if len(whereClauses) > 0 || len(orClauses) > 0 {
+		if len(orClauses) > 1 {
+			orClauses = orClauses[1:]
+		}
+		if len(whereClauses) > 1 {
+			whereClauses = whereClauses[1:]
+		}
+
+		clauses := strings.Join([]string{"(" + strings.Join(orClauses, " OR ") + ")", strings.Join(whereClauses, " AND ")}, " AND ")
+		selectStmt = selectStmt + " WHERE " + clauses
+		// copy current select statement to use for length query if needed
+		countStmt = countStmt + " WHERE " + clauses
+	}
+
+	// add or/and values together
+	whereValues = append(orValues, whereValues...)
+
+	// sort and sort direction
+	sortBy := "created"
+	direction := strings.ToUpper(query.Direction)
+	if !util.StringIn(direction, []string{"DESC", "ASC"}) {
+		direction = ""
+	}
 	if "" != query.SortBy && util.StringIn(strings.ToLower(query.SortBy), validSorts) {
 		sortBy = query.SortBy
 	}
-	if "created" == strings.ToLower(sortBy) {
+	if "created" == strings.ToLower(sortBy) && "" == direction {
 		direction = "DESC"
-	}
-	if sortReversed != nil && *sortReversed == true {
-		if "DESC" == direction {
-			direction = "ASC"
-		} else if "ASC" == direction {
-			direction = "DESC"
-		}
+	} else if "" == direction {
+		direction = "ASC"
 	}
 
 	// add sort
@@ -687,6 +710,9 @@ func (qlog *qlog) Query(query *QueryLogQuery) ([]LogInfo, uint64) {
 		selectStmt = selectStmt + fmt.Sprintf(" OFFSET %d", query.Skip)
 		checkLen = true
 	}
+
+	//log.Infof("Query: %s", selectStmt)
+	//log.Infof("Values: %v", whereValues)
 
 	// get query length by itself without offsets and limits
 	// but based on the same query
