@@ -52,12 +52,12 @@ before_script:
 
 # the script needs to build the binaries to be successful
 script:
-  - make test
+  - travis_retry make test
   # get third-party resources for build
   - make webpack
   # build binaries
   - make GOOS_LIST="linux" GOARCH_LIST="386 amd64" build
-  - travis_wait make buildxgo
+  - travis_retry travis_wait make buildxgo
 
 before_deploy:
   # package targets

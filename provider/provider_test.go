@@ -59,7 +59,7 @@ func TestProviderLocalResolution(t *testing.T) {
 	provider.Host(config, engine, nil, nil)
 
 	// create dns sources and use it
-	sources := []resolver.Source{resolver.NewSource("127.0.0.1:5553/tcp"), resolver.NewSource("127.0.0.1:5553/tcp")}
+	sources := []resolver.Source{resolver.NewSource("127.0.0.1:25353/tcp"), resolver.NewSource("127.0.0.1:25353/tcp")}
 
 	// use each source on each data element
 	for _, d := range data {

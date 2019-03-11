@@ -3,7 +3,7 @@ gudgeon:
   network:
     interfaces:
     - ip: 127.0.0.1
-      port: 5553
+      port: 25353
 
   resolvers:
   - name: default
