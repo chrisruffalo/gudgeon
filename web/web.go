@@ -166,8 +166,13 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 		}
 	}
 
+	results, resultLen := web.queryLog.Query(query)
+
 	// query against query log and return encoded results
-	c.JSON(http.StatusOK, web.queryLog.Query(query))
+	c.JSON(http.StatusOK, gin.H{
+		"total": resultLen,
+		"items": results,
+	})
 }
 
 func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog qlog.QLog) error {

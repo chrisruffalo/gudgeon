@@ -98,7 +98,7 @@ type qlog struct {
 
 // public interface
 type QLog interface {
-	Query(query *QueryLogQuery) []LogInfo
+	Query(query *QueryLogQuery) ([]LogInfo, uint64)
 	Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult)
 	Stop()
 }
@@ -608,9 +608,10 @@ func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon
 	qlog.logInfoChan <- msg
 }
 
-func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
+func (qlog *qlog) Query(query *QueryLogQuery) ([]LogInfo, uint64) {
 	// select entries from qlog
 	selectStmt := "SELECT Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created FROM qlog"
+	countStmt := "SELECT COUNT(*) FROM qlog"
 
 	// so we can dynamically build the where clause
 	whereClauses := make([]string, 0)
@@ -648,6 +649,8 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 	// finalize query part
 	if len(whereClauses) > 0 {
 		selectStmt = selectStmt + " WHERE " + strings.Join(whereClauses, " AND ")
+		// copy current select statement to use for length query if needed
+		countStmt = countStmt + " WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
 	// sort
@@ -667,27 +670,44 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 			direction = "DESC"
 		}
 	}
+
 	// add sort
 	selectStmt = selectStmt + fmt.Sprintf(" ORDER BY %s %s", sortBy, direction)
+
+	// default length of query is 0
+	resultLen := uint64(0)
+	checkLen := false
 
 	// set limits
 	if query.Limit > 0 {
 		selectStmt = selectStmt + fmt.Sprintf(" LIMIT %d", query.Limit)
+		checkLen = true
 	}
 	if query.Skip > 0 {
 		selectStmt = selectStmt + fmt.Sprintf(" OFFSET %d", query.Skip)
+		checkLen = true
+	}
+
+	// get query length by itself without offsets and limits
+	// but based on the same query
+	if checkLen {
+		err := qlog.store.QueryRow(countStmt, whereValues...).Scan(&resultLen)
+		if err != nil {
+			log.Errorf("Could not get log item count: %s", err)
+			checkLen = false
+		}
 	}
 
 	// make query
 	rows, err = qlog.store.Query(selectStmt, whereValues...)
 	if err != nil {
 		log.Errorf("Query log query failed: %s", err)
-		return []LogInfo{}
+		return []LogInfo{}, 0
 	}
 	defer rows.Close()
 	// if rows is nil return empty array
 	if rows == nil {
-		return []LogInfo{}
+		return []LogInfo{}, 0
 	}
 
 	// otherwise create an array of the required size
@@ -716,7 +736,11 @@ func (qlog *qlog) Query(query *QueryLogQuery) []LogInfo {
 		results = append(results, info)
 	}
 
-	return results
+	if !checkLen {
+		resultLen = uint64(len(results))
+	}
+
+	return results, resultLen
 }
 
 func (qlog *qlog) Stop() {

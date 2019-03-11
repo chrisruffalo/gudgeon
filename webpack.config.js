@@ -88,6 +88,15 @@ module.exports = {
 
     module: {
         rules: [
+            // pre-rule to optimize images
+            {
+                test: /\.(jpg|png|gif|svg)$/,
+                loader: 'image-webpack-loader',
+                // Specify enforce: 'pre' to apply the loader
+                // before url-loader/svg-url-loader
+                // and not duplicate it in rules with them
+                enforce: 'pre'
+            },
             //js loader
             {
                 // Only run `.js` and `.jsx` files through Babel
@@ -153,9 +162,9 @@ module.exports = {
                 test: /\.svg(\?v=\d+\.\d+\.\d+)?$/,
                 use: [
                     {
-                        loader: 'url-loader',
+                        loader: 'svg-url-loader',
                         options: {
-                            limit: 65000,
+                            limit: 64 * 1024,
                             mimetype: "image/svg+xml",
                             name: "img/[name].[ext]"
                         }
@@ -168,7 +177,7 @@ module.exports = {
                     {
                         loader: 'url-loader',
                         options: {
-                            limit: 65000,
+                            limit: 64 * 1024,
                             mimetype: "application/font-woff",
                             name: "fonts/[name].[ext]"
                         }
@@ -181,7 +190,7 @@ module.exports = {
                     {
                         loader: 'url-loader',
                         options: {
-                            limit: 65000,
+                            limit: 64 * 1024,
                             mimetype: "application/font-woff2",
                             name: "fonts/[name].[ext]"
                         }
@@ -194,7 +203,7 @@ module.exports = {
                     {
                         loader: 'url-loader',
                         options: {
-                            limit: 65000,
+                            limit: 64 * 1024,
                             mimetype: "application/octet-stream",
                             name: "fonts/[name].[ext]"
                         }
@@ -207,7 +216,7 @@ module.exports = {
                     {
                         loader: 'url-loader',
                         options: {
-                            limit: 65000,
+                            limit: 64 * 1024,
                             mimetype: "application/vnd.ms-fontobject",
                             name: "fonts/[name].[ext]"
                         }
@@ -220,7 +229,7 @@ module.exports = {
                     {
                         loader: 'url-loader',
                         options: {
-                            limit: 100000,
+                            limit: 10 * 1024,
                             name: "img/[name].[ext]"
                         }
                     }   

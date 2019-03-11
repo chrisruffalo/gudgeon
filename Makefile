@@ -13,7 +13,7 @@ LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed -r 's/i?686/386/' | sed
 GOOS_LIST?=linux
 GOARCH_LIST?=$(LOCALARCH)
 XGO_TARGETS?=linux/arm-5,linux/arm-6,linux/mips,linux/mipsle
-XGO_IMAGE?=gudgeon/xgo
+XGO_IMAGE?=karalabe/xgo-1.12
 
 # go commands and paths
 GOPATH?=$(HOME)/go

@@ -5,39 +5,50 @@ import {
   Card,
   CardBody,
 } from '@patternfly/react-core';
-import MaterialTable from 'material-table'
+import MaterialTable from 'material-table';
 import { PrettyDate } from './helpers.js';
-import { QPSChart } from './metrics-chart.js';
-import gudgeonStyles from '../../css/gudgeon-app.css';
-import { css } from '@patternfly/react-styles';
-import { RebootingIcon, ErrorCircleOIcon } from '@patternfly/react-icons';
 
 export class QueryLog extends React.Component {
   constructor(props) {
     super(props);
   };
 
-  timeRangeOptions = [
-    { value: (60 * 60), label: 'Last Hour', disabled: false },
-    { value: (60 * 60) * 6, label: 'Last 6 Hours', disabled: false },
-    { value: (60 * 60) * 12, label: 'Last 12 Hours', disabled: false },
-    { value: (60 * 60) * 24, label: 'Last 24 Hours', disabled: false },
-    { value: -1, label: 'All Time', disabled: false }
-  ];
+  updateData = () => {
+    var { actions } = this.state
+    actions[0].iconProps.color = "action"
+    this.setState({ actions: actions })
+  };
 
-  viewItemOptions = [
-    { value: 10, label: '10', disabled: false },
-    { value: 25, label: '25', disabled: false },
-    { value: 50, label: '50', disabled: false },
-    { value: 100, label: '100', disabled: false },
-    { value: 500, label: '500', disabled: false },
-    { value: 'none', label: 'All', disabled: false }
-  ];
+  dataQuery = (query) => {
+    new Promise((resolve, reject) => {
+      // query variables
+      var limit = 1000;
+      var skip = query.page == 0 ? 0 : ((query.page - 1) * query.pageSize);
+      var after = (Math.floor(Date.now()/1000) - timeRangeValue).toString()
+
+      // build url
+      var url = 'api/log?limit=' + limit + "&skip=" + skip + "&after=" + after;
+
+      // make query
+      fetch(url)
+        .then(response => response.json())
+        .then(result => {
+          resolve({
+            data: result.data.items,
+            page: result.page - 1,
+            totalCount: result.data.total
+          });
+        });
+    });
+  };
 
   state = {
-    Queries: [],
+    refreshing: false,
     columns: [
-      { title: 'Client', render: rowData => {
+      { title: 'Client', 
+        searchable: true,
+        sorting: false,        
+        render: rowData => {
           var clientString = "";
           if ( rowData.ClientName ) {
             clientString = clientString + rowData.ClientName + " | ";
@@ -48,13 +59,19 @@ export class QueryLog extends React.Component {
           );
         }
       },
-      { title: 'Request', render: rowData => {
+      { title: 'Request',
+        searchable: true,
+        sorting: false,        
+        render: rowData => {
           return (
             <div>{ rowData.RequestDomain } ({ rowData.RequestType })</div>
           );
         }
       },
-      { title: 'Response', render: rowData => {
+      { title: 'Response', 
+        searchable: true,
+        sorting: false,
+        render: rowData => {
           if ( rowData.Blocked ) {
             return (
               <div><ErrorCircleOIcon /> { rowData.BlockedList }{ rowData.BlockedRule ? ' (' + rowData.BlockedRule + ")" : null }</div>
@@ -66,7 +83,11 @@ export class QueryLog extends React.Component {
           }
         }
       },
-      { title: 'Created', render: rowData => {
+      { title: 'Created',
+        searchable: false,
+        sorting: true,
+        defaultSort: "desc",
+        render: rowData => {
           return (
             <div>{ PrettyDate(rowData.Created) }</div>
           );
@@ -74,61 +95,24 @@ export class QueryLog extends React.Component {
       }
     ],
     data: [],
-    limit: 10,
-    page: 0,
-    isOpen: false,
-    isQuerying: false,
-    autoRefresh: false,
-    autoRefreshTimer: null,
-    timeRangeValue: this.timeRangeOptions[0].value,
-    pageCountValue: this.viewItemOptions[0].value
+    actions: [{
+      disabled: false,
+      icon: "refresh",
+      iconProps: {color: "primary"},
+      isFreeAction: true,
+      tooltip: "Refresh",
+      onClick: this.updateData
+    }],
+    options: {
+        pageSize: 10,
+        pageSizeOptions: [ 5, 10, 20, 50, 100 ],
+        showTitle: false,
+        debounceInterval: 350
+    }
   };
 
-  updateData(triggerAuto) {
-    var { limit, page, autoRefreshTimer, autoRefresh, timeRangeValue, pageCountValue } = this.state
-
-    // clear the timeout when entering this method
-    if ( autoRefreshTimer != null ) {
-      clearTimeout(autoRefreshTimer)
-    }
-
-    if ( triggerAuto == null ) {
-      triggerAuto = autoRefresh
-    }
-
-    // update the data in the state
-    this.setState({ isQuerying: true })       
-
-    // set time if set to a value
-    var queryParams = {}
-    if ( timeRangeValue >= 0 ) {
-      queryParams['after'] = (Math.floor(Date.now()/1000) - timeRangeValue).toString()
-    }
-    
-    // set limit
-    queryParams['limit'] = pageCountValue
-
-    Axios
-      .get("api/log", {
-        params: queryParams
-      })
-      .then(response => {
-        var newTimer = null;
-        if ( triggerAuto ) {
-          // set timeout and update data again
-          newTimer = setTimeout(() => {
-            this.updateData()
-          },2000); // two seconds
-        }
-
-        // update the data in the state
-        this.setState({ autoRefreshTimer: newTimer, isQuerying: false, data: response.data})       
-      });
-  }
-
   componentDidMount() {
-    // update data
-    this.updateData();
+
   }
 
   componentWillUnmount() {
@@ -141,12 +125,12 @@ export class QueryLog extends React.Component {
   }
 
   render() {
-    const { columns, data } = this.state;
+    const { columns, dataQuery, actions, options } = this.state;
 
     return (
       <React.Fragment>
         <GridItem lg={12} md={12} sm={12}>
-          <MaterialTable columns={columns} data={data} />
+          <MaterialTable columns={columns} data={dataQuery} actions={actions} options={options} />
         </GridItem>
       </React.Fragment>
     )

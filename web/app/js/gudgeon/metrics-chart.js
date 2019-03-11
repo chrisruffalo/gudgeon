@@ -37,8 +37,7 @@ export class QPSChart extends React.Component {
           var lastElement = response.data[response.data.length - 1];
           var newAtTime = (Math.floor(new Date(lastElement.AtTime) / 1000) + 1).toString() // time is in ms we need in s
           // change state
-          const newState = Object.assign({}, this.state, { data: newData, lastAtTime: newAtTime });
-          this.setState(newState)
+          this.setState({ data: newData, lastAtTime: newAtTime })
         }
 
         // set timeout and update data again
@@ -47,16 +46,14 @@ export class QPSChart extends React.Component {
         },10000);
 
         // update the data in the state
-        const newState = Object.assign({}, this.state, { timer: newTimer });
-        this.setState(newState)        
+        this.setState({ timer: newTimer })        
       });
   }
 
   componentDidMount() {
     // resize
     setTimeout(() => {
-      const newState = Object.assign({}, this.state, { width: this.containerRef.current.clientWidth });
-      this.setState(newState)
+      this.setState({ width: this.containerRef.current.clientWidth })
       window.addEventListener('resize', this.handleResize);
     });
 
@@ -68,8 +65,7 @@ export class QPSChart extends React.Component {
     var { timer } = this.state
     if ( timer != null ) {
       clearTimeout(timer)
-      const newState = Object.assign({}, this.state, { timer: null });
-      this.setState(newState)
+      this.setState({ timer: null })
     }
 
     window.removeEventListener('resize', this.handleResize);

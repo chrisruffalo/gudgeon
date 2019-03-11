@@ -6,3 +6,8 @@ MAINTAINER Chris Ruffalo
 
 # set specific environment for Gudgeon
 ENV GOMIPS=softfloat
+
+# override build file
+ADD xgo-build-modified.sh /build.sh
+ENV BUILD /build.sh
+RUN chmod +x $BUILD
