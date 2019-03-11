@@ -127,7 +127,7 @@ buildxgo: announce ## Use xgo to build arm targets with sqlite installed, this o
 		mkdir -p $(BUILD_DIR)
 		$(RICECMD) embed-go $(RICEPATHS)
 		export GOMIPS=$(XGO_GOMIPS)
-		$(XGOCMD) --dest $(BUILD_DIR) --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
+		$(XGOCMD) --dest $(BUILD_DIR) -image "gudgeon/xgo" --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
 		# remove rice artifacts
 		$(RICECMD) clean $(RICEPATHS)		
 

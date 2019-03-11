@@ -1,0 +1,8 @@
+# use xgo as base
+FROM karalabe/xgo-1.12
+
+# maintain (??)
+MAINTAINER Chris Ruffalo
+
+# set specific environment for Gudgeon
+ENV GOMIPS=softfloat
