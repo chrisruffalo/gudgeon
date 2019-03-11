@@ -326,7 +326,7 @@ func (qlog *qlog) flush() {
 		tx.Commit()
 	}
 	rows, _ := result.RowsAffected()
-	log.Infof("Wrote %d query log records", rows)
+	log.Debugf("Wrote %d query log records", rows)
 
 	// remake batch for inserting
 	qlog.batch = make([]*LogInfo, 0, initialQueueSize)
@@ -469,7 +469,7 @@ func (qlog *qlog) getReverseName(address string) string {
 		return ""
 	}
 
-	// look in local cache for name
+	// look in local cache for name, even if it is empty
 	if value, found := qlog.cache.Get(address); found {
 		if valueString, ok := value.(string); ok {
 			return valueString

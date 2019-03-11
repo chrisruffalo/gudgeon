@@ -126,7 +126,8 @@ build: announce  ## Build Binary
 buildxgo: announce ## Use xgo to build arm targets with sqlite installed, this only works **from inside the go path** (until xgo gets module support, anyway)
 		mkdir -p $(BUILD_DIR)
 		$(RICECMD) embed-go $(RICEPATHS)
-		GOMIPS=$(XGO_GOMIPS) $(XGOCMD) --dest $(BUILD_DIR) --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
+		export GOMIPS=$(XGO_GOMIPS)
+		$(XGOCMD) --dest $(BUILD_DIR) --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
 		# remove rice artifacts
 		$(RICECMD) clean $(RICEPATHS)		
 
