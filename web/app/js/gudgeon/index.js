@@ -29,7 +29,7 @@ export class Gudgeon extends React.Component {
       'longversion': '',
       'githash': ''
     },
-    activeItem: 1
+    activeItem: 0
   };
 
   onSelect = result => {
