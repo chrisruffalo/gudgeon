@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-    "github.com/ryanuber/go-glob"
+	"github.com/ryanuber/go-glob"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/miekg/dns"

@@ -290,7 +290,7 @@ func (qlog *qlog) flush() {
 
 		// commit if no errors
 		commit := true
-		for _, i := range qlog.batch {		
+		for _, i := range qlog.batch {
 			result, err := pstmt.Exec(i.Address, i.ClientName, i.Consumer, i.RequestDomain, i.RequestType, i.ResponseText, i.Blocked, i.BlockedList, i.BlockedRule, i.Created)
 			if err != nil {
 				log.Errorf("Insert into qlog: %s", err)
@@ -306,8 +306,8 @@ func (qlog *qlog) flush() {
 		// decide to commit or not
 		if commit {
 			tx.Commit()
-		} else {		
-			tx.Rollback()		
+		} else {
+			tx.Rollback()
 		}
 
 		log.Debugf("Wrote %d query log records", rowsAffected)
@@ -327,9 +327,6 @@ func (qlog *qlog) log(info *LogInfo) {
 	var builder strings.Builder
 
 	var fields log.Fields
-	if qlog.fileLogger != nil {
-		fields = log.Fields{}
-	}
 
 	// log result if found
 	builder.WriteString("[")

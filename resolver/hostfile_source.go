@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	wildcard   = "*"
+	wildcard = "*"
 )
 
 type hostFileSource struct {
@@ -291,7 +291,7 @@ func (hostFileSource *hostFileSource) Answer(rCon *RequestContext, context *Reso
 		if qType != dns.TypeANY {
 			hostFileSource.respondToCNAME(name, response)
 		}
-		// if no cnames are we can look for A/AAAA responses
+		// if no cnames are given we can look for A/AAAA responses
 		if qType == dns.TypeANY || len(response.Answer) < 1 {
 			hostFileSource.respondToA(name, request, response)
 		}

@@ -10,7 +10,8 @@ In no particular order these are the future improvements that are coming to Gudg
   * **Done:** Local instance metrics storage
   * Exporting to Prometheus and InfluxDB (followed by others as desired)
 * Query Log
-  * Reverse name lookups for clients (possibly netbios names or other names if possible for things not in DNS infrastructure)
+  * **Done:** Reverse name lookups for clients (possibly netbios names or other names if possible for things not in DNS infrastructure)
+  * **Done:** Zeroconf/mDNS/Avahi/Bonjour compatible lookups for reverse name finding
 * Web UI
   * Searchable query log
   * Metrics graph widgets
@@ -32,6 +33,7 @@ In no particular order these are the future improvements that are coming to Gudg
   * Configurable "system" resolver for resolving domain names internally
   * Conditional resolution (only use certain resolvers in certain conditions)
   * Using resolv.conf files as resolution sources
+  * **Done:** Using Zone-files (\*.db) as a resolution source
   * Name support with DNS-Over-TLS (use domain name instead of just IP as resolver source)
 * Consumers
   * **Done:** Block clients at the consumer level

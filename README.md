@@ -20,7 +20,7 @@ For all of these reasons Gudgeon has been created to allow more flexibility in h
 * [What About...](docs/WHATABOUT.md)
 
 ## History
-Gudgeon has been serving **all** of my home DNS traffic since 01/14/2019. Eating my own dogfood has been challenging and there've been a few issues where I've had to get to my laptop and start coding to restore service or bring pihole back online. The intervals between incidents have been steadily increasing.758771
+Gudgeon has been serving **all** of my home DNS traffic since 01/14/2019. Eating my own dogfood has been challenging and there've been a few issues where I've had to get to my laptop and start coding to restore service or bring pihole back online. The intervals between incidents have been steadily increasing. In early March 2019 there was an issue with the reverse lookup feature (specifically Netbios lookup) was causing everything to back up which was eventually fixed.
 
 ## Features
 * Go Routines for non-blocking request handling enables high-througput especially with simultaneous requests
@@ -31,6 +31,7 @@ Gudgeon has been serving **all** of my home DNS traffic since 01/14/2019. Eating
 * Resolvers and resolver groups for certain/specific subnets based on matching incoming connections
 * Inline host file entries in configuration file as well as external host files
 * Enhanced (and backwards-compatible) hostname format supports wildcard names, CNAME/PTR entries, and reverse lookups
+* Use Zone DB files to support more record types than hostnames
 * A Web UI to show details about current system status
 * Query logging with the ability to view recent queries in the Web UI
 

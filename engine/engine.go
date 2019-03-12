@@ -233,12 +233,18 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 	// scope provided finding response
 	var (
 		response *dns.Msg
-		result   *resolver.ResolutionResult
+		err      error
 	)
 
 	// create context
 	rCon := resolver.DefaultRequestContext()
 	rCon.Protocol = protocol
+
+	// get consumer and use it to set initial/noreply result
+	consumer := engine.getConsumerForIp(address)
+	result := &resolver.ResolutionResult{
+		Consumer: consumer.configConsumer.Name,
+	}
 
 	// drop questions that don't meet minimum requirements
 	if request == nil || len(request.Question) < 1 {
@@ -260,30 +266,22 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 	// get domain name
 	domain := request.Question[0].Name
 
-	// get consumer
-	consumer := engine.getConsumerForIp(address)
-
 	// get block status and just hang up if blocked at the consumer level
 	if consumer.configConsumer.Block {
-		result = new(resolver.ResolutionResult)
 		result.Blocked = true
 	} else if blocked, list, ruleText := engine.domainBlockedForConsumer(consumer, domain); blocked {
-		// set blocked values
-		result = new(resolver.ResolutionResult)
 		result.Blocked = true
 		result.BlockedList = list
 		result.BlockedRule = ruleText
 	} else {
 		// if not blocked then actually try resolution, by grabbing the resolver names
-		resolvers := engine.getResolvers(consumer)
-		r, res, err := engine.resolvers.AnswerMultiResolvers(rCon, resolvers, request)
+		resolverNames := engine.getResolvers(consumer)
+		response, result, err = engine.resolvers.AnswerMultiResolvers(rCon, resolverNames, request)
 		if err != nil {
 			log.Errorf("Could not resolve <%s> for consumer '%s': %s", domain, consumer.configConsumer.Name, err)
 		} else {
-			response = r
-			result = res
 			cnameResponse := engine.handleCnameResolution(address, protocol, request, response)
-			if cnameResponse != nil {
+			if !util.IsEmptyResponse(cnameResponse) {
 				response = cnameResponse
 			}
 		}
@@ -313,7 +311,7 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 		result.Message = fmt.Sprintf("%v", recovery)
 	}
 
-	// set consumer
+	// update/set
 	if result != nil && consumer != nil && consumer.configConsumer != nil {
 		result.Consumer = consumer.configConsumer.Name
 	}

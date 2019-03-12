@@ -2,7 +2,10 @@ package testutil
 
 import (
 	"math/rand"
+	"net"
 	"time"
+
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 var tlds = []string{".com", ".org", ".net"}
@@ -19,4 +22,9 @@ func RandomDomain() string {
 		domain[idx] = runes[rand.Intn(len(runes))]
 	}
 	return string(domain) + tlds[rand.Intn(len(tlds))]
+}
+
+func ReverseIpString(ip string) string {
+	ipObj := net.ParseIP(ip)
+	return util.ReverseLookupDomain(&ipObj)
 }

@@ -43,7 +43,7 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 
 					// hash
 					options := make(map[string]interface{}, 0)
-					options["version"] = version.Info();
+					options["version"] = version.Info()
 					options["query_log"] = web.conf.QueryLog.Enabled
 					options["metrics"] = web.conf.Metrics.Enabled
 

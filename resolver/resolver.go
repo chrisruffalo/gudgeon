@@ -110,7 +110,7 @@ func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, sharedR
 					source = sharedSource
 				}
 			}
-			
+
 			if source == nil {
 				source := NewSource(configuredSource)
 				if source != nil {
