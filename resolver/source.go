@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+    "github.com/ryanuber/go-glob"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/miekg/dns"
@@ -22,16 +23,15 @@ type Source interface {
 func NewSource(sourceSpecification string) Source {
 	// a source that exists as a file is a hostfile source
 	if _, err := os.Stat(sourceSpecification); !os.IsNotExist(err) {
-		source, err := newZoneSourceFromFile(sourceSpecification)
-		// if a source was returned but has an error...
-		if source != nil && err != nil {
-			log.Errorf("Parsing zone file: %s", err)
-		}
-		// if no source was returned (no records found in source format)
-		if source == nil {
+		if glob.Glob("*.db", sourceSpecification) {
+			source, err := newZoneSourceFromFile(sourceSpecification)
+			if err != nil {
+				log.Errorf("Loading zone file: %s", err)
+			}
+			return source
+		} else {
 			return newHostFileSource(sourceSpecification)
 		}
-		return source
 	}
 
 	// a source that is an IP or that has other hallmarks of an address is a dns source

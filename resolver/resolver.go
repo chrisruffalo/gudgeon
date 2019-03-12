@@ -67,8 +67,12 @@ type Resolver interface {
 	Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
 }
 
-// create a new resolver
 func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
+	return newSharedSourceResolver(configuredResolver, nil)
+}
+
+// create a new resolver
+func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, sharedResolvers map[string]Source) *resolver {
 	// resolvers must have a name
 	if "" == configuredResolver.Name {
 		return nil
@@ -98,9 +102,24 @@ func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
 		if resolver.name == "system" && configuredSource == "system" {
 			resolver.sources = append(resolver.sources, newSystemSource())
 		} else {
-			source := NewSource(configuredSource)
-			if source != nil {
-				resolver.sources = append(resolver.sources, source)
+			var source Source
+
+			if sharedResolvers != nil {
+				if sharedSource, found := sharedResolvers[configuredSource]; found {
+					resolver.sources = append(resolver.sources, sharedSource)
+					source = sharedSource
+				}
+			}
+			
+			if source == nil {
+				source := NewSource(configuredSource)
+				if source != nil {
+					log.Infof("Loaded source: %s", source.Name())
+					resolver.sources = append(resolver.sources, source)
+					if sharedResolvers != nil {
+						sharedResolvers[configuredSource] = source
+					}
+				}
 			}
 		}
 	}

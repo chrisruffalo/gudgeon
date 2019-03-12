@@ -1,0 +1,20 @@
+---
+# ====================================================================
+# Basic/minimal configuration
+# ====================================================================
+gudgeon:
+  home: ./.gudgeon/
+
+  network:
+    tcp: true
+    udp: true
+    interfaces:
+    - ip: 127.0.0.1
+      port: 5354
+
+  resolvers:
+  - name: default
+    sources:
+    - ./resolver/testdata/zone-test.db
+    - 8.8.8.8
+    - 8.8.4.4

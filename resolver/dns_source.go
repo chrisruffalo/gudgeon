@@ -82,6 +82,11 @@ func newDnsSource(sourceAddress string) Source {
 	// set up tls config
 	source.tlsConfig = &tls.Config{InsecureSkipVerify: true}
 
+	// check final output
+	if ip := net.ParseIP(source.dnsServer); ip == nil {
+		return nil
+	}
+
 	// save/parse remote address once
 	source.remoteAddress = fmt.Sprintf("%s%s%d", source.dnsServer, portDelimeter, source.port)
 

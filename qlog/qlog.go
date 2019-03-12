@@ -23,9 +23,8 @@ import (
 )
 
 const (
-	initialQueueSize = 10
 	// constant insert statement
-	qlogInsertStatement = "insert into qlog (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES"
+	qlogInsertStatement = "INSERT INTO qlog (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
@@ -182,8 +181,8 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 	}
 
 	// create log channel for queuing up batches
-	qlog.batch = make([]*LogInfo, 0, initialQueueSize)
-	qlog.logInfoChan = make(chan *LogInfo, qlConf.QueueSize) // support 25 "batches" in queue
+	qlog.batch = make([]*LogInfo, 0, qlConf.QueueSize)
+	qlog.logInfoChan = make(chan *LogInfo, qlConf.QueueSize)
 	qlog.doneChan = make(chan bool)
 	go qlog.logWorker()
 
@@ -272,66 +271,50 @@ func (qlog *qlog) flush() {
 		return
 	}
 
-	var builder strings.Builder
-	builder.WriteString(qlogInsertStatement)
-	for idx, i := range qlog.batch {
-		if idx > 0 {
-			builder.WriteString(", ")
-		}
-		// todo: figure out how to escape this sql just in case something happens
-		// and a user manges to configure themselves in such a way they also
-		// do a sql injection attack
-		builder.WriteString("(")
-		builder.WriteString("\"")
-		builder.WriteString(i.Address)
-		builder.WriteString("\",")
-		builder.WriteString("\"")
-		builder.WriteString(i.ClientName)
-		builder.WriteString("\",")
-		builder.WriteString("\"")
-		builder.WriteString(i.Consumer)
-		builder.WriteString("\",")
-		builder.WriteString("\"")
-		builder.WriteString(i.RequestDomain)
-		builder.WriteString("\",")
-		builder.WriteString("\"")
-		builder.WriteString(i.RequestType)
-		builder.WriteString("\",")
-		builder.WriteString("\"")
-		builder.WriteString(i.ResponseText)
-		builder.WriteString("\",")
-		builder.WriteString(fmt.Sprintf("%t", i.Blocked))
-		builder.WriteString(", ")
-		builder.WriteString("\"")
-		builder.WriteString(i.BlockedList)
-		builder.WriteString("\",")
-		builder.WriteString("\"")
-		builder.WriteString(i.BlockedRule)
-		builder.WriteString("\",")
-		builder.WriteString("\"")
-		builder.WriteString(i.Created.Format("2006-01-02 15:04:05.999-07:00"))
-		builder.WriteString("\"")
-		builder.WriteString(")")
-	}
-
 	tx, err := qlog.store.Begin()
 	if err != nil {
 		log.Errorf("Could not start transaction: %s", err)
 		return
 	}
 
-	result, err := tx.Exec(builder.String())
+	rowsAffected := int64(0)
+
+	// prepare statement
+	pstmt, err := tx.Prepare(qlogInsertStatement)
 	if err != nil {
 		tx.Rollback()
-		log.Errorf("Could not insert into db: %s", err)
+		log.Errorf("Preparing statement: %s", err)
 	} else {
-		tx.Commit()
+		// close the non-errored statement when done
+		defer pstmt.Close()
+
+		// commit if no errors
+		commit := true
+		for _, i := range qlog.batch {		
+			result, err := pstmt.Exec(i.Address, i.ClientName, i.Consumer, i.RequestDomain, i.RequestType, i.ResponseText, i.Blocked, i.BlockedList, i.BlockedRule, i.Created)
+			if err != nil {
+				log.Errorf("Insert into qlog: %s", err)
+				commit = false
+				break
+			}
+
+			// accumulate rows
+			rows, _ := result.RowsAffected()
+			rowsAffected += rows
+		}
+
+		// decide to commit or not
+		if commit {
+			tx.Commit()
+		} else {		
+			tx.Rollback()		
+		}
+
+		log.Debugf("Wrote %d query log records", rowsAffected)
 	}
-	rows, _ := result.RowsAffected()
-	log.Debugf("Wrote %d query log records", rows)
 
 	// remake batch for inserting
-	qlog.batch = make([]*LogInfo, 0, initialQueueSize)
+	qlog.batch = make([]*LogInfo, 0, qlog.qlConf.QueueSize)
 }
 
 func (qlog *qlog) log(info *LogInfo) {

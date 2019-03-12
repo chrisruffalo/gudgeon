@@ -61,9 +61,12 @@ func NewResolverMap(config *config.GudgeonConfig, configuredResolvers []*config.
 		resolverMap.cache = cache.New()
 	}
 
+	// resuse sources
+	sharedSources := make(map[string]Source)
+
 	// build resolvesrs from configuration
 	for _, resolverConfig := range configuredResolvers {
-		resolver := newResolver(resolverConfig)
+		resolver := newSharedSourceResolver(resolverConfig, sharedSources)
 		if resolver != nil {
 			resolverMap.resolvers[resolver.name] = resolver
 		}
