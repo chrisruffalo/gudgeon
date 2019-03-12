@@ -13,8 +13,6 @@ import (
 
 const (
 	wildcard   = "*"
-	comment    = "#"
-	altComment = "//"
 )
 
 type hostFileSource struct {
@@ -41,8 +39,11 @@ func newHostFileFromHostArray(data []string) Source {
 		d = strings.TrimSpace(d)
 		d = strings.ToLower(d)
 
-		// skip empty strings or strings that start with a comment
-		if "" == d || strings.HasPrefix(d, wildcard) || strings.HasPrefix(d, comment) || strings.HasPrefix(d, altComment) {
+		// trim comments
+		d = util.TrimComments(d)
+
+		// skip empty strings or strings that start with a wildcard
+		if "" == d || strings.HasPrefix(d, wildcard) {
 			continue
 		}
 

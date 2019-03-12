@@ -1,0 +1,99 @@
+; BIND version named 8.4.7-REL-NOESW Thu Nov  9 06:18:17 UTC 2006
+; BIND version buildd@vernadsky:/build/buildd/bind-8.4.7/src/bin/named
+; zone 'greenstream.coop'   first transfer
+; NOT TSIG verified
+$ORIGIN greenstream.coop.
+@                       60      IN      SOA     dns.greenstream.coop. gerbil.greenstream.coop. (
+                                                        2019011801 900 600 86400 60 )
+                        60      IN      AAAA    de3d:b3ef:2385:a::d2
+                        60      IN      A       29.11.1.194
+                        60      IN      HINFO   Linux Firewall
+                        60      IN      RP      james.smith.greenstream.coop. gerbil.greenstream.coop.
+                        60      IN      NS      dns1.greenstream.coop.
+                        60      IN      NS      dns2.greenstream.coop.
+                        60      IN      MX      50 new-mail.greenstream.coop.
+                        60      IN      MX      10 mail.greenstream.coop.
+
+_jabber._tcp            60      IN      SRV     5 0 5269 openfire.greenstream.coop.
+_xmpp-server._tcp       60      IN      SRV     5 0 5269 openfire.greenstream.coop.
+_xmpp-client._tcp       60      IN      SRV     5 0 5222 openfire.greenstream.coop.
+
+dns                     60      IN      CNAME   dns1.greenstream.coop.
+dns1                    60      IN      AAAA    de3d:b3ef:2385:a::e6
+                        60      IN      A       172.12.4.230
+;                       60      IN      ATMA    47.39b8.6a000000525400529afb.525400529afb.00
+dns2                    60      IN      AAAA    de3d:b3ef:2385:a::a
+                        60      IN      A       172.12.4.10
+;                       60      IN      ATMA    47.39b8.6a000000525400dcbce2.525400dcbce2.00
+
+cloud                   60      IN      A       42.112.115.45
+*.cloud                 60      IN      A       42.112.115.46
+                        60      IN      A       42.112.115.47
+                        60      IN      A       42.112.115.48
+                        60      IN      AAAA    de3d:b3ef:2385:a::b
+                        60      IN      AAAA    de3d:b3ef:2385:a::c
+
+autodiscover            60      IN      CNAME   mail.greenstream.coop.
+_autodiscover._tcp      60      IN      SRV     0 0 8443 mail.greenstream.coop
+
+www                     60      IN      CNAME   greenstream.coop.
+ebpp                    60      IN      A       172.12.204.2
+hr                      60      IN      A       172.12.204.2
+new-mail                60      IN      A       172.12.4.70
+ipa                     60      IN      A       172.12.4.111
+imap                    60      IN      CNAME   new-mail.greenstream.coop.
+mail                    60      IN      CNAME   new-mail.greenstream.coop.
+smtp                    60      IN      CNAME   new-mail.greenstream.coop.
+ftp                     60      IN      CNAME   www.greenstream.coop.
+
+billpay                 60      IN      A       28.11.105.161
+
+hostmaster              60      IN      CNAME   mail.greenstream.coop.
+
+intra                   60      IN      A       172.12.4.208
+internet                60      IN      CNAME   intra.greenstream.coop.
+oms                     60      IN      CNAME   intra.greenstream.coop.
+
+gitlab                  60      IN      A       172.12.4.235
+git                     60      IN      CNAME   gitlab
+
+grst-update             60      IN      A       172.12.4.6
+apt                     60      IN      CNAME   grst-update.greenstream.coop.
+
+dbapp                   60      IN      AAAA    de3d:b3ef:2385:a::d2
+                        60      IN      A       172.12.4.210
+jabber                  60      IN      A       172.12.4.210
+openfire                60      IN      A       172.12.4.211
+data                    60      IN      CNAME   warehouse.grst.local.
+conference              60      IN      CNAME   jabber.greenstream.coop.
+esri-sde                60      IN      CNAME   mssqlserver.grst.local.
+nagios                  60      IN      A       172.12.4.11
+faulkner                60      IN      AAAA    de3d:b3ef:2385:a::d7
+                        60      IN      A       172.12.4.215
+bugs                    60      IN      CNAME   intra.greenstream.coop.
+erp                     60      IN      CNAME   intra.greenstream.coop.
+drupal                  60      IN      CNAME   intra.greenstream.coop.
+it-support              60      IN      CNAME   intra.greenstream.coop.
+joomla                  60      IN      CNAME   intra.greenstream.coop.
+sparkweb                60      IN      CNAME   intra.greenstream.coop.
+mrtg                    60      IN      CNAME   intra.greenstream.coop.
+mapping                 60      IN      CNAME   intra.greenstream.coop.
+reports                 60      IN      A       172.12.4.211
+splunk                  60      IN      A       172.12.4.5
+squid                   60      IN      CNAME   zimbra.greenstream.coop.
+telvent-license         60      IN      CNAME   mssqlserver.grst.local.
+zimbra                  60      IN      A       172.12.4.230
+server                  60      IN      A       172.12.4.25
+web                     60      IN      CNAME   server.greenstream.coop.
+client                  60      IN      CNAME   server.greenstream.coop.
+grst-apt-main           60      IN      CNAME   apt.greenstream.coop.
+wiki                    60      IN      A       172.12.4.207
+
+unifi                   60      IN      CNAME   unifi.grst.local.
+
+monitoring              60      IN      A       172.12.4.231
+influx                  60      IN      CNAME   monitoring.greenstream.coop.
+tmd-sftp                60      IN      A       104.196.131.252
+
+gerbil                 60      IN      TXT     "James Smith, +1-555-555-5555"
+

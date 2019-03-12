@@ -43,3 +43,28 @@ func ReverseString(input string) string {
 
 	return output
 }
+
+// takes a line and removes commented section
+var DefaultCommentPrefixes = []string {
+	"#",
+	"//",
+}
+func TrimComments(line string, commentPrefixes ...string) string {
+	if len(commentPrefixes) < 1 {
+		commentPrefixes = DefaultCommentPrefixes
+	}
+
+	// if it starts with any of the comment prefixes, return an empty line
+	if StartsWithAny(line, commentPrefixes) {
+		return ""
+	}
+
+	// otherwise if the comment prefix is in the line chop everything before it
+	for _, prefix := range commentPrefixes {
+		if strings.Contains(line, prefix) {
+			line = line[0:strings.Index(line,prefix)]
+		}
+	}
+
+	return line
+}

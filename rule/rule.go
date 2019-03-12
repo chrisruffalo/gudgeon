@@ -2,9 +2,9 @@ package rule
 
 import (
 	"strings"
-)
 
-var commentChars = []string{"#", "//"}
+	"github.com/chrisruffalo/gudgeon/util"
+)
 
 const (
 	// the constant that means ALLOW after pasring "allow" or "block"
@@ -27,14 +27,11 @@ func ParseType(listType string) uint8 {
 
 // parse a line, as from a file, and return the part that represents the rule
 func ParseLine(line string) string {
-	line = strings.TrimSpace(line)
-
 	// remove everything after any comment on the line
-	for _, char := range commentChars {
-		if cIndex := strings.Index(line, char); cIndex >= 0 {
-			line = strings.TrimSpace(line[0:cIndex])
-		}
-	}
+	line = util.TrimComments(line)
+
+	// trim spaces
+	line = strings.TrimSpace(line)
 
 	// a rule that can be split on spaces is more complicated, for right now just take everything after the first space
 	// this is because of the common rule formats are either
