@@ -1,0 +1,13 @@
+# use xgo as base
+FROM karalabe/xgo-1.12
+
+# maintain (??)
+MAINTAINER Chris Ruffalo
+
+# set specific environment for soft float mips
+ENV GOMIPS=softfloat
+
+# override build file
+ADD softfloat-modified.sh /build.sh
+ENV BUILD /build.sh
+RUN chmod +x $BUILD
