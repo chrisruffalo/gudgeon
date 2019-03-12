@@ -46,7 +46,6 @@ before_script:
   - gem install --no-ri --no-rdoc fpm
   # pull xgo container and build local version
   - travis_retry travis_wait docker pull karalabe/xgo-1.12
-  - docker build --rm -t gudgeon/xgo -f docker/Dockerfile.xgo docker/.
   # prepare build environment
   - travis_retry travis_wait make prepare
   - travis_retry travis_wait make npm
@@ -58,7 +57,7 @@ script:
   - make webpack
   # build binaries
   - make GOOS_LIST="linux" GOARCH_LIST="386 amd64" build
-  - XGO_IMAGE=gudgeon/xgo travis_retry travis_wait make buildxgo
+  - travis_retry travis_wait make buildxgo
 
 before_deploy:
   # package targets
