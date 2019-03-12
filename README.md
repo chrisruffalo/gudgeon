@@ -1,4 +1,5 @@
 # Gudgeon [![Build Status](https://travis-ci.org/chrisruffalo/gudgeon.svg?branch=master)](https://travis-ci.org/chrisruffalo/gudgeon) [![Go Report Card](https://goreportcard.com/badge/github.com/chrisruffalo/gudgeon)](https://goreportcard.com/report/github.com/chrisruffalo/gudgeon)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon?ref=badge_shield)
 
 ## Overview
 Gudgeon is a caching/blocking DNS proxy server. What sets Gudgeon appart is the ability to segregate machines, subnets, and IP ranges into different groups that 
@@ -89,3 +90,6 @@ With the prerequisites installed you can build Gudgeon by...
 * Building the binary for your target platform with `[]$ make build`
 
 The `download` target is used to download new dependencies when needed. The `prepare` target is only needed if the required Go tools change. The output of the process is a statically compiled for a few different platforms. The binary is statically compiled to make it easily portable to platforms and other systems that do not have libc, recent Golang compilers, or other required libraries.
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon?ref=badge_large)
