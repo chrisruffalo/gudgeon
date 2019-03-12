@@ -60,11 +60,6 @@ The Docker container exposes ports 5354 (dns) and 9009 (http) and those ports sh
 [user@host] docker run -ti -p 53:5354/tcp -p 53:5354/udp -p 9009:9009 -v /etc/gudgeon:/etc/gudgeon -v /var/lib/gudgeon:/var/lib/gudgeon gudgeon/gudgeon:${version}
 ```
 
-### MIPS Tar Release
-Also included (since v0.3.13) is a tarball designed for use on MIPS systems without a package manager. This package is intended to be unpacked in the root (`/`) of the filesystem and will expand into `/etc/gudgeon` and `/usr/local/gudgeon`. The `/usr/local/gudgeon` directory will serve as the home directory for the installation. 
-
-Once these files are in place you can run Gudgeon directly with `gudgeon -c /etc/gudgeon/gudgeon.yml`.
-
 ### Direct Binary Download
 Alongside the release artifacts Gudgeon also provides These files can be downloaded and put on your local path and executed. To do this you will also need a configuration file (example configuration files are provided in the root of this project) and a directory to use as the home directory. (Both `/usr/local/gudgeon` and `/var/lib/gudgeon` are good examples but `/opt/gudgeon` is also acceptable.)
 
