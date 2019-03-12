@@ -46,7 +46,6 @@ before_script:
   - gem install --no-ri --no-rdoc fpm
   # pull xgo container and build local version
   - travis_retry travis_wait docker pull karalabe/xgo-1.12
-  - docker build --rm -t gudgeon/xgo -f docker/Dockerfile.xgo docker/.
   # prepare build environment
   - travis_retry travis_wait make prepare
   - travis_retry travis_wait make npm
@@ -58,7 +57,7 @@ script:
   - make webpack
   # build binaries
   - make GOOS_LIST="linux" GOARCH_LIST="386 amd64" build
-  - XGO_IMAGE=gudgeon/xgo travis_retry travis_wait make buildxgo
+  - travis_retry travis_wait make buildxgo
 
 before_deploy:
   # package targets
@@ -70,8 +69,9 @@ before_deploy:
   - BINARY_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
   - BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
   - BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
-  - BINARY_TARGET=gudgeon-linux-mips OS_ARCH=mips make tar
-  - BINARY_TARGET=gudgeon-linux-mipsle OS_ARCH=mipsle make tar
+  # removed mips targets until they become viable
+  #- BINARY_TARGET=gudgeon-linux-mips OS_ARCH=mips make tar
+  #- BINARY_TARGET=gudgeon-linux-mipsle OS_ARCH=mipsle make tar
   # make docker build(s)
   - BINARY_TARGET=gudgeon-linux-amd64 make docker
   # push build(s) to docker cloud
