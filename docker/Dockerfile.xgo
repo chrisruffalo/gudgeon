@@ -8,6 +8,6 @@ MAINTAINER Chris Ruffalo
 ENV GOMIPS=softfloat
 
 # override build file
-ADD softfloat-modified.sh /build.sh
+ADD softfloat-build.sh /build.sh
 ENV BUILD /build.sh
 RUN chmod +x $BUILD
