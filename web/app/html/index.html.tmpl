@@ -10,9 +10,16 @@
         <script>
             function version() {
                 return {
-                    'version': "{{ .Version }}",
-                    'longversion': "{{ .LongVersion }}",
-                    'githash': "{{ .GitHash }}"
+                    'version': "{{ .version.Version }}",
+                    'longversion': "{{ .version.LongVersion }}",
+                    'githash': "{{ .version.GitHash }}"
+                };
+            }
+
+            function config() {
+                return {
+                    'query_log': {{ .query_log }},
+                    'metrics': {{ .metrics }}
                 };
             }
         </script>

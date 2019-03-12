@@ -12,7 +12,7 @@ import (
 	"github.com/chrisruffalo/gudgeon/version"
 )
 
-func Serve(fs http.FileSystem) gin.HandlerFunc {
+func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 	fileServer := http.StripPrefix("/", http.FileServer(fs))
 	return func(c *gin.Context) {
 		url := c.Request.URL
@@ -41,9 +41,15 @@ func Serve(fs http.FileSystem) gin.HandlerFunc {
 						log.Errorf("Error parsing template file: %s", err)
 					}
 
+					// hash
+					options := make(map[string]interface{}, 0)
+					options["version"] = version.Info();
+					options["query_log"] = web.conf.QueryLog.Enabled
+					options["metrics"] = web.conf.Metrics.Enabled
+
 					// execute and write template
 					c.Status(http.StatusOK)
-					err = parsedTemplate.Execute(c.Writer, version.Info())
+					err = parsedTemplate.Execute(c.Writer, options)
 					if err != nil {
 						c.Status(http.StatusInternalServerError)
 						log.Errorf("Error executing template: %s", err)

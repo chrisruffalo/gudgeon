@@ -216,7 +216,7 @@ func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog 
 	box := rice.MustFindBox("static").HTTPBox()
 
 	// use middleware
-	router.Use(Serve(box))
+	router.Use(web.ServeStatic(box))
 
 	// attach api
 	api := router.Group("/api")
