@@ -36,7 +36,7 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	if _, err := os.Stat(sessionRoot); os.IsNotExist(err) {
 		os.MkdirAll(sessionRoot, os.ModePerm)
 	}
-	db, err := sql.Open("sqlite3", sessionDb)
+	db, err := sql.Open("sqlite3", sessionDb + "?cache=shared&journal_mode=WAL")
 	if err != nil {
 		log.Errorf("Rule storage: %s", err)
 	}
@@ -116,7 +116,6 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 		}
 
 		// after everything is inserted, add indexes in one go
-
 		idxStmt := "CREATE INDEX IF NOT EXISTS idx_" + listName + "_Rule ON " + listName + " (Rule);"
 		_, err := store.db.Exec(idxStmt)
 		if err != nil {
@@ -125,8 +124,11 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 	}
 }
 
-func (store *sqlStore) foundInList(list *config.GudgeonList, domains []string) (bool, string) {
-	listName := list.ShortName()
+func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []string) (bool, string, string) {
+	// with no lists and no domain we can't test found function
+	if len(lists) < 1 || len(domains) < 1 {
+		return false, "", ""
+	}
 
 	// convert to interface array for use in query
 	params := ""
@@ -135,15 +137,26 @@ func (store *sqlStore) foundInList(list *config.GudgeonList, domains []string) (
 		if idx > 0 {
 			params = params + ", "
 		}
-		params = fmt.Sprintf("%s$%d", params, idx+1)
+		params = params + "?"
 		dfaces[idx] = domain
 	}
 
-	stmt := "SELECT Rule FROM " + listName + " WHERE Rule in ( " + params + " ) LIMIT 1"
+	subselects := make([]string, 0, len(lists))
+	for _, list := range lists {
+		subselects = append(subselects, fmt.Sprintf("SELECT '%s' as List, Rule FROM %s", list.ShortName(), list.ShortName()))
+	}
+
+	var stmt string
+	if len(subselects) == 1 {
+		stmt = subselects[0] + " WHERE Rule in ( " + params + " ) LIMIT 1"
+	} else {
+		stmt = "SELECT List, Rule FROM (" + strings.Join(subselects, " UNION ") + ") WHERE Rule in ( " + params + " ) LIMIT 1"
+	}
+
 	pstmt, err := store.db.Prepare(stmt)
 	defer pstmt.Close()
 	if err != nil {
-		log.Errorf("Preparing rule storage statement: %s", err)
+		log.Errorf("Preparing rule query statement: %s", err)
 	}
 
 	rows, err := pstmt.Query(dfaces...)
@@ -154,19 +167,24 @@ func (store *sqlStore) foundInList(list *config.GudgeonList, domains []string) (
 
 	// check for rows
 	if rows == nil || err != nil {
-		return false, ""
+		return false, "", ""
 	}
 
 	// scan rows for rules
+	var list string
 	var rule string
 	for rows.Next() {
-		err = rows.Scan(&rule)
+		err = rows.Scan(&list, &rule)
+		if err != nil {
+			log.Errorf("Rule row scan: %s", err)
+			continue
+		}
 		if "" != rule {
-			return true, rule
+			return true, list, rule
 		}
 	}
 
-	return false, ""
+	return false, "", ""
 }
 
 func (store *sqlStore) FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string) {
@@ -176,35 +194,31 @@ func (store *sqlStore) FindMatch(lists []*config.GudgeonList, domain string) (Ma
 	}
 
 	// allow and block split
+	listmap := make(map[string]*config.GudgeonList)
 	allowLists := make([]*config.GudgeonList, 0)
 	blockLists := make([]*config.GudgeonList, 0)
 	for _, l := range lists {
+		if l == nil {
+			continue
+		}
 		if ParseType(l.Type) == ALLOW {
 			allowLists = append(allowLists, l)
 		} else {
 			blockLists = append(blockLists, l)
 		}
+		listmap[l.ShortName()] = l
 	}
+
+
 
 	// get domains
 	domains := util.DomainList(domain)
 
-	for _, list := range allowLists {
-		if list == nil {
-			continue
-		}
-		if found, rule := store.foundInList(list, domains); found {
-			return MatchAllow, list, rule
-		}
+	if found, listName, rule := store.foundInLists(allowLists, domains); found {
+		return MatchAllow, listmap[listName], rule
 	}
-
-	for _, list := range blockLists {
-		if list == nil {
-			continue
-		}
-		if found, rule := store.foundInList(list, domains); found {
-			return MatchBlock, list, rule
-		}
+	if found, listName, rule := store.foundInLists(blockLists, domains); found {
+		return MatchBlock, listmap[listName], rule
 	}
 
 	return MatchNone, nil, ""

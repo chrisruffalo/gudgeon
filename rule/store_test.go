@@ -11,7 +11,7 @@ import (
 
 const (
 	// how many rules to benchmark with
-	benchRules = 500000
+	benchRules = 750000
 )
 
 type ruleList struct {
@@ -59,7 +59,7 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 		for _, expectedBlock := range data.blocked {
 			result, _, _ := store.FindMatch(lists, expectedBlock)
 			if MatchBlock != result {
-				t.Errorf("Rules of type %d expected to block '%s' but did not", data.ruleType, expectedBlock)
+				t.Errorf("Rules of type %d in list %s expected to block '%s' but did not", data.ruleType, lists[0].CanonicalName(), expectedBlock)
 			}
 		}
 
@@ -67,7 +67,7 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 		for _, expectedAllow := range data.allowed {
 			result, _, _ := store.FindMatch(lists, expectedAllow)
 			if MatchAllow != result {
-				t.Errorf("Rules of type %d expected to allow '%s' but did not", data.ruleType, expectedAllow)
+				t.Errorf("Rules of type %d in list %s expected to allow '%s' but did not", data.ruleType, lists[0].CanonicalName(), expectedAllow)
 			}
 		}
 
@@ -75,7 +75,7 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 		for _, expectedNoMatch := range data.nomatch {
 			result, _, _ := store.FindMatch(lists, expectedNoMatch)
 			if MatchNone != result {
-				t.Errorf("Rules of type %d expected to not match '%s' but did", data.ruleType, expectedNoMatch)
+				t.Errorf("Rules of type %d in list %s expected to not match '%s' but did", data.ruleType, lists[0].CanonicalName(), expectedNoMatch)
 			}
 		}
 
@@ -93,8 +93,12 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 	printMemUsage("before load", b)
 
 	lists := []*config.GudgeonList{
-		&config.GudgeonList{Name: "Block", Type: "block"},
-		&config.GudgeonList{Name: "Allow", Type: "allow"},
+		&config.GudgeonList{Name: "Block1", Type: "block"},
+		&config.GudgeonList{Name: "Block2", Type: "block"},
+		&config.GudgeonList{Name: "Block3", Type: "block"},
+		&config.GudgeonList{Name: "Allow1", Type: "allow"},
+		&config.GudgeonList{Name: "Allow2", Type: "allow"},
+		&config.GudgeonList{Name: "Allow3", Type: "allow"},
 	}
 
 	store.Init(tmpDir, nil, lists)
@@ -103,7 +107,7 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 	queryData := make([]string, 100)
 	for idx := 0; idx < benchRules; idx++ {
 		testDomain := testutil.RandomDomain()
-		store.Load(lists[idx%2], testDomain)
+		store.Load(lists[idx%6], testDomain)
 		if idx < len(queryData) {
 			queryData[idx] = testDomain
 		}
