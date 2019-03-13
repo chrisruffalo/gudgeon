@@ -202,7 +202,7 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 		}
 
 		dbPath := path.Join(dbDir, "qlog.db")
-		db, err := sql.Open("sqlite3", dbPath + "?cache=shared&journal_mode=WAL")
+		db, err := sql.Open("sqlite3", dbPath+"?cache=shared&journal_mode=WAL")
 		if err != nil {
 			// if the file exists try removing it and opening it again
 			// this could be because of change in database file formats
@@ -210,10 +210,10 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 			if _, rmErr := os.Stat(dbPath); !os.IsNotExist(rmErr) {
 				os.Remove(dbPath)
 			}
-			db, err = sql.Open("sqlite3", dbPath + "?cache=shared&journal_mode=WAL")
+			db, err = sql.Open("sqlite3", dbPath+"?cache=shared&journal_mode=WAL")
 			if err != nil {
 				return nil
-			}			
+			}
 			return nil, err
 		}
 		db.SetMaxOpenConns(1)

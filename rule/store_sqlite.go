@@ -36,7 +36,7 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	if _, err := os.Stat(sessionRoot); os.IsNotExist(err) {
 		os.MkdirAll(sessionRoot, os.ModePerm)
 	}
-	db, err := sql.Open("sqlite3", sessionDb + "?cache=shared&journal_mode=WAL")
+	db, err := sql.Open("sqlite3", sessionDb+"?cache=shared&journal_mode=WAL")
 	if err != nil {
 		log.Errorf("Rule storage: %s", err)
 	}
@@ -208,8 +208,6 @@ func (store *sqlStore) FindMatch(lists []*config.GudgeonList, domain string) (Ma
 		}
 		listmap[l.ShortName()] = l
 	}
-
-
 
 	// get domains
 	domains := util.DomainList(domain)
