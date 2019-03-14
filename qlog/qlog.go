@@ -212,7 +212,7 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 			}
 			db, err = sql.Open("sqlite3", dbPath+"?cache=shared&journal_mode=WAL")
 			if err != nil {
-				return nil
+				return nil, err
 			}
 			return nil, err
 		}
@@ -331,6 +331,9 @@ func (qlog *qlog) log(info *LogInfo) {
 	var builder strings.Builder
 
 	var fields log.Fields
+	if qlog.fileLogger != nil {
+		fields = log.Fields{}
+	}
 
 	// log result if found
 	builder.WriteString("[")
