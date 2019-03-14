@@ -7,6 +7,11 @@ import {
   CardBody,
   Grid,
   GridItem,
+  DataList,
+  DataListItem,
+  DataListCell,
+  FormSelect,
+  FormSelectOption
 } from '@patternfly/react-core';
 import { 
   Table, 
@@ -15,6 +20,7 @@ import {
   TableVariant 
 } from '@patternfly/react-table';
 import { QPSChart } from './metrics-chart.js';
+import { HumanBytes, LocaleNumber } from './helpers.js';
 import gudgeonStyles from '../../css/gudgeon-app.css';
 import { css } from '@patternfly/react-styles';
 
@@ -47,9 +53,19 @@ export class MetricsCards extends React.Component {
       'Rules',
       'Blocked'
     ],
+    currentMetrics: 'lifetime',
     rows: [],
     timer: null
   };  
+
+  options = [
+    { value: 'lifetime', label: 'Lifetime', disabled: false},
+    { value: 'session', label: 'Session', disabled: false }
+  ];
+
+  onQueryMetricsOptionChange = (value, event) => {
+    this.setState({ currentMetrics: value });
+  };
 
   updateData() {
     Axios
@@ -112,28 +128,53 @@ export class MetricsCards extends React.Component {
     var { timer } = this.state
     if ( timer != null ) {
       clearTimeout(timer)
-      const newState = Object.assign({}, this.state, { timer: null });
-      this.setState(newState)
+      this.setState({ timer: null })
     }
   }
   
   render() {
-    const { columns, data, rows } = this.state;
+    const { columns, data, rows, currentMetrics } = this.state;
 
     return (
-      <Grid gutter="md">
-        <GridItem lg={3} md={6} sm={12}>
+      <Grid gutter="sm">
+        <GridItem lg={4} md={6} sm={12}>
           <Card className={css(gudgeonStyles.maxHeight)}>
-            <CardHeader>Query Metrics</CardHeader>
             <CardBody>
-              <p>Lifetime Queries { this.getDataMetric(data, 'total-lifetime-queries') }</p>
-              <p>Lifetime Blocks { this.getDataMetric(data, 'blocked-lifetime-queries') }</p>
-              <p>Session Queries { this.getDataMetric(data, 'total-session-queries') }</p>
-              <p>Session Blocks { this.getDataMetric(data, 'blocked-session-queries') }</p>
+              <div style={{ "paddingBottom": "15px" }}>
+                <FormSelect value={this.state.currentMetrics} onChange={this.onQueryMetricsOptionChange} aria-label="FormSelect Input">
+                  {this.options.map((option, index) => (
+                    <FormSelectOption isDisabled={option.disabled} key={index} value={option.value} label={option.label} />
+                  ))}
+                </FormSelect>
+              </div>
+              <DataList aria-label="Lifetime Metrics">
+                <DataListItem aria-labelledby="simple-item1">
+                  <DataListCell>Queries</DataListCell>
+                  <DataListCell>{ LocaleNumber(this.getDataMetric(data, 'total-' + currentMetrics + '-queries')) } </DataListCell>
+                </DataListItem>
+                <DataListItem aria-labelledby="simple-item2">
+                  <DataListCell>Blocked</DataListCell>
+                  <DataListCell>{ LocaleNumber(this.getDataMetric(data, 'blocked-' + currentMetrics + '-queries')) }</DataListCell>
+                </DataListItem>
+              </DataList>            
             </CardBody>
           </Card>          
         </GridItem>
-        <GridItem lg={3} md={6} sm={12}>
+        <GridItem lg={4} md={6} sm={12}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
+            <CardBody>
+              <QPSChart metrics={[ { name: "Queries", key: "gudgeon-total-interval-queries" }, { name: "Blocked", key: "gudgeon-blocked-interval-queries" } ]} formatter = { LocaleNumber }/>
+            </CardBody>
+          </Card>
+        </GridItem>
+        <GridItem lg={4} md={6} sm={12}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
+            <CardBody>
+              <QPSChart metrics={[ { name: "Allocated Heap", key: "gudgeon-allocated-bytes" }, { name: "Resident Memory", key: "gudgeon-process-used-bytes" } ]} formatter = { HumanBytes } />
+            </CardBody>
+          </Card>
+        </GridItem>
+        <GridItem lg={6} md={6} sm={12}>
           <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
               <Table aria-label="Block Lists" variant={TableVariant.compact} cells={columns} rows={rows}>
@@ -142,13 +183,6 @@ export class MetricsCards extends React.Component {
               </Table>            
             </CardBody>
           </Card>          
-        </GridItem>
-        <GridItem lg={6} md={12} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
-            <CardBody>
-              <QPSChart />
-            </CardBody>
-          </Card>
         </GridItem>
       </Grid>
     )

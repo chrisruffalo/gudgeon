@@ -28,8 +28,6 @@ export class QueryLog extends React.Component {
   };
 
   dataQuery = query => new Promise((resolve, reject) => {
-    console.dir(query)
-
     // query variables
     var skip = query.page == 0 ? 0 : (query.page * query.pageSize);
     var after = (Math.floor(Date.now()/1000) - 60 * 60).toString()

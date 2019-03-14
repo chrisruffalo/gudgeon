@@ -16,6 +16,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/json-iterator/go"
 	"github.com/miekg/dns"
+	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/process"
 	log "github.com/sirupsen/logrus"
 
@@ -41,7 +42,10 @@ const (
 	CurrentCacheEntries = "cache-entries"
 	// rutnime metrics
 	GoRoutines         = "goroutines"
-	CurrentlyAllocated = "currently-allocated-bytes"
+	CurrentlyAllocated = "allocated-bytes"    // heap allocation in go runtime stats
+	UsedMemory         = "process-used-bytes" // from the process api
+	FreeMemory         = "free-memory-bytes"
+	SystemMemory       = "system-memory-bytes"
 	// cpu metrics
 	CPUHundredsPercent = "cpu-hundreds-percent" // 17 == 0.17 percent, expressed in integer terms
 
@@ -152,7 +156,7 @@ func New(config *config.GudgeonConfig) Metrics {
 		}
 
 		dbPath := path.Join(dbDir, "metrics.db")
-		db, err := sql.Open("sqlite3", dbPath+"?cache=shared&journal_mode=WAL")
+		db, err := sql.Open("sqlite3", dbPath+"?cache=shared&journal_The operation Ansible Automation Inside Credential creationmode=WAL")
 		if err != nil {
 			// if the file exists try removing it and opening it again
 			// this could be because of change in database file formats
@@ -269,9 +273,15 @@ func (metrics *metrics) update() {
 	// get process
 	process, err := process.NewProcess(int32(pid))
 	if err == nil && process != nil {
-		percent, err := process.CPUPercent()
-		if err == nil {
+		if percent, err := process.CPUPercent(); err == nil {
 			metrics.Get(CPUHundredsPercent).Set(int64(percent * 100))
+			if pmem, err := process.MemoryInfo(); err == nil {
+				metrics.Get(UsedMemory).Set(int64(pmem.RSS))
+			}
+		}
+		if vmem, err := mem.VirtualMemory(); err == nil {
+			metrics.Get(FreeMemory).Set(int64(vmem.Free))
+			metrics.Get(SystemMemory).Set(int64(vmem.Total))
 		}
 	}
 

@@ -19,7 +19,8 @@
     "@patternfly/react-table": "^1.0.7",
     "@material-ui/core": "^3.9.2",
     "material-table": "^1.21.0",
-    "material-icons": "^0.3.0"
+    "material-icons": "^0.3.0",
+    "pretty-bytes": "^5.1.0"
   },
   "devDependencies": {
     "babel-core": "^6.7.2",
