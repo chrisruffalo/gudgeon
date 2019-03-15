@@ -54,9 +54,9 @@ export class QueryLog extends React.Component {
     if ( query.orderDirection != null ) {
       params['direction'] = query.orderDirection;
     } else if ( params['sort'] == "created" ) {
-      params['sort'] = "desc"; 
+      params['direction'] = "desc"; 
     } else {
-      params['sort'] = "asc";
+      params['direction'] = "asc";
     }
     
 
