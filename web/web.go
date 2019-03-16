@@ -15,6 +15,7 @@ import (
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/metrics"
 	"github.com/chrisruffalo/gudgeon/qlog"
+	"github.com/chrisruffalo/gudgeon/util"
 )
 
 const (
@@ -56,8 +57,19 @@ func (web *web) GetMetrics(c *gin.Context) {
 		lists = append(lists, listEntry)
 	}
 
+	metrics := web.metrics.GetAll()
+
+	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
+		keepMetrics := strings.Split(filterStrings, ",")
+		for k, _ := range metrics {
+			if !util.StringIn(k, keepMetrics) {
+				delete(metrics, k)
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"metrics": web.metrics.GetAll(),
+		"metrics": metrics,
 		"lists":   lists,
 	})
 }
@@ -106,6 +118,17 @@ func (web *web) QueryMetrics(c *gin.Context) {
 	if err != nil {
 		c.String(http.StatusServiceUnavailable, "Error retrieving metrics")
 		return
+	}
+
+	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
+		keepMetrics := strings.Split(filterStrings, ",")
+		for _, entry := range metricsEntries {
+			for k, _ := range entry.Values {
+				if !util.StringIn(k, keepMetrics) {
+					delete(entry.Values, k)
+				}
+			}
+		}
 	}
 
 	// return encoded results

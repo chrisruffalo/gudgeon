@@ -7,7 +7,7 @@ gudgeon:
   home: ./.gudgeon/
 
   storage:
-    rules: "memory"
+    rules: "hash32+sqlite"
 
   # global values
   global:

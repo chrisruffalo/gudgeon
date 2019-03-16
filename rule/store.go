@@ -48,8 +48,16 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 	if "hash" == backingStoreType || "hash64" == backingStoreType {
 		delegate = new(hashStore)
 		backingStoreType = "hash"
+	} else if "hash+sqlite" == backingStoreType {
+		hashStore := new(hashStore)
+		hashStore.delegate = new(sqlStore)
+		delegate = hashStore
 	} else if "hash32" == backingStoreType {
 		delegate = new(hashStore32)
+	} else if "hash32+sqlite" == backingStoreType {
+		hashStore32 := new(hashStore32)
+		hashStore32.delegate = new(sqlStore)
+		delegate = hashStore32
 	} else if "sqlite" == backingStoreType || "sql" == backingStoreType {
 		delegate = new(sqlStore)
 		backingStoreType = "sqlite"
@@ -60,6 +68,9 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 		bloomStore.backingStore = new(sqlStore)
 		delegate = bloomStore
 	} else {
+		if backingStoreType != "memory" && backingStoreType != "mem" && backingStoreType != "" {
+			log.Warnf("Could not find backing store type '%s', using default memory store instead", backingStoreType)
+		}
 		delegate = new(memoryStore)
 		backingStoreType = "memory"
 	}

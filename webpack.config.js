@@ -23,6 +23,13 @@ module.exports = {
         hotUpdateMainFilename: 'hot/[hash].hot-update.json'        
     },
 
+    // having consistency issues with watching for file changes so this 
+    // came from stackoverflow initially (https://stackoverflow.com/questions/26708205/webpack-watch-isnt-compiling-changed-files)
+    watchOptions: {
+        poll: true,
+        ignored: ['node_modules']
+    },
+
     externals: {
         // require("jquery") is external and available on the global var jQuery
         "jquery": "jQuery",

@@ -48,7 +48,6 @@ const (
 	SystemMemory       = "system-memory-bytes"
 	// cpu metrics
 	CPUHundredsPercent = "cpu-hundreds-percent" // 17 == 0.17 percent, expressed in integer terms
-
 )
 
 type metricsInfo struct {
@@ -319,7 +318,8 @@ func (metrics *metrics) record() {
 			metrics.Get(BlockedIntervalQueries).Inc(1)
 
 			if info.result.BlockedList != nil {
-				metrics.Get("rules-blocked-" + info.result.BlockedList.ShortName()).Inc(1)
+				metrics.Get("rules-session-blocked-" + info.result.BlockedList.ShortName()).Inc(1)
+				metrics.Get("rules-lifetime-blocked-" + info.result.BlockedList.ShortName()).Inc(1)
 			}
 		}
 	}
@@ -431,10 +431,12 @@ func (metrics *metrics) load() {
 	var data map[string]*Metric
 	json.Unmarshal([]byte(metricsJsonString), &data)
 
-	preload := []string{TotalLifetimeQueries, BlockedLifetimeQueries}
-	for _, key := range preload {
-		if foundMetric, found := data[MetricsPrefix+key]; found {
-			metrics.Get(key).Set(foundMetric.Value())
+	// load any metric that has "lifetime" in the key
+	// from the database so that we can manage rules
+	// this way as well
+	for key, metric := range data {
+		if strings.Contains(key, "lifetime") {
+			metrics.Get(key[len(MetricsPrefix):]).Set(metric.Value())
 		}
 	}
 }

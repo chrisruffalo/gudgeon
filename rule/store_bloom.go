@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	defaultRuleCount = uint(1000) // just 10000 in the default count, for when
+	defaultRuleCount = uint(1000) // just 10000 in the default count, for when the lines in the file can't be counted
 	bloomRate        = 0.001      // when the **list is full** a 0.001% chance of false positive (which can be mitigated by another store)
 )
 
@@ -116,4 +116,8 @@ func (store *bloomStore) FindMatch(lists []*config.GudgeonList, domain string) (
 
 func (store *bloomStore) Close() {
 	// default no-op
+
+	if store.backingStore != nil {
+		store.backingStore.Close()
+	}
 }

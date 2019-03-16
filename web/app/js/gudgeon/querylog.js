@@ -7,7 +7,7 @@ import {
   CardBody,
 } from '@patternfly/react-core';
 import Icon from '@material-ui/core/Icon';
-import { ErrorCircleOIcon } from '@patternfly/react-icons';
+import { ErrorCircleOIcon, VolumeIcon } from '@patternfly/react-icons';
 import MaterialTable from 'material-table';
 import { PrettyDate } from './helpers.js';
 
@@ -59,7 +59,6 @@ export class QueryLog extends React.Component {
       params['direction'] = "asc";
     }
     
-
     Axios
       .get('api/log',{ params: params })
       .then(response => response.data)
@@ -101,13 +100,22 @@ export class QueryLog extends React.Component {
         searchable: true,
         sorting: false,
         render: rowData => {
+          var responseText = rowData.ResponseText
+          if ( responseText == null || responseText == "" || responseText.length < 0) {
+            responseText = "( EMPTY )"
+          }
+
           if ( rowData.Blocked ) {
             return (
-              <div><ErrorCircleOIcon /> { rowData.BlockedList }{ rowData.BlockedRule ? ' (' + rowData.BlockedRule + ")" : null }</div>
+              <div style={{ color: "red" }}><ErrorCircleOIcon alt="blocked" /> { rowData.BlockedList }{ rowData.BlockedRule ? ' (' + rowData.BlockedRule + ")" : null }</div>
+            );
+          } else if ( rowData.Cached ) {
+            return (
+              <div style={{ color: "green" }}><VolumeIcon alt="cached" /> { responseText }</div>
             );
           } else {
             return (
-              <div>{ rowData.ResponseText }</div>
+              <div>{ responseText }</div>
             );
           }
         }

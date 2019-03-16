@@ -24,7 +24,7 @@ import (
 
 const (
 	// constant insert statement
-	qlogInsertStatement = "INSERT INTO qlog (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	qlogInsertStatement = "INSERT INTO qlog (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Cached, Created) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
@@ -55,6 +55,7 @@ type LogInfo struct {
 	Blocked        bool
 	BlockedList    string
 	BlockedRule    string
+	Cached         bool
 	Created        time.Time
 }
 
@@ -70,6 +71,7 @@ type QueryLogQuery struct {
 	RequestType    string
 	ResponseText   string
 	Blocked        *bool
+	Cached         *bool
 	// query on created time
 	After  *time.Time
 	Before *time.Time
@@ -295,7 +297,7 @@ func (qlog *qlog) flush() {
 		// commit if no errors
 		commit := true
 		for _, i := range qlog.batch {
-			result, err := pstmt.Exec(i.Address, i.ClientName, i.Consumer, i.RequestDomain, i.RequestType, i.ResponseText, i.Blocked, i.BlockedList, i.BlockedRule, i.Created)
+			result, err := pstmt.Exec(i.Address, i.ClientName, i.Consumer, i.RequestDomain, i.RequestType, i.ResponseText, i.Blocked, i.BlockedList, i.BlockedRule, i.Cached, i.Created)
 			if err != nil {
 				log.Errorf("Insert into qlog: %s", err)
 				commit = false
@@ -547,6 +549,8 @@ func (qlog *qlog) logWorker() {
 							info.BlockedList = info.Result.BlockedList.CanonicalName()
 						}
 						info.BlockedRule = info.Result.BlockedRule
+					} else if info.Result.Cached {
+						info.Cached = true
 					}
 				}
 
@@ -599,7 +603,7 @@ func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon
 
 func (qlog *qlog) Query(query *QueryLogQuery) ([]LogInfo, uint64) {
 	// select entries from qlog
-	selectStmt := "SELECT Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Created FROM qlog"
+	selectStmt := "SELECT Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Cached, Created FROM qlog"
 	countStmt := "SELECT COUNT(*) FROM qlog"
 
 	// so we can dynamically build the where clause
@@ -636,6 +640,11 @@ func (qlog *qlog) Query(query *QueryLogQuery) ([]LogInfo, uint64) {
 	if query.Blocked != nil {
 		whereClauses = append(whereClauses, "Blocked = ?")
 		whereValues = append(whereValues, query.Blocked)
+	}
+
+	if query.Cached != nil {
+		whereClauses = append(whereClauses, "Cached = ?")
+		whereValues = append(whereValues, query.Cached)
 	}
 
 	if query.After != nil {
@@ -726,26 +735,14 @@ func (qlog *qlog) Query(query *QueryLogQuery) ([]LogInfo, uint64) {
 	// otherwise create an array of the required size
 	results := make([]LogInfo, 0)
 
-	// only define once
-	var clientName sql.NullString
-	var consumer sql.NullString
-
+	// scan each row and get results
 	for rows.Next() {
 		info := LogInfo{}
-		err = rows.Scan(&info.Address, &clientName, &consumer, &info.RequestDomain, &info.RequestType, &info.ResponseText, &info.Blocked, &info.BlockedList, &info.BlockedRule, &info.Created)
+		err = rows.Scan(&info.Address, &info.ClientName, &info.Consumer, &info.RequestDomain, &info.RequestType, &info.ResponseText, &info.Blocked, &info.BlockedList, &info.BlockedRule, &info.Cached, &info.Created)
 		if err != nil {
 			log.Errorf("Scanning qlog results: %s", err)
 			continue
 		}
-
-		// add potentially nil values separately
-		if clientName.Valid {
-			info.ClientName = clientName.String
-		}
-		if consumer.Valid {
-			info.Consumer = consumer.String
-		}
-
 		results = append(results, info)
 	}
 

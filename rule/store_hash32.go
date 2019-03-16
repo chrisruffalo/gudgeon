@@ -13,6 +13,8 @@ import (
 
 type hashStore32 struct {
 	hashes map[string][]uint32
+
+	delegate RuleStore
 }
 
 func (store *hashStore32) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
@@ -26,10 +28,18 @@ func (store *hashStore32) Init(sessionRoot string, config *config.GudgeonConfig,
 			store.hashes[list.CanonicalName()] = make([]uint32, 0, startingArrayLength)
 		}
 	}
+
+	if store.delegate != nil {
+		store.delegate.Init(sessionRoot, config, lists)
+	}
 }
 
 func (store *hashStore32) Load(list *config.GudgeonList, rule string) {
 	store.hashes[list.CanonicalName()] = append(store.hashes[list.CanonicalName()], murmur3.StringSum32(strings.ToLower(rule)))
+
+	if store.delegate != nil {
+		store.delegate.Load(list, rule)
+	}
 }
 
 func (store *hashStore32) Finalize(sessionRoot string, lists []*config.GudgeonList) {
@@ -38,6 +48,10 @@ func (store *hashStore32) Finalize(sessionRoot string, lists []*config.GudgeonLi
 		sort.Slice(store.hashes[k], func(i, j int) bool {
 			return store.hashes[k][i] < store.hashes[k][j]
 		})
+	}
+
+	if store.delegate != nil {
+		store.delegate.Finalize(sessionRoot, lists)
 	}
 }
 
@@ -83,6 +97,9 @@ func (store *hashStore32) FindMatch(lists []*config.GudgeonList, domain string) 
 		}
 		for _, d := range domainHashes {
 			if found, ruleHash := store.foundInList(rules, d); found && ruleHash > 0 {
+				if store.delegate != nil {
+					return store.delegate.FindMatch([]*config.GudgeonList{list}, domain)
+				}
 				return MatchAllow, list, fmt.Sprintf("%d", ruleHash)
 			}
 		}
@@ -95,6 +112,9 @@ func (store *hashStore32) FindMatch(lists []*config.GudgeonList, domain string) 
 		}
 		for _, d := range domainHashes {
 			if found, ruleHash := store.foundInList(rules, d); found && ruleHash > 0 {
+				if store.delegate != nil {
+					return store.delegate.FindMatch([]*config.GudgeonList{list}, domain)
+				}
 				return MatchBlock, list, fmt.Sprintf("%d", ruleHash)
 			}
 		}
@@ -104,5 +124,8 @@ func (store *hashStore32) FindMatch(lists []*config.GudgeonList, domain string) 
 }
 
 func (store *hashStore32) Close() {
-	// default no-op
+
+	if store.delegate != nil {
+		store.delegate.Close()
+	}
 }

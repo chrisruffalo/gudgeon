@@ -51,7 +51,8 @@ export class MetricsCards extends React.Component {
     columns: [
       'List',
       'Rules',
-      'Blocked'
+      'Session Hits',
+      'Lifetime Hits'
     ],
     currentMetrics: 'lifetime',
     rows: [],
@@ -101,7 +102,8 @@ export class MetricsCards extends React.Component {
       newRow.push(element['name'])
       var key = element['short']
       newRow.push(this.getDataMetric(data, 'rules-list-' + key));
-      newRow.push(this.getDataMetric(data, 'rules-blocked-' + key));
+      newRow.push(this.getDataMetric(data, 'rules-session-blocked-' + key));
+      newRow.push(this.getDataMetric(data, 'rules-lifetime-blocked-' + key));
       rows.push(newRow);
     });
 

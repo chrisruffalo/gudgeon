@@ -5,7 +5,7 @@ import {
   FormSelectOption
 } from '@patternfly/react-core';
 import { PrettyDate } from './helpers.js';
-import { ChartArea, ChartGroup, ChartLabel, ChartLegend, ChartVoronoiContainer, ChartTooltip } from '@patternfly/react-charts';
+import { ChartArea, ChartGroup, ChartLabel, ChartLegend, ChartVoronoiContainer, ChartTooltip, ChartAxis } from '@patternfly/react-charts';
 import gudgeonStyles from '../../css/gudgeon-app.css';
 import { css } from '@patternfly/react-styles';
 
@@ -20,7 +20,8 @@ export class QPSChart extends React.Component {
     data: [],
     lastAtTime: null,
     interval: (60 * 30), // start at 30min
-    timer: null
+    timer: null,
+    domainMaxY: 0 // calculate max Y
   };
 
   options = [
@@ -56,28 +57,61 @@ export class QPSChart extends React.Component {
       clearTimeout(timer)
     }
 
+    // basic queries start at the given time
+    var params = {
+      start: lastAtTime
+    }
+
+    // use this to filter query down to what is requested for the chart
+    var metricsSelected = "";
+    var idx = 0;
+    for ( idx in this.props.metrics ) {
+      if ( idx > 0 ) {
+        metricsSelected = metricsSelected + ","
+      }
+      metricsSelected = metricsSelected + this.props.metrics[idx].key
+    }
+    if ( metricsSelected != "" || metricsSelected.length > 0 ) {
+      params["metrics"] = metricsSelected
+    }
+
     Axios
       .get("api/metrics/query", {
-        params: {
-          // one hour ago
-          start: lastAtTime,
-        }
+        params: params
       })
       .then(response => {
         if ( response != null && response.data != null && response.data.length > 0 ) {
           var { data } = this.state
           // concat query data
           var newData = [];
+          // lowest time
+          const minTime = (Math.floor(Date.now()/1000) - interval)
           if ( data != null && data.length > 0 ) {
-            newData = data.concat(response.data)
+            newData = data.filter( datapoint => Math.floor(new Date(datapoint.AtTime) / 1000) >= minTime)
+            // add in new data
+            newData = newData.concat(response.data)
           } else {
             newData = response.data
-          }          
+          }
+
+          // find maxY
+          var maxY = 0
+          var idx;
+          var k;
+          for ( idx in newData ) {
+            for ( k in newData[idx].Values) {
+              if( (newData[idx].Values[k].count * 1.0) > maxY ) {
+                maxY = (newData[idx].Values[k].count * 1.0);
+              }
+            }
+          }
+
           // update at time
           var lastElement = response.data[response.data.length - 1];
           var newAtTime = (Math.floor(new Date(lastElement.AtTime) / 1000) + 1).toString() // time is in ms we need in s
+
           // change state
-          this.setState({ data: newData, lastAtTime: newAtTime })
+          this.setState({ data: newData, lastAtTime: newAtTime, domainMaxY: maxY })
         }
 
         // set timeout and update data again
@@ -158,27 +192,26 @@ export class QPSChart extends React.Component {
   };
 
   render() {
-    const { width } = this.state;
-    const { data } = this.state;
+    const { width, data, domainMaxY } = this.state;
     const container = <ChartVoronoiContainer labels={ this.getTooltipLabel } labelComponent={ <ChartTooltip/> } />;
 
     const rows = []
     this.props.metrics.forEach( metric => {
-      rows.push(<ChartArea key={metric.key} scale={{ x: "time", y: "linear" }} data={ this.mapSingleValue(data, metric) } x={ (d) => d.AtTime } y={ (d) => this.getDataItem(d) } />)
+      rows.push(<ChartArea key={metric.key} samples={10} domain={{ y: [0, domainMaxY * 1.25] }} scale={{ x: "time", y: "linear" }} data={ this.mapSingleValue(data, metric) } x={ (d) => d.AtTime } y={ (d) => this.getDataItem(d) } />)
     });
 
     const legend = this.props.metrics.map( metric => { return { "name": metric.name } });
 
     return (
       <React.Fragment>
-        <div style={{ "paddingBottom": "15px" }}>
+        <div>
           <FormSelect value={this.state.interval} onChange={this.onTimeIntervalChange} aria-label="FormSelect Input">
             {this.options.map((option, index) => (
               <FormSelectOption isDisabled={option.disabled} key={index} value={option.value} label={option.label} />
             ))}
           </FormSelect>
         </div>               
-        <div ref={this.containerRef} className={css(gudgeonStyles.maxHeight)}>
+        <div ref={this.containerRef}>
           <div className="chart-overflow">
             <ChartGroup containerComponent={container} height={200} width={width}>
               { rows }
