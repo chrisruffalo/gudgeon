@@ -2,6 +2,7 @@ package rule
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"testing"
 
@@ -36,6 +37,7 @@ type ruleStoreCreator func() RuleStore
 
 func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing.T) {
 	tmpDir := testutil.TempDir()
+	defer os.RemoveAll(tmpDir)
 
 	for idx, data := range ruleData {
 		// create rule and rule list
@@ -86,6 +88,7 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 // for benchmarking non-complex implementations
 func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 	tmpDir := testutil.TempDir()
+	defer os.RemoveAll(tmpDir)
 
 	// create rule store
 	store := createRuleStore()

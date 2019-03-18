@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Route, Switch, Redirect, Link } from "react-router-dom";
+import { BrowserRouter as Router, Route, Switch, Redirect, NavLink as Link } from "react-router-dom";
 import { 
   Card,
   CardItem,
@@ -17,6 +17,10 @@ import {
   PageSectionVariants,
   Split,
   SplitItem,
+  EmptyState,
+  EmptyStateIcon,
+  EmptyStateBody,
+  Title
 } from '@patternfly/react-core';
 import { CubesIcon } from '@patternfly/react-icons';
 import { MetricsCards } from './metrics-cards.js';
@@ -29,26 +33,28 @@ export class Gudgeon extends React.Component {
   // empty state
   state = {};
 
+  navClicked = (item, value) => {
+    console.dir(item.key);
+  };
+
   componentWillMount() {
 
   };
 
   render() {
-    const { version } = this.state
     var defaultRoute = "";
-
     var NavItems = [];
     if ( window.config().metrics ) {
+      NavItems.push(<NavItem to="#metrics" key="metrics"><Link activeClassName="pf-m-current" to="/metrics">Metrics</Link></NavItem>);
       if ( defaultRoute == "" ) {
         defaultRoute = "/metrics"
       }
-      NavItems.push(<NavItem to="#metrics" key="metrics"><Link to="/metrics">Metrics</Link></NavItem>);
     }
     if ( window.config().query_log ) {
+      NavItems.push(<NavItem to="#qlog" key="qlog"><Link activeClassName="pf-m-current" to="/qlog">Query Log</Link></NavItem>);
       if ( defaultRoute == "" ) {
         defaultRoute = "/qlog"
       }
-      NavItems.push(<NavItem to="#qlog" key="qlog"><Link to="/qlog">Query Log</Link></NavItem>);
     }
 
     // header navigation
@@ -67,7 +73,16 @@ export class Gudgeon extends React.Component {
       <PageHeader style={{ backgroundColor: '#292e34', color: '#ffffff' }} topNav={NavigationBar} logo="Gudgeon" />
     );
 
-    const EmptyState = (null);
+    const NoFeaturesEnabled = (
+      <EmptyState>
+        <EmptyStateIcon icon={ CubesIcon } />
+        <Title headingLevel="h5" size="lg">Empty State</Title>
+        <EmptyStateBody>
+          This represents an the empty state pattern in Patternfly 4. Hopefully it's simple enough to use but flexible
+          enough to meet a variety of needs.
+        </EmptyStateBody>
+      </EmptyState>      
+    );
 
     const Footer = (
       <div style={{ backgroundColor: '#292e34', padding: '1rem', color: '#ffffff' }}>
@@ -84,6 +99,9 @@ export class Gudgeon extends React.Component {
       </div>      
     );
 
+    // if the 
+    const Catcher = defaultRoute == "" ? ( <Route component={ () => NoFeaturesEnabled } /> ) : ( <Redirect to={ defaultRoute } /> );
+
     const Metrics = window.config().metrics ? ( <MetricsCards /> ) : null;
     const QLog = window.config().query_log ? ( <QueryLog />) : null;
 
@@ -92,10 +110,10 @@ export class Gudgeon extends React.Component {
         <Router>
           <Page header={Header} className={css(gudgeonStyles.maxHeight)}>
             <PageSection>
-              <Switch>              
+              <Switch>
                 { window.config().metrics ? <Route path="/metrics" component={ () => Metrics } /> : null }
                 { window.config().query_log ? <Route path="/qlog" component={ () => QLog } /> : null }
-                <Redirect from="/" to={ defaultRoute } />
+                { Catcher }
               </Switch>
             </PageSection>
             { Footer }

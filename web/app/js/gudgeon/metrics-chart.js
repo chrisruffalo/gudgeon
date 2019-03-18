@@ -45,9 +45,11 @@ export class QPSChart extends React.Component {
   };
 
   updateData() {
-    // get from state but allow state to be reset to null without additional logic
     var { lastAtTime, interval } = this.state
-    if ( null == lastAtTime || 100000 >= lastAtTime ) {
+
+    // get from state but allow state to be reset to null without additional logic
+    // and also make sure that the last at time is after the currently selected interval
+    if ( null == lastAtTime || (Math.floor(Date.now()/1000) - interval) >= lastAtTime ) {
       lastAtTime = (Math.floor(Date.now()/1000) - interval).toString()
     }
 

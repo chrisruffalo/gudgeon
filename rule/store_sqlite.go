@@ -2,7 +2,7 @@ package rule
 
 import (
 	"database/sql"
-	"fmt"
+	//"fmt"
 	"os"
 	"path"
 	"strings"
@@ -14,23 +14,19 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
-// practically sqlite only supports a parameter list up to 999 characters so we set this here
-// going over that requires abandoning the prepared statements and using string building and
-// direct insertion
-const sqlBatchSize = 999
+// how many rules to take in before committing the transaction
+const txBatchSize = 75000
+// the static names of the rules database
 const sqlDbName = "rules.db"
 
 type sqlStore struct {
+	stmt    *sql.Stmt
 	db      *sql.DB
-	batches map[string][]string
-	ptr     map[string]int
+	tx      *sql.Tx
+	batch   int
 }
 
 func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
-	// create batches map and pointer map
-	store.batches = make(map[string][]string)
-	store.ptr = make(map[string]int)
-
 	// get session storage location
 	sessionDb := path.Join(sessionRoot, sqlDbName)
 	if _, err := os.Stat(sessionRoot); os.IsNotExist(err) {
@@ -43,59 +39,120 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	db.SetMaxOpenConns(1)
 	store.db = db
 
-	// pre-create tabels
+	_, err = store.db.Exec("CREATE TABLE IF NOT EXISTS lists ( Id INTEGER PRIMARY KEY, ShortName TEXT )")
+	if err != nil {
+		log.Errorf("Creating list table: %s", err)
+	}
+	_, err = store.db.Exec("CREATE INDEX IF NOT EXISTS idx_lists_ShortName on lists (ShortName)")
+	if err != nil {
+		log.Errorf("Creating list name index: %s", err)
+	}	
+
+	// insert lists into table
 	for _, list := range lists {
-		// init empty lists
-		store.batches[list.ShortName()] = make([]string, sqlBatchSize)
-
-		// init pointers
-		store.ptr[list.ShortName()] = -1
-
-		stmt := "CREATE TABLE IF NOT EXISTS " + list.ShortName() + " ( Rule TEXT );"
-		_, err := store.db.Exec(stmt)
-		if err != nil {
-			log.Errorf("Rule storage: %s", err)
+		if list == nil {
+			continue
 		}
-	}
-}
-
-func (store *sqlStore) insert(listName string, rules []string) {
-	if len(rules) < 1 {
-		return
-	}
-	stmt := "INSERT INTO " + listName + " (RULE) VALUES (?)" + strings.Repeat(", (?)", len(rules)-1)
-	vars := make([]interface{}, len(rules))
-	for idx, _ := range rules {
-		vars[idx] = rules[idx]
+		_, err = store.db.Exec("INSERT INTO lists (ShortName) VALUES (?)", list.ShortName())
+		if err != nil {
+			log.Errorf("Inserting list: %s", err)
+		}		
 	}
 
-	pstmt, err := store.db.Prepare(stmt)
+	_, err = store.db.Exec("CREATE TABLE IF NOT EXISTS rules ( ListRowId INTEGER, Rule TEXT, PRIMARY KEY(ListRowId, Rule) ) WITHOUT ROWID")
 	if err != nil {
-		log.Errorf("Preparing rule storage statement: %s", err)
-		return
+		log.Errorf("Creating rule storage: %s", err)
 	}
-	defer pstmt.Close()
 
-	_, err = pstmt.Exec(vars...)
+	_, err = store.db.Exec("CREATE INDEX IF NOT EXISTS idx_rules_Rule on rules (Rule)")
 	if err != nil {
-		log.Errorf("During rule storage insert: %s", err)
+		log.Errorf("Creating rule index: %s", err)
 	}
+	_, err = store.db.Exec("CREATE INDEX IF NOT EXISTS idx_rules_ListRowId on rules (ListRowId)")
+	if err != nil {
+		log.Errorf("Creating rule index: %s", err)
+	}
+	_, err = store.db.Exec("CREATE INDEX IF NOT EXISTS idx_rules_IdRule on rules (ListRowId, Rule)")
+	if err != nil {
+		log.Errorf("Creating rule index: %s", err)
+	}		
 }
 
 func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
-	listName := list.ShortName()
-
-	store.batches[listName][store.ptr[listName]+1] = rule
-	store.ptr[listName] = store.ptr[listName] + 1
-
-	// if enough items are in the batch, insert
-	if store.ptr[listName] >= sqlBatchSize-1 {
-		store.insert(listName, store.batches[listName])
-		store.ptr[listName] = -1
+	if store.tx == nil {
+		var err error
+		store.tx, err = store.db.Begin()
+		if err != nil {
+			log.Errorf("Could not start transaction: %s", err)
+			return
+		}
 	}
+
+	if store.tx != nil && store.batch > txBatchSize {
+		err := store.tx.Commit()
+		if err != nil {
+			log.Errorf("Commiting rules to rules DB: %s", err)
+			return
+		}
+
+		// close statment
+		if store.stmt != nil {
+			store.stmt.Close()
+			store.stmt = nil
+		}
+
+		// restart batch
+		store.batch = 0
+
+		// restart transaction
+		store.tx, err = store.db.Begin()
+		if err != nil {
+			log.Errorf("Could not start transaction: %s", err)
+			return
+		}		
+	}
+
+	// only prepare the statement when it is nil (after batch insert)
+	if store.stmt == nil {
+		var err error
+
+		stmt := "INSERT OR IGNORE INTO rules (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)"
+		store.stmt, err = store.tx.Prepare(stmt)
+		if err != nil {
+			log.Errorf("Preparing rule storage statement: %s", err)
+			return
+		}
+	}
+
+	_, err := store.stmt.Exec(list.ShortName(), rule)
+	if err != nil {
+		store.tx.Rollback()
+		log.Errorf("Could not insert into rules store: %s", err)
+		store.tx = nil
+		store.stmt = nil
+	}
+
+	// increase batch size
+	store.batch++
 }
 
 func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList) {
+	// clean up statement
+	if store.stmt != nil {
+		store.stmt.Close()
+		store.stmt = nil
+	}
+
+	// close transaction if it exists
+	if store.tx != nil {
+		err := store.tx.Commit()
+		if err != nil {
+			log.Errorf("Commiting rules to rules DB: %s", err)
+		}
+		// clean up after
+		store.tx = nil 
+	}
+
 	// close and re-open db
 	store.db.Close()
 	sessionDb := path.Join(sessionRoot, sqlDbName)
@@ -105,23 +162,6 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 	}
 	db.SetMaxOpenConns(1)
 	store.db = db
-
-	for _, list := range lists {
-		listName := list.ShortName()
-		// finalize inserts
-		if store.ptr[listName] >= 0 {
-			store.insert(listName, store.batches[listName][0:store.ptr[listName]+1])
-			delete(store.batches, listName)
-			delete(store.ptr, listName)
-		}
-
-		// after everything is inserted, add indexes in one go
-		idxStmt := "CREATE INDEX IF NOT EXISTS idx_" + listName + "_Rule ON " + listName + " (Rule);"
-		_, err := store.db.Exec(idxStmt)
-		if err != nil {
-			log.Errorf("Could not create index on table %s: %s", listName, err)
-		}
-	}
 }
 
 func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []string) (bool, string, string) {
@@ -130,36 +170,29 @@ func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []strin
 		return false, "", ""
 	}
 
-	// convert to interface array for use in query
-	params := ""
-	dfaces := make([]interface{}, len(domains))
-	for idx, domain := range domains {
-		if idx > 0 {
-			params = params + ", "
-		}
-		params = params + "?"
-		dfaces[idx] = domain
-	}
-
-	subselects := make([]string, 0, len(lists))
+	shortNames := make([]string, 0, len(lists))
 	for _, list := range lists {
-		subselects = append(subselects, fmt.Sprintf("SELECT '%s' as List, Rule FROM %s", list.ShortName(), list.ShortName()))
+		shortNames = append(shortNames, list.ShortName())
 	}
 
-	var stmt string
-	if len(subselects) == 1 {
-		stmt = subselects[0] + " WHERE Rule in ( " + params + " ) LIMIT 1"
-	} else {
-		stmt = "SELECT List, Rule FROM (" + strings.Join(subselects, " UNION ") + ") WHERE Rule in ( " + params + " ) LIMIT 1"
-	}
-
+	// build query statement
+	stmt := "SELECT l.ShortName, r.Rule FROM rules R LEFT JOIN lists L ON R.ListRowId = L.rowid WHERE l.ShortName in (?" + strings.Repeat(", ?", len(shortNames) - 1 ) + ") AND r.Rule in (?" + strings.Repeat(", ?", len(domains) - 1) + ");"
 	pstmt, err := store.db.Prepare(stmt)
 	defer pstmt.Close()
 	if err != nil {
 		log.Errorf("Preparing rule query statement: %s", err)
 	}
 
-	rows, err := pstmt.Query(dfaces...)
+	// build parameters
+	vars := make([]interface{}, 0, len(shortNames) + len(domains))
+	for _, sn := range shortNames {
+		vars = append(vars, sn)
+	}
+	for _, dm := range domains {
+		vars = append(vars, dm)	
+	}	
+
+	rows, err := pstmt.Query(vars...)
 	defer rows.Close()
 	if err != nil {
 		log.Errorf("Executing rule storage query: %s", err)
