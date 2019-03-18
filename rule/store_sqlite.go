@@ -16,14 +16,15 @@ import (
 
 // how many rules to take in before committing the transaction
 const txBatchSize = 75000
+
 // the static names of the rules database
 const sqlDbName = "rules.db"
 
 type sqlStore struct {
-	stmt    *sql.Stmt
-	db      *sql.DB
-	tx      *sql.Tx
-	batch   int
+	stmt  *sql.Stmt
+	db    *sql.DB
+	tx    *sql.Tx
+	batch int
 }
 
 func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
@@ -46,7 +47,7 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	_, err = store.db.Exec("CREATE INDEX IF NOT EXISTS idx_lists_ShortName on lists (ShortName)")
 	if err != nil {
 		log.Errorf("Creating list name index: %s", err)
-	}	
+	}
 
 	// insert lists into table
 	for _, list := range lists {
@@ -56,7 +57,7 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 		_, err = store.db.Exec("INSERT INTO lists (ShortName) VALUES (?)", list.ShortName())
 		if err != nil {
 			log.Errorf("Inserting list: %s", err)
-		}		
+		}
 	}
 
 	_, err = store.db.Exec("CREATE TABLE IF NOT EXISTS rules ( ListRowId INTEGER, Rule TEXT, PRIMARY KEY(ListRowId, Rule) ) WITHOUT ROWID")
@@ -75,7 +76,7 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	_, err = store.db.Exec("CREATE INDEX IF NOT EXISTS idx_rules_IdRule on rules (ListRowId, Rule)")
 	if err != nil {
 		log.Errorf("Creating rule index: %s", err)
-	}		
+	}
 }
 
 func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
@@ -109,7 +110,7 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 		if err != nil {
 			log.Errorf("Could not start transaction: %s", err)
 			return
-		}		
+		}
 	}
 
 	// only prepare the statement when it is nil (after batch insert)
@@ -150,7 +151,7 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 			log.Errorf("Commiting rules to rules DB: %s", err)
 		}
 		// clean up after
-		store.tx = nil 
+		store.tx = nil
 	}
 
 	// close and re-open db
@@ -176,7 +177,7 @@ func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []strin
 	}
 
 	// build query statement
-	stmt := "SELECT l.ShortName, r.Rule FROM rules R LEFT JOIN lists L ON R.ListRowId = L.rowid WHERE l.ShortName in (?" + strings.Repeat(", ?", len(shortNames) - 1 ) + ") AND r.Rule in (?" + strings.Repeat(", ?", len(domains) - 1) + ");"
+	stmt := "SELECT l.ShortName, r.Rule FROM rules R LEFT JOIN lists L ON R.ListRowId = L.rowid WHERE l.ShortName in (?" + strings.Repeat(", ?", len(shortNames)-1) + ") AND r.Rule in (?" + strings.Repeat(", ?", len(domains)-1) + ");"
 	pstmt, err := store.db.Prepare(stmt)
 	defer pstmt.Close()
 	if err != nil {
@@ -184,13 +185,13 @@ func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []strin
 	}
 
 	// build parameters
-	vars := make([]interface{}, 0, len(shortNames) + len(domains))
+	vars := make([]interface{}, 0, len(shortNames)+len(domains))
 	for _, sn := range shortNames {
 		vars = append(vars, sn)
 	}
 	for _, dm := range domains {
-		vars = append(vars, dm)	
-	}	
+		vars = append(vars, dm)
+	}
 
 	rows, err := pstmt.Query(vars...)
 	defer rows.Close()

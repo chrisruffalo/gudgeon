@@ -7,6 +7,23 @@ gudgeon:
   home: ./.gudgeon/
 
   storage:
+    # hash storage options are lightweight but cannot report on the rule
+    # that was violated
+    # - hash32
+    # - hash
+    # memory storage takes a lot more memory but is fast and can report the
+    # name of the violated rule
+    # - memory
+    # bloom storage has a low memory requirement but can produce false-positives
+    # -bloom
+    # sqlite is slow and uses disk space but requires almost no memory overhead
+    # - sqlite
+    # combining any of the hash or bloom options with sqlite allows them to
+    # not have any false-positives and allows them to report the rule violation
+    # while increasing the speed of the sql option
+    # - bloom+sqlite
+    # - hash32+sqlite
+    # - hash+sqlite
     rules: "hash32+sqlite"
 
   # global values

@@ -34,7 +34,7 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 			if err != nil || tmpl == nil {
 				// but if it doesn't exist then use the index template
 				tmpl, _ = fs.Open("/index.html.tmpl")
-			} 
+			}
 
 			contents, err := ioutil.ReadAll(tmpl)
 			defer tmpl.Close()
