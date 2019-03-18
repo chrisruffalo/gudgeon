@@ -30,33 +30,38 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 
 		if file, err := fs.Open(path); err != nil || file == nil {
 			// look for template file and serve it if it exists
-			if tmpl, err := fs.Open(path + templateFileExtension); err == nil {
-				contents, err := ioutil.ReadAll(tmpl)
+			tmpl, err := fs.Open(path + templateFileExtension)
+			if err != nil || tmpl == nil {
+				// but if it doesn't exist then use the index template
+				tmpl, _ = fs.Open("/index.html.tmpl")
+			} 
+
+			contents, err := ioutil.ReadAll(tmpl)
+			defer tmpl.Close()
+			if err != nil {
+				log.Errorf("Error getting template file contents: %s", err)
+			} else {
+				defer tmpl.Close()
+				parsedTemplate, err := template.New(path).Parse(string(contents))
 				if err != nil {
-					log.Errorf("Error getting template file contents: %s", err)
+					log.Errorf("Error parsing template file: %s", err)
+				}
+
+				// hash
+				options := make(map[string]interface{}, 0)
+				options["version"] = version.Info()
+				options["query_log"] = web.conf.QueryLog.Enabled
+				options["metrics"] = web.conf.Metrics.Enabled
+
+				// execute and write template
+				c.Status(http.StatusOK)
+				err = parsedTemplate.Execute(c.Writer, options)
+				if err != nil {
+					c.Status(http.StatusInternalServerError)
+					log.Errorf("Error executing template: %s", err)
 				} else {
-					defer tmpl.Close()
-					parsedTemplate, err := template.New(path).Parse(string(contents))
-					if err != nil {
-						log.Errorf("Error parsing template file: %s", err)
-					}
-
-					// hash
-					options := make(map[string]interface{}, 0)
-					options["version"] = version.Info()
-					options["query_log"] = web.conf.QueryLog.Enabled
-					options["metrics"] = web.conf.Metrics.Enabled
-
-					// execute and write template
-					c.Status(http.StatusOK)
-					err = parsedTemplate.Execute(c.Writer, options)
-					if err != nil {
-						c.Status(http.StatusInternalServerError)
-						log.Errorf("Error executing template: %s", err)
-					} else {
-						// only return if no error encountered
-						return
-					}
+					// only return if no error encountered
+					return
 				}
 			}
 			return

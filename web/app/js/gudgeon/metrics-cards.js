@@ -70,7 +70,7 @@ export class MetricsCards extends React.Component {
 
   updateData() {
     Axios
-      .get("api/metrics/current")
+      .get("/api/metrics/current")
       .then(response => {
         this.setState({ data: response.data })
         this.updateMetricsState(response.data)
@@ -122,16 +122,27 @@ export class MetricsCards extends React.Component {
   }
 
   componentDidMount() {
+    // (safely) load state
+    var stateString = localStorage.getItem("gudgeon-metrics-cards-state");
+    if (stateString == "" || stateString == null) {
+      stateString = "{}"
+    }
+    var savedState = JSON.parse(stateString);
+    savedState['timer'] = null;
+
     // update data
-    this.updateData();
+    this.setState(savedState, this.updateData());
   }  
 
   componentWillUnmount() {
+    // clear existing timer
     var { timer } = this.state
     if ( timer != null ) {
       clearTimeout(timer)
-      this.setState({ timer: null })
     }
+
+    // save state
+    localStorage.setItem("gudgeon-metrics-cards-state", JSON.stringify(this.state));
   }
   
   render() {
@@ -165,14 +176,14 @@ export class MetricsCards extends React.Component {
         <GridItem lg={4} md={6} sm={12}>
           <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
-              <QPSChart metrics={[ { name: "Queries", key: "gudgeon-total-interval-queries" }, { name: "Blocked", key: "gudgeon-blocked-interval-queries" } ]} formatter = { LocaleNumber }/>
+              <QPSChart stateid="querystats" metrics={[ { name: "Queries", key: "gudgeon-total-interval-queries" }, { name: "Blocked", key: "gudgeon-blocked-interval-queries" } ]} formatter = { LocaleNumber }/>
             </CardBody>
           </Card>
         </GridItem>
         <GridItem lg={4} md={6} sm={12}>
           <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
-              <QPSChart metrics={[ { name: "Allocated Heap", key: "gudgeon-allocated-bytes" }, { name: "Resident Memory", key: "gudgeon-process-used-bytes" } ]} formatter = { HumanBytes } />
+              <QPSChart stateid="memorystats" metrics={[ { name: "Allocated Heap", key: "gudgeon-allocated-bytes" }, { name: "Resident Memory", key: "gudgeon-process-used-bytes" } ]} formatter = { HumanBytes } />
             </CardBody>
           </Card>
         </GridItem>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { BrowserRouter as Router, Route, Switch, Redirect, Link } from "react-router-dom";
 import { 
   Card,
   CardItem,
@@ -25,49 +26,29 @@ import gudgeonStyles from '../../css/gudgeon-app.css';
 import { css } from '@patternfly/react-styles';
 
 export class Gudgeon extends React.Component {
-  state = {
-    version: {
-      'version': '',
-      'longversion': '',
-      'githash': ''
-    },
-    activeItem: -1
-  };
-
-  onSelect = result => {
-    this.setState({
-      activeItem: result.itemId
-    });
-  };
+  // empty state
+  state = {};
 
   componentWillMount() {
-    var newVersion = window.version();
-    const newState = Object.assign({}, this.state, { version: newVersion });
-    this.setState(newState)
-  };
 
-  onSelect = result => {
-    this.setState({
-      activeItem: result.itemId
-    });
   };
 
   render() {
     const { version } = this.state
-    var { activeItem } = this.state;
+    var defaultRoute = "";
 
     var NavItems = [];
     if ( window.config().metrics ) {
-      if ( activeItem < 0 ) {
-        activeItem = 0
+      if ( defaultRoute == "" ) {
+        defaultRoute = "/metrics"
       }
-      NavItems.push(<NavItem preventDefault to="#dashboard" key="dashboard" itemId={0} isActive={activeItem === 0}>Dashboard</NavItem>);
+      NavItems.push(<NavItem to="#metrics" key="metrics"><Link to="/metrics">Metrics</Link></NavItem>);
     }
     if ( window.config().query_log ) {
-      if ( activeItem < 0 ) {
-        activeItem = 1
-      }      
-      NavItems.push(<NavItem preventDefault to="#qlog" key="qlog" itemId={1} isActive={activeItem === 1}>Query Log</NavItem>);
+      if ( defaultRoute == "" ) {
+        defaultRoute = "/qlog"
+      }
+      NavItems.push(<NavItem to="#qlog" key="qlog"><Link to="/qlog">Query Log</Link></NavItem>);
     }
 
     // header navigation
@@ -96,23 +77,30 @@ export class Gudgeon extends React.Component {
             <p className={css(gudgeonStyles.footerText)}><a href="https://github.com/chrisruffalo/gudgeon">@GitHub</a></p>
           </SplitItem>
           <SplitItem>
-            <p className={css(gudgeonStyles.footerText)}>{ version.version }</p>
-            <p className={css(gudgeonStyles.footerText)}>git@{ version.githash }</p>
+            <p className={css(gudgeonStyles.footerText)}>{ window.version().version }</p>
+            <p className={css(gudgeonStyles.footerText)}>git@{ window.version().githash }</p>
           </SplitItem>
         </Split>      
       </div>      
     );
 
+    const Metrics = window.config().metrics ? ( <MetricsCards /> ) : null;
+    const QLog = window.config().query_log ? ( <QueryLog />) : null;
+
     return (
       <div className={css(gudgeonStyles.maxHeight)}>
-        <Page header={Header} className={css(gudgeonStyles.maxHeight)}>
-          <PageSection>
-            { NavItems.length === 0 ? EmptyState : null }
-            { window.config().metrics && activeItem === 0 ? <MetricsCards /> : null }
-            { window.config().query_log && activeItem === 1 ? <QueryLog /> : null }
-          </PageSection>
-          { Footer }
-        </Page>
+        <Router>
+          <Page header={Header} className={css(gudgeonStyles.maxHeight)}>
+            <PageSection>
+              <Switch>              
+                { window.config().metrics ? <Route path="/metrics" component={ () => Metrics } /> : null }
+                { window.config().query_log ? <Route path="/qlog" component={ () => QLog } /> : null }
+                <Redirect from="/" to={ defaultRoute } />
+              </Switch>
+            </PageSection>
+            { Footer }
+          </Page>
+        </Router>
       </div>
     );
   }

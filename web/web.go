@@ -238,8 +238,8 @@ func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog 
 	// if no route is matched, attempt to serve static assets
 	box := rice.MustFindBox("static").HTTPBox()
 
-	// use middleware
-	router.Use(web.ServeStatic(box))
+	// use static serving when no route is detected
+	router.NoRoute(web.ServeStatic(box))
 
 	// attach api
 	api := router.Group("/api")

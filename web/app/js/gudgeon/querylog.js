@@ -60,7 +60,7 @@ export class QueryLog extends React.Component {
     }
     
     Axios
-      .get('api/log',{ params: params })
+      .get('/api/log',{ params: params })
       .then(response => response.data)
       .then(result => {
           resolve({

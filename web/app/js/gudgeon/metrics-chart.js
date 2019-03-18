@@ -47,7 +47,7 @@ export class QPSChart extends React.Component {
   updateData() {
     // get from state but allow state to be reset to null without additional logic
     var { lastAtTime, interval } = this.state
-    if ( null == lastAtTime ) {
+    if ( null == lastAtTime || 100000 >= lastAtTime ) {
       lastAtTime = (Math.floor(Date.now()/1000) - interval).toString()
     }
 
@@ -76,7 +76,7 @@ export class QPSChart extends React.Component {
     }
 
     Axios
-      .get("api/metrics/query", {
+      .get("/api/metrics/query", {
         params: params
       })
       .then(response => {
@@ -86,6 +86,7 @@ export class QPSChart extends React.Component {
           var newData = [];
           // lowest time
           const minTime = (Math.floor(Date.now()/1000) - interval)
+
           if ( data != null && data.length > 0 ) {
             newData = data.filter( datapoint => Math.floor(new Date(datapoint.AtTime) / 1000) >= minTime)
             // add in new data
@@ -108,10 +109,10 @@ export class QPSChart extends React.Component {
 
           // update at time
           var lastElement = response.data[response.data.length - 1];
-          var newAtTime = (Math.floor(new Date(lastElement.AtTime) / 1000) + 1).toString() // time is in ms we need in s
+          var newAtTime = (Math.floor(new Date(lastElement.AtTime) / 1000) + 1).toString(); // time is in ms we need in s
 
           // change state
-          this.setState({ data: newData, lastAtTime: newAtTime, domainMaxY: maxY })
+          this.setState({ data: newData, lastAtTime: newAtTime, domainMaxY: maxY });
         }
 
         // set timeout and update data again
@@ -132,28 +133,41 @@ export class QPSChart extends React.Component {
   }
 
   componentDidMount() {
+    // (safely) load state
+    var stateString = localStorage.getItem("gudgeon-" + this.props.stateid + "-state");
+    if (stateString == "" || stateString == null) {
+      stateString = "{}"
+    }
+    var savedState = JSON.parse(stateString);
+    savedState['timer'] = null;
+
     // resize
     setTimeout(() => {
-      this.setState({ width: this.containerRef.current.clientWidth })
+      if ( this.containerRef != null ) {
+        this.setState({ width: this.containerRef.current.clientWidth })
+      }
       window.addEventListener('resize', this.handleResize);
     });
 
-    // update data
-    this.updateData();
+    // load state and update data
+    this.setState(savedState, this.updateData);
   }
 
   componentWillUnmount() {
     var { timer } = this.state
     if ( timer != null ) {
       clearTimeout(timer)
-      this.setState({ timer: null })
     }
 
+    // remove listener
     window.removeEventListener('resize', this.handleResize);
+
+    // save state as last action
+    localStorage.setItem("gudgeon-" + this.props.stateid + "-state", JSON.stringify(this.state));
   }
 
   mapSingleValue(data, metric) {
-    if ( data == null || data.length < 1 ) {
+    if ( data == null || data.length < 1 || data.map == null ) {
       return [];
     }
 
@@ -197,7 +211,9 @@ export class QPSChart extends React.Component {
 
     const rows = []
     this.props.metrics.forEach( metric => {
-      rows.push(<ChartArea key={metric.key} samples={10} domain={{ y: [0, domainMaxY * 1.25] }} scale={{ x: "time", y: "linear" }} data={ this.mapSingleValue(data, metric) } x={ (d) => d.AtTime } y={ (d) => this.getDataItem(d) } />)
+      rows.push(
+        <ChartArea key={metric.key} samples={10} domain={{ y: [0, domainMaxY * 1.25] }} scale={{ x: "time", y: "linear" }} data={ this.mapSingleValue(data, metric) } x={ (d) => d.AtTime } y={ (d) => this.getDataItem(d) } />
+      )
     });
 
     const legend = this.props.metrics.map( metric => { return { "name": metric.name } });
