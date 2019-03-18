@@ -115,8 +115,8 @@ module.exports = {
                     {
                         loader: "babel-loader",
                         options: {
-                            plugins: ['transform-runtime', '@patternfly/react-styles/babel'],
-                            presets: ['react', 'es2015', 'stage-0']
+                            plugins: ['@patternfly/react-styles/babel', '@babel/plugin-proposal-class-properties'],
+                            presets: ['@babel/preset-react', '@babel/env']
                         }
                     }
                 ]
