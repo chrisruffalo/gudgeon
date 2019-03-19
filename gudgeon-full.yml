@@ -49,7 +49,6 @@ gudgeon:
                     # if this is enabled, ip reverse lookups are used first
     netbios: true   # if lookup is enabled, use netbios to lookup unamed services (after ip lookup and mdns lookup)
 
-
   # metrics can be saved to disk for use by the ui or exported to something like prometheus
   metrics:
     enabled: true   # enabled by default, to disable metrics set to "false"
@@ -67,9 +66,8 @@ gudgeon:
       port: 5354
 
   resolvers:
-  # at least oneresolver must be present or gudgeon will not start, if there is no
-  # resolver entry named 'default' then the first resolver will be chosen as the 
-  # default entry
+  # resolvers specify what dns sources to use. the default resolver
+  # is used for groups with no resolvers. 
   - name: default # a name to identify the resolver group
     sources: # a list of sources to use to get IP information
              # these can be:

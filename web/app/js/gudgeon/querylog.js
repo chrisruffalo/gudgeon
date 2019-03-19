@@ -117,18 +117,18 @@ export class QueryLog extends React.Component {
       params['address'] = query.search;
     }
 
+    var defaultSortDir = "asc";
     if ( query.orderBy == null || query.orderBy.title == "Created" ) {
       params['sort'] = "created";
+      defaultSortDir = "desc";
     } else {
       params['sort'] = query.orderBy.toLowerCase();
     }
 
     if ( query.orderDirection != null ) {
       params['direction'] = query.orderDirection;
-    } else if ( params['sort'] == "created" ) {
-      params['direction'] = "desc"; 
     } else {
-      params['direction'] = "asc";
+      params['direction'] = defaultSortDir;
     }
     
     console.dir(query)

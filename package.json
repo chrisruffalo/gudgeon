@@ -19,7 +19,7 @@
     "@patternfly/react-charts": "^2.0.1",
     "@patternfly/react-table": "^1.0.7",
     "@material-ui/core": "^3.9.2",
-    "material-table": "^1.21.0",
+    "material-table": "^1.23.7",
     "material-icons": "^0.3.0",
     "pretty-bytes": "^5.1.0"
   },
