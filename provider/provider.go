@@ -1,10 +1,12 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-systemd/activation"
 	"github.com/miekg/dns"
@@ -38,7 +40,12 @@ func NewProvider() Provider {
 }
 
 func (provider *provider) serve(netType string, addr string) *dns.Server {
-	server := &dns.Server{Addr: addr, Net: netType}
+	server := &dns.Server{
+		Addr:         addr,
+		Net:          netType,
+		ReadTimeout:  2 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
 	log.Infof("Listen to %s on address: %s", strings.ToUpper(netType), addr)
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
@@ -49,7 +56,10 @@ func (provider *provider) serve(netType string, addr string) *dns.Server {
 }
 
 func (provider *provider) listen(listener net.Listener, packetConn net.PacketConn) *dns.Server {
-	server := &dns.Server{}
+	server := &dns.Server{
+		ReadTimeout:  2 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
 	if packetConn != nil {
 		if t, ok := packetConn.(*net.UDPConn); ok && t != nil {
 			log.Infof("Listen on datagram: %s", t.LocalAddr().String())
@@ -218,10 +228,13 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 }
 
 func (provider *provider) Shutdown() error {
+	context, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
 	for _, server := range provider.servers {
+		// stop each server separately
 		if server != nil {
-			err := server.Shutdown()
+			err := server.ShutdownContext(context)
 			if err != nil {
 				log.Errorf("During shutdown: %s", err)
 			} else {
@@ -229,5 +242,8 @@ func (provider *provider) Shutdown() error {
 			}
 		}
 	}
+
+	<-context.Done()
+
 	return nil
 }

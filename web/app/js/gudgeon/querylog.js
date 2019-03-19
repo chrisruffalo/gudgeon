@@ -16,61 +16,6 @@ export class QueryLog extends React.Component {
     super(props);
   };
 
-  updateData = () => {
-    var { actions } = this.state
-    if ( actions[0].iconProps.color == "primary" ) {
-      actions[0].iconProps.color = "action"
-    } else {
-      actions[0].iconProps.color = "primary"
-    }
-
-    this.setState({ actions: actions })
-  };
-
-  dataQuery = query => new Promise((resolve, reject) => {
-    // query variables
-    var skip = query.page == 0 ? 0 : (query.page * query.pageSize);
-    var after = (Math.floor(Date.now()/1000) - 60 * 60).toString()
-
-    var params = {
-      limit: query.pageSize,
-      skip: skip,
-      after: after
-    }
-
-    if ( query.search != null && query.search.length > 0 && query.search !== "" ) {
-      params['responseText'] = query.search;
-      params['clientName'] = query.search;
-      params['rdomain'] = query.search;
-      params['address'] = query.search;
-    }
-
-    if ( query.orderBy == null || query.orderBy.title == "Created" ) {
-      params['sort'] = "created";
-    } else {
-      params['sort'] = "";
-    }
-
-    if ( query.orderDirection != null ) {
-      params['direction'] = query.orderDirection;
-    } else if ( params['sort'] == "created" ) {
-      params['direction'] = "desc"; 
-    } else {
-      params['direction'] = "asc";
-    }
-    
-    Axios
-      .get('/api/log',{ params: params })
-      .then(response => response.data)
-      .then(result => {
-          resolve({
-            data: result.items,
-            page: query.page,
-            totalCount: result.total
-          });
-      });
-  });
-
   state = {
     columns: [
       { title: 'Client', 
@@ -132,6 +77,7 @@ export class QueryLog extends React.Component {
       }
     ],
     data: [],
+    /*
     actions: [{
       disabled: false,
       icon: () => { return (<Icon>refresh</Icon>); },
@@ -140,6 +86,7 @@ export class QueryLog extends React.Component {
       tooltip: "Refresh",
       onClick: this.updateData
     }],
+    */
     options: {
         pageSize: 10,
         pageSizeOptions: [ 5, 10, 20, 50, 100 ],
@@ -147,6 +94,57 @@ export class QueryLog extends React.Component {
         debounceInterval: 750
     }
   };
+
+  updateData = () => {
+
+  };
+
+  dataQuery = query => new Promise((resolve, reject) => {
+    // query variables
+    var skip = query.page == 0 ? 0 : (query.page * query.pageSize);
+    var after = (Math.floor(Date.now()/1000) - 60 * 60).toString()
+
+    var params = {
+      limit: query.pageSize,
+      skip: skip,
+      after: after
+    }
+
+    if ( query.search != null && query.search.length > 0 && query.search !== "" ) {
+      params['responseText'] = query.search;
+      params['clientName'] = query.search;
+      params['rdomain'] = query.search;
+      params['address'] = query.search;
+    }
+
+    if ( query.orderBy == null || query.orderBy.title == "Created" ) {
+      params['sort'] = "created";
+    } else {
+      params['sort'] = query.orderBy.toLowerCase();
+    }
+
+    if ( query.orderDirection != null ) {
+      params['direction'] = query.orderDirection;
+    } else if ( params['sort'] == "created" ) {
+      params['direction'] = "desc"; 
+    } else {
+      params['direction'] = "asc";
+    }
+    
+    console.dir(query)
+    console.dir(params)
+
+    Axios
+      .get('/api/log',{ params: params })
+      .then(response => response.data)
+      .then(result => {
+          resolve({
+            data: result.items,
+            page: query.page,
+            totalCount: result.total
+          });
+      });
+  });
 
   componentDidMount() {
 

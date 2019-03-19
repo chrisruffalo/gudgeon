@@ -5,12 +5,33 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/version"
 )
+
+// anti-cache from...
+// https://stackoverflow.com/a/33881296
+var epoch = time.Unix(0, 0).Format(time.RFC1123)
+
+var noCacheHeaders = map[string]string{
+	"Expires":         epoch,
+	"Cache-Control":   "no-cache, private, max-age=0",
+	"Pragma":          "no-cache",
+	"X-Accel-Expires": "0",
+}
+
+var etagHeaders = []string{
+	"ETag",
+	"If-Modified-Since",
+	"If-Match",
+	"If-None-Match",
+	"If-Range",
+	"If-Unmodified-Since",
+}
 
 func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 	fileServer := http.StripPrefix("/", http.FileServer(fs))
@@ -69,6 +90,19 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 			file.Close()
 		}
 
+		// remove etag headers (don't request caching)
+		for _, v := range etagHeaders {
+			if c.Request.Header.Get(v) != "" {
+				c.Request.Header.Del(v)
+			}
+		}
+
+		// serve
 		fileServer.ServeHTTP(c.Writer, c.Request)
+
+		// strip etags (don't cache this stuff)
+		for k, v := range noCacheHeaders {
+			c.Writer.Header().Set(k, v)
+		}
 	}
 }

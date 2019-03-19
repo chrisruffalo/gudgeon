@@ -45,12 +45,16 @@ func LookupNetBIOSName(address string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Dialing: %s", err)
 	}
+	conn.SetDeadline(time.Now().Add(2 * time.Second))
 	defer conn.Close()
 
 	// write message
 	if _, err = conn.Write(bytes); err != nil {
 		return "", fmt.Errorf("Writing: %s", err)
 	}
+
+	// after read is done extend the deadline again
+	conn.SetDeadline(time.Now().Add(2 * time.Second))
 
 	// response is 512 bytes
 	rbytes := make([]byte, 512)

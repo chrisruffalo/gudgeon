@@ -74,14 +74,15 @@ export class Gudgeon extends React.Component {
     );
 
     const NoFeaturesEnabled = (
-      <EmptyState>
-        <EmptyStateIcon icon={ CubesIcon } />
-        <Title headingLevel="h5" size="lg">Empty State</Title>
-        <EmptyStateBody>
-          This represents an the empty state pattern in Patternfly 4. Hopefully it's simple enough to use but flexible
-          enough to meet a variety of needs.
-        </EmptyStateBody>
-      </EmptyState>      
+      <center>
+        <EmptyState>
+          <EmptyStateIcon icon={ CubesIcon } />
+          <Title headingLevel="h5" size="lg">No Features Enabled</Title>
+          <EmptyStateBody>
+            No features have been enabled in Gudgeon. See your configuration yaml and enable the Metrics or Query Log features.
+          </EmptyStateBody>
+        </EmptyState>      
+      </center>
     );
 
     const Footer = (

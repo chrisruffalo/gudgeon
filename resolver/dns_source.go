@@ -101,7 +101,7 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 	var err error
 
 	// create new request context
-	context, cancel := context.WithTimeout(context.Background(), 2*defaultTimeout)
+	context, cancel := context.WithTimeout(context.Background(), 4*defaultTimeout)
 	defer cancel()
 
 	co := &dns.Conn{}
@@ -122,13 +122,17 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 	}
 	defer co.Conn.Close()
 
+	// update deadline waiting for write to succeed
+	co.Conn.SetDeadline(time.Now().Add(2 * defaultTimeout))
+
 	// write message
 	if err := co.WriteMsg(request); err != nil {
 		co.Close()
 		return nil, err
 	}
 
-	// read response
+	// read response with deadline
+	co.Conn.SetDeadline(time.Now().Add(2 * defaultTimeout))
 	response, err := co.ReadMsg()
 	if err != nil {
 		co.Close()
