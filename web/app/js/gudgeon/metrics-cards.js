@@ -187,7 +187,7 @@ export class MetricsCards extends React.Component {
             </CardBody>
           </Card>
         </GridItem>
-        <GridItem lg={6} md={6} sm={12}>
+        <GridItem lg={7} md={6} sm={12}>
           <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
               <Table aria-label="Block Lists" variant={TableVariant.compact} cells={columns} rows={rows}>
@@ -197,6 +197,15 @@ export class MetricsCards extends React.Component {
             </CardBody>
           </Card>          
         </GridItem>
+        <GridItem lg={5} md={6} sm={12}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
+            <CardBody>
+              <DataList aria-label="Lifetime Metrics">
+                <QPSChart stateid="goroutines" metrics={[ { name: "Go Routines", key: "gudgeon-goroutines" } ]} formatter = { LocaleNumber } />
+              </DataList>          
+            </CardBody>
+          </Card>          
+        </GridItem>        
       </Grid>
     )
   }
