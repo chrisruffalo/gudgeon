@@ -120,19 +120,14 @@ export class QueryLog extends React.Component {
     var defaultSortDir = "asc";
     if ( query.orderBy == null || query.orderBy.title == "Created" ) {
       params['sort'] = "created";
-      defaultSortDir = "desc";
+      params['direction'] = "desc";
     } else {
       params['sort'] = query.orderBy.toLowerCase();
     }
 
-    if ( query.orderDirection != null ) {
+    if ( params['direction'] == null && query.orderDirection != null && query.orderDirection != "" ) {
       params['direction'] = query.orderDirection;
-    } else {
-      params['direction'] = defaultSortDir;
     }
-    
-    console.dir(query)
-    console.dir(params)
 
     Axios
       .get('/api/log',{ params: params })
