@@ -219,7 +219,7 @@ func (metrics *metrics) GetAll() map[string]*Metric {
 	metrics.metricsMutex.RLock()
 	mapCopy := make(map[string]*Metric, 0)
 	for k, v := range metrics.metricsMap {
-		mapCopy[k] = &Metric{ Count: v.Value() }
+		mapCopy[k] = &Metric{Count: v.Value()}
 	}
 	metrics.metricsMutex.RUnlock()
 	return mapCopy

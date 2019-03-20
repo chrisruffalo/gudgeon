@@ -80,7 +80,7 @@ func (web *web) GetMetrics(c *gin.Context) {
 func condenseMetrics(metricsEntries []*metrics.MetricsEntry) []*metrics.MetricsEntry {
 	// use the time distance between the first and last entry to calculate how "far" it is
 	stime := metricsEntries[0].AtTime
-	etime := metricsEntries[len(metricsEntries) - 1].AtTime
+	etime := metricsEntries[len(metricsEntries)-1].AtTime
 	distance := int64(etime.Sub(stime).Hours())
 
 	// only apply factor over 2 hours
@@ -94,7 +94,7 @@ func condenseMetrics(metricsEntries []*metrics.MetricsEntry) []*metrics.MetricsE
 		}
 
 		// make a new list to hold entries with a base capacity
-		tempMetricsEntries := make([]*metrics.MetricsEntry, 0, len(metricsEntries) / factor)
+		tempMetricsEntries := make([]*metrics.MetricsEntry, 0, len(metricsEntries)/factor)
 
 		// start index at 0
 		sidx := 0
@@ -112,16 +112,16 @@ func condenseMetrics(metricsEntries []*metrics.MetricsEntry) []*metrics.MetricsE
 
 			// add to list before processing
 			tempMetricsEntries = append(tempMetricsEntries, tEntry)
-			
+
 			// if the end is too close to the start we're done
-			if eidx <= sidx + 1 {
+			if eidx <= sidx+1 {
 				break
 			}
 
 			// for each remaining entry in this segment we want to add
 			// the interval and the all of the times as well as adjust
 			// the "at" time at the end
-			for _, fEntry := range metricsEntries[sidx + 1:eidx] {
+			for _, fEntry := range metricsEntries[sidx+1 : eidx] {
 				tEntry.IntervalSeconds += fEntry.IntervalSeconds
 				tEntry.AtTime = fEntry.AtTime
 				for k, v := range fEntry.Values {
@@ -134,7 +134,7 @@ func condenseMetrics(metricsEntries []*metrics.MetricsEntry) []*metrics.MetricsE
 			// average entries out according to the number of entries
 			// we want the data to look the same, not be coallated
 			for _, v := range tEntry.Values {
-				v.Set(v.Value()/int64(len(metricsEntries[sidx:eidx])))
+				v.Set(v.Value() / int64(len(metricsEntries[sidx:eidx])))
 			}
 
 			// increment by factor
@@ -300,7 +300,7 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 	results, resultLen := web.queryLog.Query(query)
 
 	// query against query log and return encoded results
-	c.JSON(http.StatusOK, gin.H {
+	c.JSON(http.StatusOK, gin.H{
 		"total": resultLen,
 		"items": results,
 	})
@@ -315,7 +315,7 @@ func (web *web) GetTestComponents(c *gin.Context) {
 		consumers = append(consumers, c.Name)
 	}
 
-	groups := make([]string, 0, len(web.conf.Groups)) 
+	groups := make([]string, 0, len(web.conf.Groups))
 	for _, g := range web.conf.Groups {
 		if g == nil || g.Name == "" {
 			continue
@@ -331,9 +331,9 @@ func (web *web) GetTestComponents(c *gin.Context) {
 		resolvers = append(resolvers, r.Name)
 	}
 
-	c.JSON(http.StatusOK, gin.H {
+	c.JSON(http.StatusOK, gin.H{
 		"consumers": consumers,
-		"groups": groups,
+		"groups":    groups,
 		"resolvers": resolvers,
 	})
 }
@@ -349,14 +349,13 @@ func (web *web) GetTestResult(c *gin.Context) {
 	}
 
 	if consumer := c.Query("consumer"); len(consumer) > 0 {
-		
+
 	}
 
 	if group := c.Query("group"); len(group) > 0 {
 
 	}
 }
-
 
 func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics, qlog qlog.QLog) error {
 	// set metrics endpoint

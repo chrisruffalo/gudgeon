@@ -95,7 +95,7 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 		}
 
 		listCounter := uint64(0)
-		
+
 		// scan through file
 		scanner := bufio.NewScanner(data)
 		for scanner.Scan() {

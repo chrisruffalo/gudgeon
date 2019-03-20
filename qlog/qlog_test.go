@@ -112,7 +112,7 @@ func TestQueryLogQuery(t *testing.T) {
 	// query rule matched entries
 	ptrMatch := rule.MatchBlock
 	query = &QueryLogQuery{
-		Match:      &ptrMatch,
+		Match: &ptrMatch,
 	}
 	results, _ = qlog.Query(query)
 	if len(results) != totalEntries/4 {

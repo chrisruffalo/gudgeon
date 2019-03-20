@@ -34,7 +34,7 @@ type ResolutionResult struct {
 	Message  string // errors/panics/context hints
 
 	// reporting on blocks
-	Blocked     bool
+	Blocked bool
 
 	// reporting on matches
 	Match     rule.Match          // allowed or blocked

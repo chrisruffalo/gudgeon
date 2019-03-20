@@ -52,17 +52,17 @@ type LogInfo struct {
 	RequestType    string
 	ResponseText   string
 	// hard consumer blocked
-	Blocked        bool
+	Blocked bool
 	// matching
-	Match          rule.Match
-	MatchList      string
-	MatchRule      string
+	Match     rule.Match
+	MatchList string
+	MatchRule string
 	// cached in resolver cache store
-	Cached         bool
+	Cached bool
 	// when this log record was created
 	// todo: add when it was received and when it was completed
 	//       through the context so we can compute a delta
-	Created        time.Time
+	Created time.Time
 }
 
 // the type that is used to make queries against the
@@ -76,7 +76,7 @@ type QueryLogQuery struct {
 	RequestDomain  string
 	RequestType    string
 	ResponseText   string
-	Blocked        *bool 
+	Blocked        *bool
 	Cached         *bool
 	Match          *rule.Match
 	// query on created time
