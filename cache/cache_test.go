@@ -14,7 +14,7 @@ func TestSimpleCache(t *testing.T) {
 	// create a new msg
 	request := new(dns.Msg)
 
-	question := dns.Question{"google.com.", dns.TypeA, dns.ClassINET}
+	question := dns.Question{Name: "google.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}
 	request.Question = append(request.Question, question)
 
 	// create an answer

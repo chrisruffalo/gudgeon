@@ -8,6 +8,7 @@ import (
 
 	"github.com/chrisruffalo/gudgeon/cache"
 	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
@@ -34,8 +35,11 @@ type ResolutionResult struct {
 
 	// reporting on blocks
 	Blocked     bool
-	BlockedList *config.GudgeonList // name of blocked list
-	BlockedRule string              // name of actual rule
+
+	// reporting on matches
+	Match     rule.Match          // allowed or blocked
+	MatchList *config.GudgeonList // name of blocked list
+	MatchRule string              // name of actual rule
 }
 
 func result(context *ResolutionContext) *ResolutionResult {

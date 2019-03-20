@@ -1,15 +1,23 @@
 import React from 'react';
 import Axios from 'axios';
 import { 
+  Form,
   FormSelect,
   FormSelectOption
 } from '@patternfly/react-core';
 import { PrettyDate } from './helpers.js';
-import { ChartArea, ChartGroup, ChartLabel, ChartLegend, ChartVoronoiContainer, ChartTooltip, ChartAxis } from '@patternfly/react-charts';
+import { 
+  ChartArea, 
+  ChartGroup, 
+  ChartLabel, 
+  ChartLegend, 
+  ChartVoronoiContainer, 
+  ChartTooltip
+} from '@patternfly/react-charts';
 import gudgeonStyles from '../../css/gudgeon-app.css';
 import { css } from '@patternfly/react-styles';
 
-export class QPSChart extends React.Component {
+export class GudgeonChart extends React.Component {
   constructor(props) {
     super(props);
   };
@@ -21,16 +29,32 @@ export class QPSChart extends React.Component {
     lastAtTime: null,
     interval: (60 * 30), // start at 30min
     timer: null,
-    domainMaxY: 0 // calculate max Y
+    domainMaxY: 0, // calculate max Y
+    selected: Object.keys(this.props.metrics)[0]
   };
 
   options = [
+    { value: (60 * 5).toString(), label: '5m', disabled: false},
+    { value: (60 * 10).toString(), label: '10m', disabled: false},
     { value: (60 * 30).toString(), label: '30m', disabled: false},
     { value: (60 * 60), label: '1h', disabled: false },
     { value: (60 * 60 * 2), label: '2h', disabled: false },
     { value: (60 * 60 * 4), label: '4h', disabled: false },
-    { value: (60 * 60 * 6), label: '6h', disabled: false }
+    { value: (60 * 60 * 6), label: '6h', disabled: false },
+    { value: (60 * 60 * 6), label: '12h', disabled: false },
+    { value: (60 * 60 * 6), label: '24h', disabled: false },
+    { value: -1, label: 'All Time', disabled: false },
   ];
+
+  onMetricKeyChange = (value, event) => {
+    // clear old timer
+    var { timer } = this.state
+    if ( timer != null ) {
+      clearTimeout(timer)
+    }
+
+    this.setState({ lastAtTime: null, data: [], timer: null, selected: value }, this.updateData);
+  };
 
   onTimeIntervalChange = (value, event) => {
     // clear old timer
@@ -45,7 +69,7 @@ export class QPSChart extends React.Component {
   };
 
   updateData() {
-    var { lastAtTime, interval } = this.state
+    var { lastAtTime, interval, selected } = this.state
 
     // get from state but allow state to be reset to null without additional logic
     // and also make sure that the last at time is after the currently selected interval
@@ -59,19 +83,22 @@ export class QPSChart extends React.Component {
       clearTimeout(timer)
     }
 
-    // basic queries start at the given time
-    var params = {
-      start: lastAtTime
-    }
+    // basic queries start at the given time as long as the interval is positive
+    var params = { condense: "true" };
+    if ( interval >= 0 ) {
+      params['start'] = lastAtTime
+    }    
 
     // use this to filter query down to what is requested for the chart
     var metricsSelected = "";
+    var key;
     var idx = 0;
-    for ( idx in this.props.metrics ) {
+    for ( key in this.props.metrics[selected].series ) {
       if ( idx > 0 ) {
         metricsSelected = metricsSelected + ","
       }
-      metricsSelected = metricsSelected + this.props.metrics[idx].key
+      metricsSelected = metricsSelected + this.props.metrics[selected].series[key].key
+      idx++;
     }
     if ( metricsSelected != "" || metricsSelected.length > 0 ) {
       params["metrics"] = metricsSelected
@@ -168,7 +195,7 @@ export class QPSChart extends React.Component {
     localStorage.setItem("gudgeon-" + this.props.stateid + "-state", JSON.stringify(this.state));
   }
 
-  mapSingleValue(data, metric) {
+  mapSingleValue(seriesKey, data, metric) {
     if ( data == null || data.length < 1 || data.map == null ) {
       return [];
     }
@@ -178,7 +205,8 @@ export class QPSChart extends React.Component {
         "AtTime": d.AtTime,
         "FromTime": d.FromTime,
         "Value": metric != null && metric.key != null && d != null && d.Values != null && d.Values[metric.key] != null ? d.Values[metric.key].count : 0,
-        "Metric": metric
+        "Metric": metric,
+        "Series": seriesKey,
       };
     });
     return output;
@@ -190,8 +218,10 @@ export class QPSChart extends React.Component {
     }
 
     var value = datum.Value != null ? datum.Value : 0;
-    if ( this.props.formatter != null ) {
-      value = this.props.formatter(value)
+    if ( datum.Series != null && this.props.metrics[this.state.selected].series[datum.Series] != null && this.props.metrics[this.state.selected].series[datum.Series].formatter != null ) {
+      value = this.props.metrics[this.state.selected].series[datum.Series].formatter(value)
+    } else if ( this.props.metrics[this.state.selected].formatter != null ) {
+      value = this.props.metrics[this.state.selected].formatter(value)
     }
     if ( datum != null && datum.Metric != null && datum.Metric.name != null ) {
       value = datum.Metric.name + " : " + value
@@ -208,26 +238,58 @@ export class QPSChart extends React.Component {
   };
 
   render() {
-    const { width, data, domainMaxY } = this.state;
+    const { width, data, selected, domainMaxY } = this.state;
     const container = <ChartVoronoiContainer labels={ this.getTooltipLabel } labelComponent={ <ChartTooltip/> } />;
 
-    const rows = []
-    this.props.metrics.forEach( metric => {
-      rows.push(
-        <ChartArea key={metric.key} samples={10} domain={{ y: [0, domainMaxY * 1.25] }} scale={{ x: "time", y: "linear" }} data={ this.mapSingleValue(data, metric) } x={ (d) => d.AtTime } y={ (d) => this.getDataItem(d) } />
-      )
-    });
+    const rows = [];
+    const legend = [];
 
-    const legend = this.props.metrics.map( metric => { return { "name": metric.name } });
+    var key;
+    for ( key in this.props.metrics[selected].series) {
+      // get metric
+      var metric = this.props.metrics[selected].series[key]
+      // deterime metric domain
+      var minY = 0;
+      var maxY = domainMaxY * 1.25;
+      if ( metric.domain != null ) {
+        if ( metric.domain.y != null ) {
+          if ( metric.domain.y.length != null && metric.domain.y.length > 0 ) {
+            minY = metric.domain.y[0];
+            maxY = metric.domain.y[1];
+          } else {
+            maxY = metric.domain.y
+          }
+        }
+      }
+      // add chart area as a "row" in the chart group
+      rows.push(
+        <ChartArea key={metric.key} samples={10} domain={{ y: [minY, maxY] }} scale={{ x: "time", y: "linear" }} data={ this.mapSingleValue(key, data, metric) } x={ (d) => d.AtTime } y={ (d) => this.getDataItem(d) } />
+      )
+      // add corresponding legend element
+      legend.push( { "name": metric.name } );
+    }
+
+    const formOptions = [];
+    var key = null;
+    for ( key in this.props.metrics) {
+      formOptions.push(
+        <FormSelectOption isDisabled={false} key={key} value={key} label={this.props.metrics[key].label} />
+      );
+    }
 
     return (
       <React.Fragment>
         <div>
-          <FormSelect value={this.state.interval} onChange={this.onTimeIntervalChange} aria-label="FormSelect Input">
-            {this.options.map((option, index) => (
-              <FormSelectOption isDisabled={option.disabled} key={index} value={option.value} label={option.label} />
-            ))}
-          </FormSelect>
+          <Form isHorizontal>
+            <FormSelect style={{ "gridColumnStart": 1 }} value={this.state.selected} onChange={this.onMetricKeyChange} aria-label="Select Metric">
+              { formOptions }              
+            </FormSelect>
+            <FormSelect value={this.state.interval} onChange={this.onTimeIntervalChange} aria-label="Time Change">
+              {this.options.map((option, index) => (
+                <FormSelectOption isDisabled={option.disabled} key={index} value={option.value} label={option.label} />
+              ))}
+            </FormSelect>
+          </Form>
         </div>               
         <div ref={this.containerRef}>
           <div className="chart-overflow">

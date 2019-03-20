@@ -7,10 +7,11 @@ import (
 	"path"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/GeertJohan/go.rice"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/db"
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
@@ -33,20 +34,15 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	if _, err := os.Stat(sessionRoot); os.IsNotExist(err) {
 		os.MkdirAll(sessionRoot, os.ModePerm)
 	}
-	db, err := sql.Open("sqlite3", sessionDb+"?cache=shared&journal_mode=WAL")
-	if err != nil {
-		log.Errorf("Rule storage: %s", err)
-	}
-	db.SetMaxOpenConns(1)
-	store.db = db
 
-	_, err = store.db.Exec("CREATE TABLE IF NOT EXISTS lists ( Id INTEGER PRIMARY KEY, ShortName TEXT )")
+	// get/migrate schema
+	migrationsBox := rice.MustFindBox("sqlite-store-migrations")
+
+	// open db with migrated schema
+	var err error
+	store.db, err = db.OpenAndMigrate(sessionDb, "", migrationsBox)
 	if err != nil {
-		log.Errorf("Creating list table: %s", err)
-	}
-	_, err = store.db.Exec("CREATE INDEX IF NOT EXISTS idx_lists_ShortName on lists (ShortName)")
-	if err != nil {
-		log.Errorf("Creating list name index: %s", err)
+		log.Errorf("Creating SQLite Rule Store: %s", err)
 	}
 
 	// insert lists into table
@@ -58,24 +54,6 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 		if err != nil {
 			log.Errorf("Inserting list: %s", err)
 		}
-	}
-
-	_, err = store.db.Exec("CREATE TABLE IF NOT EXISTS rules ( ListRowId INTEGER, Rule TEXT, PRIMARY KEY(ListRowId, Rule) ) WITHOUT ROWID")
-	if err != nil {
-		log.Errorf("Creating rule storage: %s", err)
-	}
-
-	_, err = store.db.Exec("CREATE INDEX IF NOT EXISTS idx_rules_Rule on rules (Rule)")
-	if err != nil {
-		log.Errorf("Creating rule index: %s", err)
-	}
-	_, err = store.db.Exec("CREATE INDEX IF NOT EXISTS idx_rules_ListRowId on rules (ListRowId)")
-	if err != nil {
-		log.Errorf("Creating rule index: %s", err)
-	}
-	_, err = store.db.Exec("CREATE INDEX IF NOT EXISTS idx_rules_IdRule on rules (ListRowId, Rule)")
-	if err != nil {
-		log.Errorf("Creating rule index: %s", err)
 	}
 }
 

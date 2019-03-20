@@ -38,7 +38,7 @@ SQLITE_DEP?=https://sqlite.org/2019/sqlite-autoconf-3270100.tar.gz
 
 # rice command
 RICECMD=$(abspath $(GOBIN)/rice)
-RICEPATHS=-i ./qlog/ -i ./web/ -i ./metrics/
+RICEPATHS=-i ./qlog/ -i ./web/ -i ./metrics/ -i ./rule/
 
 # fpm command (gem for creating packages)
 FPMCMD=fpm
@@ -79,15 +79,6 @@ BINARY_TARGET?=$(BINARY_NAME)-$(OS_TYPE)-$(OS_BIN_ARCH)
 GO_BUILD_TAGS?=netgo linux sqlite3 jsoniter
 GO_LD_FLAGS?=-s -w -extldflags "-static" -X "github.com/chrisruffalo/gudgeon/version.Version=$(VERSION)" -X "github.com/chrisruffalo/gudgeon/version.GitHash=$(GITHASH)" -X "github.com/chrisruffalo/gudgeon/version.Release=$(RELEASE)" -X "github.com/chrisruffalo/gudgeon/version.Descriptor=$(DESCRIPTOR)" 
 
-# patternfly artifact
-PFVERSION=3.59.1
-PFARTIFACT=v$(PFVERSION)
-PFPATH=patternfly-$(PFVERSION)
-
-# vuetifyjs artifact
-VTVERSION=v1.5.4
-VTFYARTIFACT=vuetify-$(VTVERSION).zip
-
 # common FPM commands
 FMPARCH?=$(shell echo "$(OS_ARCH)" | sed -r 's/arm-?5/armhf/g' | sed -r 's/arm-?6/armhf/g' | sed -r 's/arm-?7/armhf/g')
 FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration "$(RELEASE)" --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/log/gudgeon" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --prefix / -C $(BUILD_DIR)/pkgtmp
@@ -102,6 +93,7 @@ announce:
 		@echo "longversion = $(LONGVERSION)"
 		@echo "version = $(VERSION)"
 		@echo "number = $(NUMBER)"
+		@echo "release = $(RELEASE)"
 		@echo "hash = $(GITHASH)"
 		@echo "descriptor = $(DESCRIPTOR)"
 		@echo "=============================="

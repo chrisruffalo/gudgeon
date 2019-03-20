@@ -5,5 +5,10 @@ export class QueryTest extends React.Component {
   constructor(props) {
     super(props);
   };
-
+    
+  render() {    
+    return (
+        <React.Fragment />
+    );
+  }
 }

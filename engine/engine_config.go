@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	gmetrics "github.com/chrisruffalo/gudgeon/metrics"
@@ -158,7 +159,22 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 
 	// create store based on gudgeon configuration and engine details
 	// (requires lists to be downloaded and present before creation)
-	engine.store = rule.CreateStoreWithMetrics(engine.Root(), conf, metrics)
+	totalCount := uint64(0)
+	var listCounts []uint64
+	engine.store, listCounts = rule.CreateStore(engine.Root(), conf)
+
+	// use/set metrics if they are enabled
+	if metrics != nil {
+		for idx, list := range conf.Lists {
+			log.Infof("List '%s' loaded %d rules", list.CanonicalName(), listCounts[idx])
+			rulesCounter := metrics.Get("rules-list-" + list.ShortName())
+			rulesCounter.Clear()
+			rulesCounter.Inc(int64(listCounts[idx]))
+			totalCount += uint64(listCounts[idx])
+		}
+		totalRulesCounter := metrics.Get(gmetrics.TotalRules)
+		totalRulesCounter.Inc(int64(totalCount))
+	}
 
 	// set consumers as active on engine
 	engine.consumers = consumers

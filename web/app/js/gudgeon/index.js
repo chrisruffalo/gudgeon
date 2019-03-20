@@ -56,6 +56,12 @@ export class Gudgeon extends React.Component {
         defaultRoute = "/qlog"
       }
     }
+    /*
+    NavItems.push(<NavItem to="#qtest" key="qtest"><Link activeClassName="pf-m-current" to="/qtest">Query Test</Link></NavItem>);
+    if ( defaultRoute == "" ) {
+      defaultRoute = "/qtest"
+    }
+    */
 
     // header navigation
     const NavigationBar = (
@@ -105,6 +111,7 @@ export class Gudgeon extends React.Component {
 
     const Metrics = window.config().metrics ? ( <MetricsCards /> ) : null;
     const QLog = window.config().query_log ? ( <QueryLog />) : null;
+    const QTest = ( <QueryTest /> );
 
     return (
       <div className={css(gudgeonStyles.maxHeight)}>
@@ -114,6 +121,7 @@ export class Gudgeon extends React.Component {
               <Switch>
                 { window.config().metrics ? <Route path="/metrics" component={ () => Metrics } /> : null }
                 { window.config().query_log ? <Route path="/qlog" component={ () => QLog } /> : null }
+                <Route path="/qtest" component={ () => QTest } />
                 { Catcher }
               </Switch>
             </PageSection>

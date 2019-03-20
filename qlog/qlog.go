@@ -10,21 +10,20 @@ import (
 	"time"
 
 	"github.com/GeertJohan/go.rice"
-	"github.com/atrox/go-migrate-rice"
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/miekg/dns"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/db"
 	"github.com/chrisruffalo/gudgeon/resolver"
+	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
 const (
 	// constant insert statement
-	qlogInsertStatement = "INSERT INTO qlog (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Cached, Created) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	qlogInsertStatement = "INSERT INTO qlog (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, Match, MatchList, MatchRule, Cached, Created) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
@@ -52,10 +51,17 @@ type LogInfo struct {
 	RequestDomain  string
 	RequestType    string
 	ResponseText   string
+	// hard consumer blocked
 	Blocked        bool
-	BlockedList    string
-	BlockedRule    string
+	// matching
+	Match          rule.Match
+	MatchList      string
+	MatchRule      string
+	// cached in resolver cache store
 	Cached         bool
+	// when this log record was created
+	// todo: add when it was received and when it was completed
+	//       through the context so we can compute a delta
 	Created        time.Time
 }
 
@@ -70,8 +76,9 @@ type QueryLogQuery struct {
 	RequestDomain  string
 	RequestType    string
 	ResponseText   string
-	Blocked        *bool
+	Blocked        *bool 
 	Cached         *bool
+	Match          *rule.Match
 	// query on created time
 	After  *time.Time
 	Before *time.Time
@@ -92,16 +99,18 @@ type qlog struct {
 	fileLogger *log.Logger
 	stdLogger  *log.Logger
 
-	store       *sql.DB
+	store *sql.DB
+	tx    *sql.Tx
+	pstmt *sql.Stmt
+
 	qlConf      *config.GudgeonQueryLog
 	logInfoChan chan *LogInfo
 	doneChan    chan bool
-	batch       []*LogInfo
 }
 
 // public interface
 type QLog interface {
-	Query(query *QueryLogQuery) ([]LogInfo, uint64)
+	Query(query *QueryLogQuery) ([]*LogInfo, uint64)
 	Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult)
 	Stop()
 }
@@ -183,7 +192,6 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 	}
 
 	// create log channel for queuing up batches
-	qlog.batch = make([]*LogInfo, 0, qlConf.QueueSize)
 	qlog.logInfoChan = make(chan *LogInfo, qlConf.QueueSize)
 	qlog.doneChan = make(chan bool)
 	go qlog.logWorker()
@@ -204,45 +212,16 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 		}
 
 		dbPath := path.Join(dbDir, "qlog.db")
-		db, err := sql.Open("sqlite3", dbPath+"?cache=shared&journal_mode=WAL")
-		if err != nil {
-			// if the file exists try removing it and opening it again
-			// this could be because of change in database file formats
-			// or a corrupted database
-			if _, rmErr := os.Stat(dbPath); !os.IsNotExist(rmErr) {
-				os.Remove(dbPath)
-			}
-			db, err = sql.Open("sqlite3", dbPath+"?cache=shared&journal_mode=WAL")
-			if err != nil {
-				return nil, err
-			}
-			return nil, err
-		}
-		db.SetMaxOpenConns(1)
 
-		// do migrations
+		// get migrations
 		migrationsBox := rice.MustFindBox("qlog-migrations")
 
-		migrationDriver, err := migraterice.WithInstance(migrationsBox)
+		// open database
+		var err error
+		qlog.store, err = db.OpenAndMigrate(dbPath, "", migrationsBox)
 		if err != nil {
 			return nil, err
 		}
-
-		dbDriver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
-		if err != nil {
-			return nil, err
-		}
-
-		m, err := migrate.NewWithInstance("rice", migrationDriver, "sqlite3", dbDriver)
-		if err != nil {
-			return nil, err
-		}
-
-		// migrate to best version of database
-		m.Up()
-
-		// keep store handler
-		qlog.store = db
 
 		// prune entries
 		qlog.prune()
@@ -266,61 +245,59 @@ func (qlog *qlog) prune() {
 
 func (qlog *qlog) queue(info *LogInfo) {
 	// only add to batch if not nil
-	if info != nil {
-		qlog.batch = append(qlog.batch, info)
+	if info == nil {
+		return
+	}
+
+	var err error
+
+	if qlog.tx == nil {
+		// close old statement
+		if qlog.pstmt != nil {
+			qlog.pstmt.Close()
+		}
+
+		// new transaction means the old stmt is dead
+		qlog.pstmt = nil
+
+		qlog.tx, err = qlog.store.Begin()
+		if err != nil {
+			log.Errorf("Could not start transaction: %s", err)
+			return
+		}
+	}
+
+	if qlog.pstmt == nil {
+		qlog.pstmt, err = qlog.tx.Prepare(qlogInsertStatement)
+		if err != nil {
+			qlog.tx.Rollback()
+			log.Errorf("Preparing statement: %s", err)
+			qlog.tx = nil
+			qlog.pstmt = nil
+			return
+		}
+	}
+
+	_, err = qlog.pstmt.Exec(info.Address, info.ClientName, info.Consumer, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.Match, info.MatchList, info.MatchRule, info.Cached, info.Created)
+	if err != nil {
+		log.Errorf("Insert into qlog: %s", err)
 	}
 }
 
 func (qlog *qlog) flush() {
-	// can't flush if nothing to flush
-	if len(qlog.batch) < 1 {
+	if qlog.tx == nil {
 		return
 	}
 
-	tx, err := qlog.store.Begin()
-	if err != nil {
-		log.Errorf("Could not start transaction: %s", err)
-		return
+	// if statement is open, close it
+	if qlog.pstmt != nil {
+		qlog.pstmt.Close()
+		qlog.pstmt = nil
 	}
 
-	rowsAffected := int64(0)
-
-	// prepare statement
-	pstmt, err := tx.Prepare(qlogInsertStatement)
-	if err != nil {
-		tx.Rollback()
-		log.Errorf("Preparing statement: %s", err)
-	} else {
-		// close the non-errored statement when done
-		defer pstmt.Close()
-
-		// commit if no errors
-		commit := true
-		for _, i := range qlog.batch {
-			result, err := pstmt.Exec(i.Address, i.ClientName, i.Consumer, i.RequestDomain, i.RequestType, i.ResponseText, i.Blocked, i.BlockedList, i.BlockedRule, i.Cached, i.Created)
-			if err != nil {
-				log.Errorf("Insert into qlog: %s", err)
-				commit = false
-				break
-			}
-
-			// accumulate rows
-			rows, _ := result.RowsAffected()
-			rowsAffected += rows
-		}
-
-		// decide to commit or not
-		if commit {
-			tx.Commit()
-		} else {
-			tx.Rollback()
-		}
-
-		log.Debugf("Wrote %d query log records", rowsAffected)
-	}
-
-	// remake batch for inserting
-	qlog.batch = make([]*LogInfo, 0, qlog.qlConf.QueueSize)
+	// commit transaction
+	qlog.tx.Commit()
+	qlog.tx = nil
 }
 
 func (qlog *qlog) log(info *LogInfo) {
@@ -368,22 +345,34 @@ func (qlog *qlog) log(info *LogInfo) {
 	if result != nil {
 		if result.Blocked {
 			builder.WriteString("BLOCKED")
-			if result.BlockedList != nil {
+		} else if result.Match == rule.MatchBlock {
+			builder.WriteString("RULE BLOCKED")
+			if qlog.fileLogger != nil {
+				fields["match"] = result.Match
+				fields["matchType"] = "BLOCKED"
+			}
+			if result.MatchList != nil {
 				builder.WriteString("[")
-				builder.WriteString(result.BlockedList.CanonicalName())
+				builder.WriteString(result.MatchList.CanonicalName())
 				if qlog.fileLogger != nil {
-					fields["blockedList"] = result.BlockedList.CanonicalName()
+					fields["matchList"] = result.MatchList.CanonicalName()
 				}
-				if result.BlockedRule != "" {
+				if result.MatchRule != "" {
 					builder.WriteString("|")
-					builder.WriteString(result.BlockedRule)
+					builder.WriteString(result.MatchRule)
 					if qlog.fileLogger != nil {
-						fields["blockedRule"] = result.BlockedRule
+						fields["matchRule"] = result.MatchRule
 					}
 				}
 				builder.WriteString("]")
 			}
 		} else {
+			if result.Match == rule.MatchAllow {
+				if qlog.fileLogger != nil {
+					fields["match"] = result.Match
+					fields["matchType"] = "ALLOWED"
+				}
+			}
 			if result.Cached {
 				builder.WriteString("c:[")
 				builder.WriteString(result.Resolver)
@@ -543,14 +532,21 @@ func (qlog *qlog) logWorker() {
 
 				if info.Result != nil {
 					info.Consumer = info.Result.Consumer
+
 					if info.Result.Blocked {
 						info.Blocked = true
-						if info.Result.BlockedList != nil {
-							info.BlockedList = info.Result.BlockedList.CanonicalName()
-						}
-						info.BlockedRule = info.Result.BlockedRule
-					} else if info.Result.Cached {
+					}
+
+					if info.Result.Cached {
 						info.Cached = true
+					}
+
+					info.Match = info.Result.Match
+					if info.Result.Match != rule.MatchNone {
+						if info.Result.MatchList != nil {
+							info.MatchList = info.Result.MatchList.CanonicalName()
+						}
+						info.MatchRule = info.Result.MatchRule
 					}
 				}
 
@@ -601,9 +597,9 @@ func (qlog *qlog) Log(address *net.IP, request *dns.Msg, response *dns.Msg, rCon
 	qlog.logInfoChan <- msg
 }
 
-func (qlog *qlog) Query(query *QueryLogQuery) ([]LogInfo, uint64) {
+func (qlog *qlog) Query(query *QueryLogQuery) ([]*LogInfo, uint64) {
 	// select entries from qlog
-	selectStmt := "SELECT Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, BlockedList, BlockedRule, Cached, Created FROM qlog"
+	selectStmt := "SELECT Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, Match, MatchList, MatchRule, Cached, Created FROM qlog"
 	countStmt := "SELECT COUNT(*) FROM qlog"
 
 	// so we can dynamically build the where clause
@@ -640,6 +636,11 @@ func (qlog *qlog) Query(query *QueryLogQuery) ([]LogInfo, uint64) {
 	if query.Blocked != nil {
 		whereClauses = append(whereClauses, "Blocked = ?")
 		whereValues = append(whereValues, query.Blocked)
+	}
+
+	if query.Match != nil {
+		whereClauses = append(whereClauses, "Match = ?")
+		whereValues = append(whereValues, query.Match)
 	}
 
 	if query.Cached != nil {
@@ -724,21 +725,22 @@ func (qlog *qlog) Query(query *QueryLogQuery) ([]LogInfo, uint64) {
 	rows, err = qlog.store.Query(selectStmt, whereValues...)
 	if err != nil {
 		log.Errorf("Query log query failed: %s", err)
-		return []LogInfo{}, 0
+		return []*LogInfo{}, 0
 	}
 	defer rows.Close()
 	// if rows is nil return empty array
 	if rows == nil {
-		return []LogInfo{}, 0
+		return []*LogInfo{}, 0
 	}
 
 	// otherwise create an array of the required size
-	results := make([]LogInfo, 0)
+	results := make([]*LogInfo, 0, resultLen)
 
 	// scan each row and get results
+	var info *LogInfo
 	for rows.Next() {
-		info := LogInfo{}
-		err = rows.Scan(&info.Address, &info.ClientName, &info.Consumer, &info.RequestDomain, &info.RequestType, &info.ResponseText, &info.Blocked, &info.BlockedList, &info.BlockedRule, &info.Cached, &info.Created)
+		info = &LogInfo{}
+		err = rows.Scan(&info.Address, &info.ClientName, &info.Consumer, &info.RequestDomain, &info.RequestType, &info.ResponseText, &info.Blocked, &info.Match, &info.MatchList, &info.MatchRule, &info.Cached, &info.Created)
 		if err != nil {
 			log.Errorf("Scanning qlog results: %s", err)
 			continue

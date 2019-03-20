@@ -99,7 +99,7 @@ func (gudgeon *Gudgeon) Start() error {
 	// open web ui if web enabled
 	if config.Web.Enabled {
 		web := web.New()
-		web.Serve(config, mets, qlog)
+		web.Serve(config, eng, mets, qlog)
 		gudgeon.web = web
 	}
 

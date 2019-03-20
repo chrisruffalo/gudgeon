@@ -52,8 +52,12 @@ export class QueryLog extends React.Component {
 
           if ( rowData.Blocked ) {
             return (
-              <div style={{ color: "red" }}><ErrorCircleOIcon alt="blocked" /> { rowData.BlockedList }{ rowData.BlockedRule ? ' (' + rowData.BlockedRule + ")" : null }</div>
+              <div style={{ color: "red" }}><ErrorCircleOIcon alt="blocked" /> BLOCKED</div>
             );
+          } else if ( rowData.Match == 1 ) {
+            return (
+              <div style={{ color: "red" }}><ErrorCircleOIcon alt="blocked" /> { rowData.MatchList }{ rowData.MatchRule ? ' (' + rowData.MatchRule + ")" : null }</div>
+            );          
           } else if ( rowData.Cached ) {
             return (
               <div style={{ color: "green" }}><VolumeIcon alt="cached" /> { responseText }</div>
@@ -120,7 +124,11 @@ export class QueryLog extends React.Component {
     var defaultSortDir = "asc";
     if ( query.orderBy == null || query.orderBy.title == "Created" ) {
       params['sort'] = "created";
-      params['direction'] = "desc";
+      if ( query.orderBy == null ) {
+        params['direction'] = "desc";
+      } else {
+        params['direction'] = query.orderDirection == null ? "asc" : query.orderDirection ; 
+      }
     } else {
       params['sort'] = query.orderBy.toLowerCase();
     }

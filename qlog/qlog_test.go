@@ -7,6 +7,7 @@ import (
 	"github.com/miekg/dns"
 
 	"github.com/chrisruffalo/gudgeon/resolver"
+	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/testutil"
 )
 
@@ -42,7 +43,7 @@ func TestQueryLogQuery(t *testing.T) {
 	qlog := qlogInterface.(*qlog)
 
 	// log 1000 entries
-	totalEntries := 86400 / 24 // about one hour at one query per second
+	totalEntries := 86400 / 24 / 2 // about half an hour at one query per second
 	for i := 0; i < totalEntries; i++ {
 		// create message for sending to various endpoints
 		msg := new(LogInfo)
@@ -62,9 +63,9 @@ func TestQueryLogQuery(t *testing.T) {
 		msg.Request.Question = make([]dns.Question, 1)
 		msg.Request.Question[0] = dns.Question{Name: "google.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}
 		if i%4 == 0 { // block one quarter of queries
-			msg.Blocked = true
-			msg.BlockedRule = "*"
-			msg.BlockedList = "testlist"
+			msg.Match = rule.MatchBlock
+			msg.MatchRule = "*"
+			msg.MatchList = "testlist"
 		}
 		if i%20 == 0 {
 			msg.RequestDomain = "netflix.com."
@@ -108,19 +109,19 @@ func TestQueryLogQuery(t *testing.T) {
 		t.Errorf("Limit query returned unexpected results: %d but expected %d", len(results), totalEntries/4)
 	}
 
-	// query blocked entries
-	ptrTrue := true
+	// query rule matched entries
+	ptrMatch := rule.MatchBlock
 	query = &QueryLogQuery{
-		Blocked: &ptrTrue,
+		Match:      &ptrMatch,
 	}
 	results, _ = qlog.Query(query)
 	if len(results) != totalEntries/4 {
-		t.Errorf("Blocked query returned unexpected results: %d but expected %d", len(results), totalEntries/4)
+		t.Errorf("Match query returned unexpected results: %d but expected %d", len(results), totalEntries/4)
 	}
 
-	// query by query type and blocked with limit
+	// query by query type and rule matched with limit
 	query = &QueryLogQuery{
-		Blocked:     &ptrTrue,
+		Match:       &ptrMatch,
 		RequestType: "AAAA",
 		Limit:       10,
 	}

@@ -19,7 +19,7 @@ import {
   TableBody, 
   TableVariant 
 } from '@patternfly/react-table';
-import { QPSChart } from './metrics-chart.js';
+import { GudgeonChart } from './metrics-chart.js';
 import { HumanBytes, LocaleNumber } from './helpers.js';
 import gudgeonStyles from '../../css/gudgeon-app.css';
 import { css } from '@patternfly/react-styles';
@@ -28,6 +28,44 @@ export class MetricsCards extends React.Component {
   constructor(props) {
     super(props);
   };
+
+  ProcessorPercentFormatter = (value) => {
+    return LocaleNumber(value / 1000) + "%"
+  }
+
+  chartMetrics = {
+    "queries": {
+      label: "Queries",
+      formatter: LocaleNumber,
+      series: {
+        queries: { name: "Queries", key: "gudgeon-total-interval-queries" }, 
+        blocked: { name: "Blocked", key: "gudgeon-blocked-interval-queries" } 
+      }
+    },
+    "memory": {
+      label: "Memory",
+      formatter: HumanBytes,
+      series: {
+        heap: { name: "Allocated Heap", key: "gudgeon-allocated-bytes" }, 
+        rss: { name: "Resident Memory", key: "gudgeon-process-used-bytes" } 
+      }
+    },
+    "threads": {
+      label: "Threads",
+      formatter: LocaleNumber,
+      series: { 
+        threads: { name: "Threads", key: "gudgeon-process-threads" },
+        routines: { name: "Go Routines", key: "gudgeon-goroutines" } 
+      }
+    },
+    "cpu": {
+      label: "CPU",
+      formatter: LocaleNumber,
+      series: { 
+        cpu: { name: "CPU Use", key: "gudgeon-cpu-hundreds-percent", domain: { y: [0, 100000] }, formatter: this.ProcessorPercentFormatter } // processor use is in 1000ths of a percent
+      }
+    }    
+  }
 
   state = {
     width: 0,
@@ -51,8 +89,8 @@ export class MetricsCards extends React.Component {
     columns: [
       'List',
       'Rules',
-      'Session Hits',
-      'Lifetime Hits'
+      'Session Matches',
+      'Lifetime Matches'
     ],
     currentMetrics: 'lifetime',
     rows: [],
@@ -102,8 +140,8 @@ export class MetricsCards extends React.Component {
       newRow.push(element['name'])
       var key = element['short']
       newRow.push(this.getDataMetric(data, 'rules-list-' + key));
-      newRow.push(this.getDataMetric(data, 'rules-session-blocked-' + key));
-      newRow.push(this.getDataMetric(data, 'rules-lifetime-blocked-' + key));
+      newRow.push(this.getDataMetric(data, 'rules-session-matched-' + key));
+      newRow.push(this.getDataMetric(data, 'rules-lifetime-matched-' + key));
       rows.push(newRow);
     });
 
@@ -173,17 +211,10 @@ export class MetricsCards extends React.Component {
             </CardBody>
           </Card>          
         </GridItem>
-        <GridItem lg={4} md={6} sm={12}>
+        <GridItem lg={8} md={6} sm={12}>
           <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
-              <QPSChart stateid="querystats" metrics={[ { name: "Queries", key: "gudgeon-total-interval-queries" }, { name: "Blocked", key: "gudgeon-blocked-interval-queries" } ]} formatter = { LocaleNumber }/>
-            </CardBody>
-          </Card>
-        </GridItem>
-        <GridItem lg={4} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
-            <CardBody>
-              <QPSChart stateid="memorystats" metrics={[ { name: "Allocated Heap", key: "gudgeon-allocated-bytes" }, { name: "Resident Memory", key: "gudgeon-process-used-bytes" } ]} formatter = { HumanBytes } />
+              <GudgeonChart metrics={ this.chartMetrics } />
             </CardBody>
           </Card>
         </GridItem>
@@ -197,15 +228,6 @@ export class MetricsCards extends React.Component {
             </CardBody>
           </Card>          
         </GridItem>
-        <GridItem lg={5} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
-            <CardBody>
-              <DataList aria-label="Lifetime Metrics">
-                <QPSChart stateid="goroutines" metrics={[ { name: "Go Routines", key: "gudgeon-goroutines" } ]} formatter = { LocaleNumber } />
-              </DataList>          
-            </CardBody>
-          </Card>          
-        </GridItem>        
       </Grid>
     )
   }

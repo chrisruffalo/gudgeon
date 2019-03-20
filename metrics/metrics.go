@@ -11,9 +11,6 @@ import (
 	"time"
 
 	"github.com/GeertJohan/go.rice"
-	"github.com/atrox/go-migrate-rice"
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/json-iterator/go"
 	"github.com/miekg/dns"
 	"github.com/shirou/gopsutil/mem"
@@ -21,7 +18,9 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/db"
 	"github.com/chrisruffalo/gudgeon/resolver"
+	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
@@ -42,6 +41,7 @@ const (
 	CurrentCacheEntries = "cache-entries"
 	// rutnime metrics
 	GoRoutines         = "goroutines"
+	Threads            = "process-threads"
 	CurrentlyAllocated = "allocated-bytes"    // heap allocation in go runtime stats
 	UsedMemory         = "process-used-bytes" // from the process api
 	FreeMemory         = "free-memory-bytes"
@@ -154,48 +154,19 @@ func New(config *config.GudgeonConfig) Metrics {
 			os.MkdirAll(dbDir, os.ModePerm)
 		}
 
+		// get path to db
 		dbPath := path.Join(dbDir, "metrics.db")
-		db, err := sql.Open("sqlite3", dbPath+"?cache=shared&journal_The operation Ansible Automation Inside Credential creationmode=WAL")
-		if err != nil {
-			// if the file exists try removing it and opening it again
-			// this could be because of change in database file formats
-			// or a corrupted database
-			if _, rmErr := os.Stat(dbPath); !os.IsNotExist(rmErr) {
-				os.Remove(dbPath)
-			}
-			db, err = sql.Open("sqlite3", dbPath+"?cache=shared&journal_mode=WAL")
-			if err != nil {
-				return nil
-			}
-		}
-		db.SetMaxOpenConns(1)
 
 		// do migrations
 		migrationsBox := rice.MustFindBox("metrics-migrations")
 
-		migrationDriver, err := migraterice.WithInstance(migrationsBox)
+		// open database
+		var err error
+		metrics.db, err = db.OpenAndMigrate(dbPath, "", migrationsBox)
 		if err != nil {
-			log.Errorf("Could not get migration instances: %s", err)
+			log.Errorf("Metrics: %s", err)
 			return nil
 		}
-
-		dbDriver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
-		if err != nil {
-			log.Errorf("Could not open db: %s", err)
-			return nil
-		}
-
-		m, err := migrate.NewWithInstance("rice", migrationDriver, "sqlite3", dbDriver)
-		if err != nil {
-			log.Errorf("Could not migrate: %s", err)
-			return nil
-		}
-
-		// migrate to best version of database
-		m.Up()
-
-		// keep store handler
-		metrics.db = db
 
 		// init lifetime metric counts
 		metrics.load()
@@ -246,8 +217,12 @@ func New(config *config.GudgeonConfig) Metrics {
 
 func (metrics *metrics) GetAll() map[string]*Metric {
 	metrics.metricsMutex.RLock()
-	defer metrics.metricsMutex.RUnlock()
-	return metrics.metricsMap
+	mapCopy := make(map[string]*Metric, 0)
+	for k, v := range metrics.metricsMap {
+		mapCopy[k] = &Metric{ Count: v.Value() }
+	}
+	metrics.metricsMutex.RUnlock()
+	return mapCopy
 }
 
 func (metrics *metrics) Get(name string) *Metric {
@@ -274,9 +249,12 @@ func (metrics *metrics) update() {
 	if err == nil && process != nil {
 		if percent, err := process.CPUPercent(); err == nil {
 			metrics.Get(CPUHundredsPercent).Set(int64(percent * 100))
-			if pmem, err := process.MemoryInfo(); err == nil {
-				metrics.Get(UsedMemory).Set(int64(pmem.RSS))
-			}
+		}
+		if pmem, err := process.MemoryInfo(); err == nil {
+			metrics.Get(UsedMemory).Set(int64(pmem.RSS))
+		}
+		if threads, err := process.NumThreads(); err == nil {
+			metrics.Get(Threads).Set(int64(threads))
 		}
 		if vmem, err := mem.VirtualMemory(); err == nil {
 			metrics.Get(FreeMemory).Set(int64(vmem.Free))
@@ -312,14 +290,14 @@ func (metrics *metrics) record() {
 		}
 
 		// add blocked queries
-		if info.result != nil && info.result.Blocked {
+		if info.result != nil && (info.result.Blocked || info.result.Match == rule.MatchBlock) {
 			metrics.Get(BlockedQueries).Inc(1)
 			metrics.Get(BlockedLifetimeQueries).Inc(1)
 			metrics.Get(BlockedIntervalQueries).Inc(1)
 
-			if info.result.BlockedList != nil {
-				metrics.Get("rules-session-blocked-" + info.result.BlockedList.ShortName()).Inc(1)
-				metrics.Get("rules-lifetime-blocked-" + info.result.BlockedList.ShortName()).Inc(1)
+			if info.result.MatchList != nil {
+				metrics.Get("rules-session-matched-" + info.result.MatchList.ShortName()).Inc(1)
+				metrics.Get("rules-lifetime-matched-" + info.result.MatchList.ShortName()).Inc(1)
 			}
 		}
 	}

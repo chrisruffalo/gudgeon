@@ -8,7 +8,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
-	gmetrics "github.com/chrisruffalo/gudgeon/metrics"
 )
 
 // a match can be:
@@ -36,7 +35,7 @@ type RuleStore interface {
 }
 
 // stores are created from lists of files inside a configuration
-func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metrics gmetrics.Metrics) RuleStore {
+func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []uint64) {
 	// first create the complex rule store wrapper
 	store := new(complexStore)
 
@@ -83,18 +82,20 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 	store.Init(storeRoot, config, config.Lists)
 
 	// load files into stores based on complexity
-	totalCounter := uint64(0)
+	outputCount := make([]uint64, 0, len(config.Lists))
+
 	for _, list := range config.Lists {
 		// open file and scan
 		data, err := os.Open(config.PathToList(list))
 		if err != nil {
 			data.Close()
 			log.Errorf("Could not open list file: %s", err)
+			outputCount = append(outputCount, 0)
 			continue
 		}
 
 		listCounter := uint64(0)
-
+		
 		// scan through file
 		scanner := bufio.NewScanner(data)
 		for scanner.Scan() {
@@ -103,7 +104,6 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 				// load the text into the store which will load it into the next delegate
 				// if it doesn't match the parameters of that store
 				store.Load(list, text)
-				totalCounter += 1
 				listCounter += 1
 			}
 		}
@@ -111,32 +111,13 @@ func CreateStoreWithMetrics(storeRoot string, config *config.GudgeonConfig, metr
 		// close file
 		data.Close()
 
-		if listCounter > 0 {
-			log.Infof("Loaded %d rules from '%s'", listCounter, list.CanonicalName())
-			if metrics != nil {
-				rulesCounter := metrics.Get("rules-list-" + list.ShortName())
-				rulesCounter.Clear()
-				rulesCounter.Inc(int64(listCounter))
-			}
-		}
+		// append counter to output count
+		outputCount = append(outputCount, listCounter)
 	}
 
 	// finalize both stores (store finalizes delegate)
 	store.Finalize(storeRoot, config.Lists)
 
-	if totalCounter > 0 {
-		log.Infof("Loaded %d total rules", totalCounter)
-		if metrics != nil {
-			totalRulesCounter := metrics.Get(gmetrics.TotalRules)
-			totalRulesCounter.Inc(int64(totalCounter))
-		}
-	}
-
 	// finalize and return store
-	return store
-}
-
-// stores are created from lists of files inside a configuration
-func CreateStore(storeRoot string, config *config.GudgeonConfig) RuleStore {
-	return CreateStoreWithMetrics(storeRoot, config, nil)
+	return store, outputCount
 }

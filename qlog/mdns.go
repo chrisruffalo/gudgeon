@@ -19,8 +19,8 @@ var hostnameReadPriority = []string{"txt:fn", "txt:f", "txt:md", "name", "name6"
 func MulticastMdnsQuery() {
 	m := &dns.Msg{}
 	m.Question = []dns.Question{
-		dns.Question{questionString, dns.TypeSRV, dns.ClassINET},
-		dns.Question{questionString, dns.TypeTXT, dns.ClassINET},
+		dns.Question{Name: questionString, Qtype: dns.TypeSRV, Qclass: dns.ClassINET},
+		dns.Question{Name: questionString, Qtype: dns.TypeTXT, Qclass: dns.ClassINET},
 	}
 	m.RecursionDesired = false
 

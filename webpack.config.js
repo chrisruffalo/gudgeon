@@ -116,7 +116,10 @@ module.exports = {
                         loader: "babel-loader",
                         options: {
                             plugins: ['@patternfly/react-styles/babel', '@babel/plugin-proposal-class-properties'],
-                            presets: ['@babel/preset-react', '@babel/env']
+                            presets: [
+                                '@babel/preset-react',
+                                [ '@babel/preset-env', { "useBuiltIns": "entry" } ] 
+                            ]
                         }
                     }
                 ]

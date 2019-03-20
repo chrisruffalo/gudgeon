@@ -89,7 +89,7 @@ func (engine *engine) ListPath(listType string) string {
 }
 
 type Engine interface {
-	IsDomainBlocked(consumer *net.IP, domain string) (bool, *config.GudgeonList, string)
+	IsDomainRuleMatched(consumer *net.IP, domain string) (rule.Match, *config.GudgeonList, string)
 	Resolve(domainName string) (string, error)
 	Reverse(address string) string
 	Handle(address *net.IP, protocol string, dnsWriter dns.ResponseWriter, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
@@ -173,14 +173,14 @@ func (engine *engine) getResolvers(consumer *consumer) []string {
 	return []string{"default"}
 }
 
-// return if the domain is blocked, if it is blocked return the list and rule
-func (engine *engine) IsDomainBlocked(consumerIp *net.IP, domain string) (bool, *config.GudgeonList, string) {
+// return if the domain matches any rule
+func (engine *engine) IsDomainRuleMatched(consumerIp *net.IP, domain string) (rule.Match, *config.GudgeonList, string) {
 	// get consumer
 	consumer := engine.getConsumerForIp(consumerIp)
-	return engine.domainBlockedForConsumer(consumer, domain)
+	return engine.domainRuleMatchedForConsumer(consumer, domain)
 }
 
-func (engine *engine) domainBlockedForConsumer(consumer *consumer, domain string) (bool, *config.GudgeonList, string) {
+func (engine *engine) domainRuleMatchedForConsumer(consumer *consumer, domain string) (rule.Match, *config.GudgeonList, string) {
 	// drop ending . if present from domain
 	if strings.HasSuffix(domain, ".") {
 		domain = domain[:len(domain)-1]
@@ -188,13 +188,11 @@ func (engine *engine) domainBlockedForConsumer(consumer *consumer, domain string
 
 	// sometimes (in testing, downloading) the store mechanism is nil/unloaded
 	if engine.store == nil {
-		return false, nil, ""
+		return rule.MatchNone, nil, ""
 	}
 
-	// look in lists for match
-	result, list, ruleText := engine.store.FindMatch(consumer.lists, domain)
-
-	return !(result == rule.MatchAllow || result == rule.MatchNone), list, ruleText
+	// return match values
+	return engine.store.FindMatch(consumer.lists, domain)
 }
 
 // handles recursive resolution of cnames
@@ -266,23 +264,27 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 	// get domain name
 	domain := request.Question[0].Name
 
-	// get block status and just hang up if blocked at the consumer level
+	// get block status and just move on if the consumer itself is blocked
 	if consumer.configConsumer.Block {
 		result.Blocked = true
-	} else if blocked, list, ruleText := engine.domainBlockedForConsumer(consumer, domain); blocked {
-		result.Blocked = true
-		result.BlockedList = list
-		result.BlockedRule = ruleText
 	} else {
-		// if not blocked then actually try resolution, by grabbing the resolver names
-		resolverNames := engine.getResolvers(consumer)
-		response, result, err = engine.resolvers.AnswerMultiResolvers(rCon, resolverNames, request)
-		if err != nil {
-			log.Errorf("Could not resolve <%s> for consumer '%s': %s", domain, consumer.configConsumer.Name, err)
-		} else {
-			cnameResponse := engine.handleCnameResolution(address, protocol, request, response)
-			if !util.IsEmptyResponse(cnameResponse) {
-				response = cnameResponse
+		match, list, ruleText := engine.domainRuleMatchedForConsumer(consumer, domain)
+		if match != rule.MatchNone {
+			result.Match = match
+			result.MatchList = list
+			result.MatchRule = ruleText
+		}
+		if match != rule.MatchBlock {
+			// if not blocked then actually try resolution, by grabbing the resolver names
+			resolverNames := engine.getResolvers(consumer)
+			response, result, err = engine.resolvers.AnswerMultiResolvers(rCon, resolverNames, request)
+			if err != nil {
+				log.Errorf("Could not resolve <%s> for consumer '%s': %s", domain, consumer.configConsumer.Name, err)
+			} else {
+				cnameResponse := engine.handleCnameResolution(address, protocol, request, response)
+				if !util.IsEmptyResponse(cnameResponse) {
+					response = cnameResponse
+				}
 			}
 		}
 	}

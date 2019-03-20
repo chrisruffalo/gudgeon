@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/engine"
 	"github.com/chrisruffalo/gudgeon/metrics"
 	"github.com/chrisruffalo/gudgeon/qlog"
 	"github.com/chrisruffalo/gudgeon/util"
@@ -30,7 +31,7 @@ type web struct {
 }
 
 type Web interface {
-	Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog qlog.QLog) error
+	Serve(conf *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics, qlog qlog.QLog) error
 	Stop()
 }
 
@@ -72,6 +73,79 @@ func (web *web) GetMetrics(c *gin.Context) {
 		"metrics": metrics,
 		"lists":   lists,
 	})
+}
+
+// takes a list of metrics entries and condenses them together so it looks
+// pretty much the same when zoomed out but at a lower resolution
+func condenseMetrics(metricsEntries []*metrics.MetricsEntry) []*metrics.MetricsEntry {
+	// use the time distance between the first and last entry to calculate how "far" it is
+	stime := metricsEntries[0].AtTime
+	etime := metricsEntries[len(metricsEntries) - 1].AtTime
+	distance := int64(etime.Sub(stime).Hours())
+
+	// only apply factor over 2 hours
+	if distance > 2 {
+		// use the hour distance to calculate the factor
+		factor := int(distance)
+
+		// max factor
+		if factor > 24 {
+			factor = 24
+		}
+
+		// make a new list to hold entries with a base capacity
+		tempMetricsEntries := make([]*metrics.MetricsEntry, 0, len(metricsEntries) / factor)
+
+		// start index at 0
+		sidx := 0
+
+		// chomp through the list in sizes of ${factor}
+		for sidx < len(metricsEntries) {
+			eidx := sidx + factor
+			// constrain to list length
+			if eidx >= len(metricsEntries) {
+				eidx = len(metricsEntries) - 1
+			}
+
+			// base entry in metrics entry
+			tEntry := metricsEntries[sidx]
+
+			// add to list before processing
+			tempMetricsEntries = append(tempMetricsEntries, tEntry)
+			
+			// if the end is too close to the start we're done
+			if eidx <= sidx + 1 {
+				break
+			}
+
+			// for each remaining entry in this segment we want to add
+			// the interval and the all of the times as well as adjust
+			// the "at" time at the end
+			for _, fEntry := range metricsEntries[sidx + 1:eidx] {
+				tEntry.IntervalSeconds += fEntry.IntervalSeconds
+				tEntry.AtTime = fEntry.AtTime
+				for k, v := range fEntry.Values {
+					if _, found := tEntry.Values[k]; found {
+						tEntry.Values[k].Inc(v.Value())
+					}
+				}
+			}
+
+			// average entries out according to the number of entries
+			// we want the data to look the same, not be coallated
+			for _, v := range tEntry.Values {
+				v.Set(v.Value()/int64(len(metricsEntries[sidx:eidx])))
+			}
+
+			// increment by factor
+			sidx += factor
+		}
+
+		// use new metrics entries copy
+		return tempMetricsEntries
+	}
+
+	return metricsEntries
 }
 
 func (web *web) QueryMetrics(c *gin.Context) {
@@ -120,6 +194,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 		return
 	}
 
+	// filter so that only wanted metrics are shown
 	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
 		keepMetrics := strings.Split(filterStrings, ",")
 		for _, entry := range metricsEntries {
@@ -129,6 +204,13 @@ func (web *web) QueryMetrics(c *gin.Context) {
 				}
 			}
 		}
+	}
+
+	// highly experimental but makes the UI much more responsive:
+	// condensing reduces the resolution of the metrics so that we can see a longer time scale
+	// on the same graph without overloading the web ui
+	if condense := c.Query("condense"); len(condense) > 0 && ("true" == condense || "1" == condense) && len(metricsEntries) >= 2 {
+		metricsEntries = condenseMetrics(metricsEntries)
 	}
 
 	// return encoded results
@@ -218,13 +300,65 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 	results, resultLen := web.queryLog.Query(query)
 
 	// query against query log and return encoded results
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusOK, gin.H {
 		"total": resultLen,
 		"items": results,
 	})
 }
 
-func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog qlog.QLog) error {
+func (web *web) GetTestComponents(c *gin.Context) {
+	consumers := make([]string, 0, len(web.conf.Consumers))
+	for _, c := range web.conf.Consumers {
+		if c == nil || c.Name == "" {
+			continue
+		}
+		consumers = append(consumers, c.Name)
+	}
+
+	groups := make([]string, 0, len(web.conf.Groups)) 
+	for _, g := range web.conf.Groups {
+		if g == nil || g.Name == "" {
+			continue
+		}
+		groups = append(groups, g.Name)
+	}
+
+	resolvers := make([]string, 0, len(web.conf.Resolvers))
+	for _, r := range web.conf.Resolvers {
+		if r == nil || r.Name == "" {
+			continue
+		}
+		resolvers = append(resolvers, r.Name)
+	}
+
+	c.JSON(http.StatusOK, gin.H {
+		"consumers": consumers,
+		"groups": groups,
+		"resolvers": resolvers,
+	})
+}
+
+func (web *web) GetTestResult(c *gin.Context) {
+	domain := c.Query("domain")
+	if len(domain) < 1 {
+		c.String(http.StatusNotFound, "Domain must be provided")
+	}
+
+	if resolver := c.Query("resolver"); len(resolver) > 0 {
+
+	}
+
+	if consumer := c.Query("consumer"); len(consumer) > 0 {
+		
+	}
+
+	if group := c.Query("group"); len(group) > 0 {
+
+	}
+}
+
+
+func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics, qlog qlog.QLog) error {
 	// set metrics endpoint
 	web.metrics = metrics
 	web.queryLog = qlog
@@ -247,6 +381,8 @@ func (web *web) Serve(conf *config.GudgeonConfig, metrics metrics.Metrics, qlog 
 		// metrics api
 		api.GET("/metrics/current", web.GetMetrics)
 		api.GET("/metrics/query", web.QueryMetrics)
+		api.GET("/test/components", web.GetTestComponents)
+		api.GET("/test/query", web.GetTestResult)
 		// attach query log
 		api.GET("/log", web.GetQueryLogInfo)
 	}
