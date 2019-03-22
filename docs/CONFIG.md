@@ -5,6 +5,12 @@ The Gudgeon configuration file serves two main purposes. The first is to define 
 second is to serve the consumer -> group -> lists -> resolver chain. Understanding the chain of events for a connection request is the cornerstone for creating the
 configuration.
 
+## Common Rules
+In Gudgeon there are a few common rules for all the different types of configuration:
+* If an element is named that name **must** be unique within the list of all the other elements of the same type. You cannot have two resolvers named "google" but
+  having a group *and* resolver named "google" is fine.
+* Elements are processed in order from the top to the bottom. Resolvers, consumers, groups all will be matched/processed/evaluated in that order.
+
 ## Basic Configuration
 In this section we take a look at a simple configuration file and show how it can be changed or expanded to match your use case. This configuration is very basic.
 
@@ -62,3 +68,23 @@ The home directory is where gudgeon will store all of its data. In `{home}/cache
       port: 5354
 ```
 Opening network interfaces in this section applies only to the interfaces that will be used for DNS communication. This example sets up port 5354 to listen on all interfaces (0.0.0.0) for both TCP and UDP.
+
+## Resolvers
+
+A Gudgeon resolver is a configuration item that groups together different DNS sources. These can be a flat host file, an upstream dns server, a zone db file, or another resolver. Each resolver, like many other Gudgeon elements, must have a unique name.
+
+Take a look at this simple resolver:
+
+```yaml
+    - name: 'google'
+      sources:
+      - 8.8.8.8
+      - 8.8.8.4
+```
+
+This resolver defines two upstream sources named 'google'. Each source will be tried **in order** until a non-empty response is found.
+
+## Groups
+
+
+## Consumers

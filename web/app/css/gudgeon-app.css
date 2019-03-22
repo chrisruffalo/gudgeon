@@ -1,7 +1,24 @@
+/* how to style the footer text */
 .footerText {
     color: rgb(255,255,255);
 }
 
+/* smaller type of data cell */
+.smallCell {
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+}
+
+/* special style for data card elements for float left and right */
+.rightCard {
+    float: right;
+}
+
+.leftCard {
+    float: left;
+}
+
+/* Override screen heights for .maxHeight elements */
 @media only screen and (min-width: 992px) {
     .maxHeight {
         height: 100%;

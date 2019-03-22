@@ -1,4 +1,4 @@
-# Gudgeon [![Build Status](https://travis-ci.org/chrisruffalo/gudgeon.svg?branch=master)](https://travis-ci.org/chrisruffalo/gudgeon) [![Go Report Card](https://goreportcard.com/badge/github.com/chrisruffalo/gudgeon)](https://goreportcard.com/report/github.com/chrisruffalo/gudgeon) [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon?ref=badge_shield)
+# ![Gudgeon Logo](web/app/img/gudgeon_logo.svg?raw=true) Gudgeon [![Build Status](https://travis-ci.org/chrisruffalo/gudgeon.svg?branch=master)](https://travis-ci.org/chrisruffalo/gudgeon) [![Go Report Card](https://goreportcard.com/badge/github.com/chrisruffalo/gudgeon)](https://goreportcard.com/report/github.com/chrisruffalo/gudgeon) [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon?ref=badge_shield)
 
 ## Overview
 Gudgeon is a caching/blocking DNS proxy server. What sets Gudgeon appart is the ability to segregate machines, subnets, and IP ranges into different groups that 
@@ -10,6 +10,8 @@ On the other hand you might want to allow a device like a Google Home or Alexa u
 create extensive blocklists to protect kids who use the internet from their devices.
 
 For all of these reasons Gudgeon has been created to allow more flexibility in host-based DNS blocking.
+
+![Dashboard Screenshot](docs/screenshots/dashboard.png "Dashboard")
 
 ## Contents
 * [Acknowlegements](docs/ACK.md)

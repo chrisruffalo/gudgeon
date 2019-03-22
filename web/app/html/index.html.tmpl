@@ -12,6 +12,7 @@
                 return {
                     'version': "{{ .version.Version }}",
                     'longversion': "{{ .version.LongVersion }}",
+                    'release': "{{ .version.Release }}",
                     'githash': "{{ .version.GitHash }}"
                 };
             }
@@ -19,7 +20,10 @@
             function config() {
                 return {
                     'query_log': {{ .query_log }},
-                    'metrics': {{ .metrics }}
+                    'query_log_persist': {{ .query_log_persist }},
+                    'metrics': {{ .metrics }},
+                    'metrics_persist': {{ .metrics_persist }},
+                    'metrics_detailed': {{ .metrics_detailed }}
                 };
             }
         </script>

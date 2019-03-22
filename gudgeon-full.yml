@@ -41,7 +41,6 @@ gudgeon:
     enabled: true   # enabled by default, to disable query log set to "false"
     duration: 10d   # how long to keep queries on disk, older queries are deleted
     stdout: false   # should queries be logged to standard out
-    queue: 1000     # how large of a queue to allow before blocking connections on the query log
     interval: 1s    # how often to flush/commit the query log queue to the database file
     file: ./.gudgeon/logs/query.log # log queries to file AND stdout (you can set stdout to false and log to jsut the file)
     lookup: true    # enable reverse lookups (default: true)
@@ -52,6 +51,7 @@ gudgeon:
   # metrics can be saved to disk for use by the ui or exported to something like prometheus
   metrics:
     enabled: true   # enabled by default, to disable metrics set to "false"
+    detailed: true  # enabled by default: save per-domain, per-client, per-rule, per-list, per-type metrics
     duration: 10d   # how long to save metrics for, they will be deleted/removed after this period
     interval: 15s   # how often to write metrics to log, lowering the interval increases storage requirements (min is 500ms)
 

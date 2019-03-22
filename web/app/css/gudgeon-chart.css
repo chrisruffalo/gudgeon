@@ -1,0 +1,16 @@
+/* overwrite c3 styles and add necessary styles to chart */
+
+/* remove tick lines */
+.c3-axis .tick line {
+    display: none;
+}
+
+/* remove x axis line */
+.c3-axis-x .domain {
+    display: none;
+}
+
+/* remove y axis line */
+.c3-axis-y .domain {
+    display: none;
+}

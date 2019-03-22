@@ -25,22 +25,36 @@ type GudgeonTLS struct {
 }
 
 type GudgeonQueryLog struct {
+	// controls if the entire feature is enabled/disabled
 	Enabled       *bool  `yaml:"enabled"`
+	// enables persisting queries to the log (to make them searchable)
 	Persist       *bool  `yaml:"persist"`
+	// how long to keep the queries for
 	Duration      string `yaml:"duration"`
+	// if we should also log to stdout
 	Stdout        *bool  `yaml:"stdout"`
+	// if we should log to a file, the path to that file (does not rotate automatically)
 	File          string `yaml:"file"`
-	QueueSize     int    `yaml:"queue"`
+	// how often to flush outstanding transactions/queries
 	BatchInterval string `yaml:"interval"`
+	// reverse lookup using query engine
 	ReverseLookup *bool  `yaml:"lookup"`
+	// add mdns/zeroconf/bonjour capability to lookup
 	MdnsLookup    *bool  `yaml:"mdns"`
+	// add netbios capability to lookup
 	NetbiosLookup *bool  `yaml:"netbios"`
 }
 
 type GudgeonMetrics struct {
+	// controls if the entire feature is enabled/disabled
 	Enabled  *bool  `yaml:"enabled"`
+	// enables metrics persisting to the db
 	Persist  *bool  `yaml:"persist"`
+	// enables detailed stats per client, domain, etc
+	Detailed *bool  `yaml:"detailed"`
+	// how long to keep records
 	Duration string `yaml:"duration"`
+	// how often to record metrics
 	Interval string `yaml:"interval"`
 }
 

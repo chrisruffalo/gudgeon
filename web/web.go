@@ -88,9 +88,13 @@ func condenseMetrics(metricsEntries []*metrics.MetricsEntry) []*metrics.MetricsE
 		// use the hour distance to calculate the factor
 		factor := int(distance)
 
-		// max factor
-		if factor > 24 {
-			factor = 24
+		if distance >= 8 {
+			factor = factor * 2
+		}
+
+		// max factor is 1024 (which would be 42 days in one graph)
+		if factor > 1024 {
+			factor = 1024
 		}
 
 		// make a new list to hold entries with a base capacity
@@ -338,6 +342,38 @@ func (web *web) GetTestComponents(c *gin.Context) {
 	})
 }
 
+func (web *web) GetTop(c *gin.Context) {
+	var results []*metrics.TopInfo
+
+	limit := 5
+
+	// allow limit setting
+	if limitQuery := c.Query("limit"); len(limitQuery) > 0 {
+		iLimit, err := strconv.Atoi(limitQuery)
+		if err == nil {
+			limit = iLimit
+		}
+	}	
+
+	topType := c.Params.ByName("type")
+	if topType != "" {
+		switch strings.ToLower(topType) {
+		case "domains":
+			results = web.metrics.TopDomains(limit)
+		case "lists":
+			results = web.metrics.TopLists(limit)
+		case "clients":
+			results = web.metrics.TopClients(limit)
+		case "rules":
+			results = web.metrics.TopRules(limit)
+		case "types":
+			results = web.metrics.TopQueryTypes(limit)
+		}
+	}
+
+	c.JSON(http.StatusOK, results)
+}
+
 func (web *web) GetTestResult(c *gin.Context) {
 	domain := c.Query("domain")
 	if len(domain) < 1 {
@@ -380,6 +416,7 @@ func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine, metrics 
 		// metrics api
 		api.GET("/metrics/current", web.GetMetrics)
 		api.GET("/metrics/query", web.QueryMetrics)
+		api.GET("/metrics/top/:type", web.GetTop)
 		api.GET("/test/components", web.GetTestComponents)
 		api.GET("/test/query", web.GetTestResult)
 		// attach query log

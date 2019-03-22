@@ -37,7 +37,10 @@ func Open(path string, options string) (*sql.DB, error) {
 			return nil, err
 		}
 	}
-	db.SetMaxOpenConns(1)
+	// disabling this made a lot of things work better
+	// but it might bring in some side effects we need
+	// to watch out for
+	//db.SetMaxOpenConns(1)
 
 	return db, nil
 }

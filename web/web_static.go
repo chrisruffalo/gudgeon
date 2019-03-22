@@ -58,7 +58,6 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 			}
 
 			contents, err := ioutil.ReadAll(tmpl)
-			defer tmpl.Close()
 			if err != nil {
 				log.Errorf("Error getting template file contents: %s", err)
 			} else {
@@ -72,7 +71,10 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 				options := make(map[string]interface{}, 0)
 				options["version"] = version.Info()
 				options["query_log"] = web.conf.QueryLog.Enabled
+				options["query_log_persist"] = web.conf.QueryLog.Persist
 				options["metrics"] = web.conf.Metrics.Enabled
+				options["metrics_persist"] = web.conf.Metrics.Persist
+				options["metrics_detailed"] = web.conf.Metrics.Detailed
 
 				// execute and write template
 				c.Status(http.StatusOK)

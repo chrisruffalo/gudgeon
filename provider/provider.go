@@ -125,10 +125,11 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 		log.Errorf("recovered from error: %s", recovery)
 	}
 
+	// only needed if a resposne was collected and the query log/metrics are enabled
 	if response != nil && (provider.qlog != nil || provider.metrics != nil) {
 		// write metrics
 		if provider.metrics != nil {
-			provider.metrics.RecordQueryMetrics(request, response, rCon, result)
+			provider.metrics.RecordQueryMetrics(address, request, response, rCon, result)
 		}
 
 		// write to query log
@@ -228,7 +229,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 }
 
 func (provider *provider) Shutdown() error {
-	context, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	context, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	for _, server := range provider.servers {
@@ -243,6 +244,8 @@ func (provider *provider) Shutdown() error {
 		}
 	}
 
+	// todo: this just isn't right, maybe a waitgroup here and 
+	// go routines for shutting down each server?
 	<-context.Done()
 
 	return nil

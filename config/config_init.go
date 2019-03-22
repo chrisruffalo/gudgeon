@@ -166,6 +166,10 @@ func (metrics *GudgeonMetrics) verifyAndInit() ([]string, []error) {
 		metrics.Persist = boolPointer(true)
 	}
 
+	if metrics.Detailed == nil {
+		metrics.Detailed = boolPointer(true)
+	}
+
 	if "" == metrics.Duration {
 		metrics.Duration = "7d"
 	}
@@ -240,14 +244,6 @@ func (ql *GudgeonQueryLog) verifyAndInit() ([]string, []error) {
 	} else if parsed < 500*time.Millisecond {
 		warnings = append(warnings, fmt.Sprintf("A batch interval less than 500ms is probably too short, using default value (1s)"))
 		ql.BatchInterval = "1s"
-	}
-
-	if ql.QueueSize < 1 {
-		// silently use default in cases where it was probably not specified
-		ql.QueueSize = 250
-	} else if ql.QueueSize > 10000 {
-		warnings = append(warnings, fmt.Sprintf("A queue size greater than 10000 is probably too high, using max value (10000)"))
-		ql.QueueSize = 10000
 	}
 
 	return warnings, []error{}

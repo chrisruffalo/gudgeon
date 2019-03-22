@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Switch, Redirect, NavLink as Link } from "react-router-dom";
 import { 
+  Brand,
   Card,
   CardItem,
   CardHeader,
@@ -23,9 +24,10 @@ import {
   Title
 } from '@patternfly/react-core';
 import { CubesIcon } from '@patternfly/react-icons';
-import { MetricsCards } from './metrics-cards.js';
-import { QueryLog } from './querylog.js';
-import { QueryTest } from './querytest.js';
+import { Dashboard } from './dashboard.js';
+import { GudgeonCharts } from './charts.js';
+import { QueryLog } from './qlog-table.js';
+import { QueryTest } from './query-test.js';
 import gudgeonStyles from '../../css/gudgeon-app.css';
 import { css } from '@patternfly/react-styles';
 
@@ -45,9 +47,10 @@ export class Gudgeon extends React.Component {
     var defaultRoute = "";
     var NavItems = [];
     if ( window.config().metrics ) {
-      NavItems.push(<NavItem to="#metrics" key="metrics"><Link activeClassName="pf-m-current" to="/metrics">Metrics</Link></NavItem>);
+      NavItems.push(<NavItem to="#dashboard" key="dashboard"><Link activeClassName="pf-m-current" to="/dashboard">Dashboard</Link></NavItem>);
+      NavItems.push(<NavItem to="#charts" key="charts"><Link activeClassName="pf-m-current" to="/charts">Charts</Link></NavItem>);
       if ( defaultRoute == "" ) {
-        defaultRoute = "/metrics"
+        defaultRoute = "/dashboard"
       }
     }
     if ( window.config().query_log ) {
@@ -76,7 +79,7 @@ export class Gudgeon extends React.Component {
 
     // header glue
     const Header = (
-      <PageHeader style={{ backgroundColor: '#292e34', color: '#ffffff' }} topNav={NavigationBar} logo="Gudgeon" />
+      <PageHeader style={{ backgroundColor: '#292e34', color: '#ffffff' }} topNav={NavigationBar} logo={ <Brand src="../../img/gudgeon_logo.svg" alt="Gudgeon" /> } />
     );
 
     const NoFeaturesEnabled = (
@@ -109,7 +112,8 @@ export class Gudgeon extends React.Component {
     // if the 
     const Catcher = defaultRoute == "" ? ( <Route component={ () => NoFeaturesEnabled } /> ) : ( <Redirect to={ defaultRoute } /> );
 
-    const Metrics = window.config().metrics ? ( <MetricsCards /> ) : null;
+    const Dboard = window.config().metrics ? ( <Dashboard /> ) : null;
+    const Charts = window.config().metrics ? ( <GudgeonCharts /> ) : null;
     const QLog = window.config().query_log ? ( <QueryLog />) : null;
     const QTest = ( <QueryTest /> );
 
@@ -119,7 +123,8 @@ export class Gudgeon extends React.Component {
           <Page header={Header} className={css(gudgeonStyles.maxHeight)}>
             <PageSection>
               <Switch>
-                { window.config().metrics ? <Route path="/metrics" component={ () => Metrics } /> : null }
+                { window.config().metrics ? <Route path="/dashboard" component={ () => Dboard } /> : null }
+                { window.config().metrics ? <Route path="/charts" component={ () => Charts } /> : null }
                 { window.config().query_log ? <Route path="/qlog" component={ () => QLog } /> : null }
                 <Route path="/qtest" component={ () => QTest } />
                 { Catcher }

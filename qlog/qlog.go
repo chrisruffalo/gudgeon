@@ -149,9 +149,9 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 					MulticastMdnsQuery()
 
 					// extend timer, should be exponential backoff but this is close enough
-					duration = duration * 10
-					if duration > time.Hour {
-						duration = time.Hour
+					duration = duration * 2
+					if duration > (15 * time.Minute) {
+						duration = (15 * time.Minute)
 					}
 					mdnsQueryTimer.Reset(duration)
 				}
@@ -192,7 +192,7 @@ func NewWithReverseLookup(conf *config.GudgeonConfig, rlookup ReverseLookupFunct
 	}
 
 	// create log channel for queuing up batches
-	qlog.logInfoChan = make(chan *LogInfo, qlConf.QueueSize)
+	qlog.logInfoChan = make(chan *LogInfo, 100000)
 	qlog.doneChan = make(chan bool)
 	go qlog.logWorker()
 
@@ -236,6 +236,15 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 }
 
 func (qlog *qlog) prune() {
+	// close outstanding transaction during prune
+	if qlog.tx != nil {
+		err := qlog.tx.Commit()
+		if err != nil {
+			qlog.tx.Rollback()
+		}
+		qlog.tx = nil
+	}
+
 	duration, _ := util.ParseDuration(qlog.qlConf.Duration)
 	_, err := qlog.store.Exec("DELETE FROM qlog WHERE Created <= ?", time.Now().Add(-1*duration))
 	if err != nil {
@@ -252,14 +261,6 @@ func (qlog *qlog) queue(info *LogInfo) {
 	var err error
 
 	if qlog.tx == nil {
-		// close old statement
-		if qlog.pstmt != nil {
-			qlog.pstmt.Close()
-		}
-
-		// new transaction means the old stmt is dead
-		qlog.pstmt = nil
-
 		qlog.tx, err = qlog.store.Begin()
 		if err != nil {
 			log.Errorf("Could not start transaction: %s", err)
@@ -278,7 +279,7 @@ func (qlog *qlog) queue(info *LogInfo) {
 		}
 	}
 
-	_, err = qlog.pstmt.Exec(info.Address, info.ClientName, info.Consumer, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.Match, info.MatchList, info.MatchRule, info.Cached, info.Created)
+	_, err = qlog.tx.Stmt(qlog.pstmt).Exec(info.Address, info.ClientName, info.Consumer, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.Match, info.MatchList, info.MatchRule, info.Cached, info.Created)
 	if err != nil {
 		log.Errorf("Insert into qlog: %s", err)
 	}
@@ -289,14 +290,12 @@ func (qlog *qlog) flush() {
 		return
 	}
 
-	// if statement is open, close it
-	if qlog.pstmt != nil {
-		qlog.pstmt.Close()
-		qlog.pstmt = nil
-	}
-
 	// commit transaction
-	qlog.tx.Commit()
+	err := qlog.tx.Commit()
+	if err != nil {
+		qlog.tx.Rollback()
+		log.Errorf("Could not close qlog transaction: %s", err)
+	}
 	qlog.tx = nil
 }
 

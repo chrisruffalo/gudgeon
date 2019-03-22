@@ -3,6 +3,7 @@ package metrics
 import (
 	"database/sql"
 	"math"
+	"net"
 	"os"
 	"path"
 	"runtime"
@@ -51,6 +52,7 @@ const (
 )
 
 type metricsInfo struct {
+	address  string
 	request  *dns.Msg
 	response *dns.Msg
 	result   *resolver.ResolutionResult
@@ -96,6 +98,7 @@ type metrics struct {
 
 	metricsInfoChan chan *metricsInfo
 	db              *sql.DB
+	stmtCache       map[string]*sql.Stmt
 
 	cacheSizeFunc CacheSizeFunction
 
@@ -115,12 +118,19 @@ type Metrics interface {
 	UseCacheSizeFunction(function CacheSizeFunction)
 
 	// record relevant metrics based on request
-	RecordQueryMetrics(request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult)
+	RecordQueryMetrics(ip *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult)
 
 	// Query metrics from db
 	Query(start time.Time, end time.Time) ([]*MetricsEntry, error)
 
-	// stop
+	// top information
+	TopClients(limit int) []*TopInfo
+	TopDomains(limit int) []*TopInfo
+	TopQueryTypes(limit int) []*TopInfo
+	TopLists(limit int) []*TopInfo
+	TopRules(limit int) []*TopInfo
+
+	// stop the metrics collection
 	Stop()
 }
 
@@ -168,6 +178,9 @@ func New(config *config.GudgeonConfig) Metrics {
 			return nil
 		}
 
+		// create stmt cache
+		metrics.stmtCache = make(map[string]*sql.Stmt)
+
 		// init lifetime metric counts
 		metrics.load()
 
@@ -175,44 +188,45 @@ func New(config *config.GudgeonConfig) Metrics {
 		metrics.prune()
 	}
 
-	// create channel for incoming metrics and start recorder
-	metrics.metricsInfoChan = make(chan *metricsInfo, 100)
-	go metrics.record()
+	// update metrics initially
+	metrics.update()
 
+	// create channel for incoming metrics and start recorder
+	metrics.metricsInfoChan = make(chan *metricsInfo, 100000)
+	go metrics.worker()
+
+	return metrics
+}
+
+func (metrics *metrics) worker() {
 	// start ticker to persist data and update periodic metrics
-	duration, _ := util.ParseDuration(config.Metrics.Interval)
+	duration, _ := util.ParseDuration(metrics.config.Metrics.Interval)
 	metrics.ticker = time.NewTicker(duration)
 	metrics.doneTicker = make(chan bool)
 	metrics.lastInsert = time.Now()
 
-	// update metrics initially
-	metrics.update()
+	defer metrics.ticker.Stop()
 
-	// start go function to monitor ticker and update metrics
-	go func() {
-		defer metrics.ticker.Stop()
-		defer close(metrics.doneTicker)
+	for {
+		select {
+		case <-metrics.ticker.C:
+			// update periodic metrics
+			metrics.update()
 
-		for {
-			select {
-			case <-metrics.ticker.C:
-				// update periodic metrics
-				metrics.update()
-
-				// only insert/prune if a db exists
-				if metrics.db != nil {
-					// insert new metrics
-					metrics.insert(time.Now())
-					// prune old metrics
-					metrics.prune()
-				}
-			case <-metrics.doneTicker:
-				return
+			// only insert/prune if a db exists
+			if metrics.db != nil {
+				// insert new metrics
+				metrics.insert(time.Now())
+				// prune old metrics
+				metrics.prune()
 			}
+		case info := <-metrics.metricsInfoChan:
+			metrics.record(info)
+		case <-metrics.doneTicker:
+			defer func() { metrics.doneTicker <- true }()
+			return
 		}
-	}()
-
-	return metrics
+	}
 }
 
 func (metrics *metrics) GetAll() map[string]*Metric {
@@ -276,29 +290,29 @@ func (metrics *metrics) update() {
 	}
 }
 
-func (metrics *metrics) record() {
-	// get information from channel
-	for info := range metrics.metricsInfoChan {
-		// first add count to total queries
-		metrics.Get(TotalQueries).Inc(1)
-		metrics.Get(TotalLifetimeQueries).Inc(1)
-		metrics.Get(TotalIntervalQueries).Inc(1)
+func (metrics *metrics) record(info *metricsInfo) {
+	// update specific/detailed metrics
+	metrics.updateDetailedMetrics(info)
 
-		// add cache hits
-		if info.result != nil && info.result.Cached {
-			metrics.Get(CachedQueries).Inc(1)
-		}
+	// first add count to total queries
+	metrics.Get(TotalQueries).Inc(1)
+	metrics.Get(TotalLifetimeQueries).Inc(1)
+	metrics.Get(TotalIntervalQueries).Inc(1)
 
-		// add blocked queries
-		if info.result != nil && (info.result.Blocked || info.result.Match == rule.MatchBlock) {
-			metrics.Get(BlockedQueries).Inc(1)
-			metrics.Get(BlockedLifetimeQueries).Inc(1)
-			metrics.Get(BlockedIntervalQueries).Inc(1)
+	// add cache hits
+	if info.result != nil && info.result.Cached {
+		metrics.Get(CachedQueries).Inc(1)
+	}
 
-			if info.result.MatchList != nil {
-				metrics.Get("rules-session-matched-" + info.result.MatchList.ShortName()).Inc(1)
-				metrics.Get("rules-lifetime-matched-" + info.result.MatchList.ShortName()).Inc(1)
-			}
+	// add blocked queries
+	if info.result != nil && (info.result.Blocked || info.result.Match == rule.MatchBlock) {
+		metrics.Get(BlockedQueries).Inc(1)
+		metrics.Get(BlockedLifetimeQueries).Inc(1)
+		metrics.Get(BlockedIntervalQueries).Inc(1)
+
+		if info.result.MatchList != nil {
+			metrics.Get("rules-session-matched-" + info.result.MatchList.ShortName()).Inc(1)
+			metrics.Get("rules-lifetime-matched-" + info.result.MatchList.ShortName()).Inc(1)
 		}
 	}
 }
@@ -423,8 +437,11 @@ func (metrics *metrics) UseCacheSizeFunction(function CacheSizeFunction) {
 	metrics.cacheSizeFunc = function
 }
 
-func (metrics *metrics) RecordQueryMetrics(request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
+func (metrics *metrics) RecordQueryMetrics(ip *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
 	msg := new(metricsInfo)
+	if ip != nil {
+		msg.address = ip.String()
+	}
 	msg.request = request
 	msg.response = response
 	msg.result = result
@@ -433,14 +450,26 @@ func (metrics *metrics) RecordQueryMetrics(request *dns.Msg, response *dns.Msg, 
 }
 
 func (metrics *metrics) Stop() {
-	// close db and shutdown timer if it exists
-	if metrics.db != nil {
-		metrics.doneTicker <- true
-		metrics.insert(time.Now())
-		metrics.prune()
-		metrics.db.Close()
-	}
+	// wait for done ticker
+	metrics.doneTicker <- true
+	<-metrics.doneTicker
+	close(metrics.doneTicker)
 
 	// close metrics info channel
 	close(metrics.metricsInfoChan)
+
+	// close db and shutdown timer if it exists
+	if metrics.db != nil {
+		// insert one last time
+		metrics.insert(time.Now())
+		metrics.prune()
+
+		// close prepared statements
+		for _, val := range metrics.stmtCache {
+			val.Close()
+		}
+
+		// close db
+		metrics.db.Close()
+	}
 }

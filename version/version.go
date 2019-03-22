@@ -5,7 +5,7 @@ import (
 )
 
 // pick up version from build process, but use these defaults
-var Version = "v0.4.X"
+var Version = "v0.5.X"
 var Release = "1"
 var GitHash = "0000000"
 var LongVersion = ""
@@ -14,6 +14,7 @@ var Descriptor = ""
 type VersionInfo struct {
 	Version     string
 	LongVersion string
+	Release     string
 	GitHash     string
 }
 
@@ -57,6 +58,7 @@ func Info() VersionInfo {
 	return VersionInfo{
 		Version:     GetVersion(),
 		LongVersion: GetLongVersion(),
+		Release:     GetRelease(),
 		GitHash:     GetGitHash(),
 	}
 }

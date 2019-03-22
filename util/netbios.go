@@ -11,6 +11,9 @@ import (
 	"github.com/miekg/dns"
 )
 
+var netBiosContextTime = 10*time.Second
+var netBiosDeadlineTime = 5*time.Second
+
 // this is an experimental feature
 // pulled from: https://github.com/jpillora/icmpscan
 // i made some changes to make it a litte more readable
@@ -33,7 +36,7 @@ func LookupNetBIOSName(address string) (string, error) {
 	bytes[3] = 0
 
 	// create a context that cancels the request after a timeout
-	context, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	context, cancel := context.WithTimeout(context.Background(), netBiosContextTime)
 	defer cancel()
 
 	// dialer that fail after timeout
@@ -45,7 +48,7 @@ func LookupNetBIOSName(address string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Dialing: %s", err)
 	}
-	conn.SetDeadline(time.Now().Add(2 * time.Second))
+	conn.SetDeadline(time.Now().Add(netBiosDeadlineTime))
 	defer conn.Close()
 
 	// write message
@@ -54,7 +57,7 @@ func LookupNetBIOSName(address string) (string, error) {
 	}
 
 	// after read is done extend the deadline again
-	conn.SetDeadline(time.Now().Add(2 * time.Second))
+	conn.SetDeadline(time.Now().Add(netBiosDeadlineTime))
 
 	// response is 512 bytes
 	rbytes := make([]byte, 512)

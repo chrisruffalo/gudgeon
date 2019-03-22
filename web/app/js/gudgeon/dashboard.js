@@ -20,11 +20,12 @@ import {
   TableVariant 
 } from '@patternfly/react-table';
 import { GudgeonChart } from './metrics-chart.js';
+import { MetricsTopList } from './metrics-top.js';
 import { HumanBytes, LocaleNumber } from './helpers.js';
 import gudgeonStyles from '../../css/gudgeon-app.css';
 import { css } from '@patternfly/react-styles';
 
-export class MetricsCards extends React.Component {
+export class Dashboard extends React.Component {
   constructor(props) {
     super(props);
   };
@@ -60,9 +61,14 @@ export class MetricsCards extends React.Component {
     },
     "cpu": {
       label: "CPU",
-      formatter: LocaleNumber,
+      formatter: this.ProcessorPercentFormatter,
+      domain: {
+        maxY: 100000, // processor use is in 1000ths of a percent
+        minY: 0
+      },
+      ticks: [50000, 100000],
       series: { 
-        cpu: { name: "CPU Use", key: "gudgeon-cpu-hundreds-percent", domain: { y: [0, 100000] }, formatter: this.ProcessorPercentFormatter } // processor use is in 1000ths of a percent
+        cpu: { name: "CPU Use", key: "gudgeon-cpu-hundreds-percent" } 
       }
     }    
   }
@@ -107,12 +113,18 @@ export class MetricsCards extends React.Component {
   };
 
   updateData() {
+    // clear any old timers
+    var { timer } = this.state
+    if ( timer != null ) {
+      clearTimeout(timer)
+    }
+
     Axios
       .get("/api/metrics/current")
       .then(response => {
-        this.setState({ data: response.data })
-        this.updateMetricsState(response.data)
-
+        // set the state with the response data and then upate the card rows
+        this.setState({ data: response.data }, this.updateMetricsState)
+        
         var newTimer = setTimeout(() => {
           this.updateData()
         },2000); // update every 2s
@@ -129,7 +141,10 @@ export class MetricsCards extends React.Component {
       });
   }
 
-  updateMetricsState(data) {
+  updateMetricsState() {
+    // use state data
+    var { data } = this.state
+
     // update the rows by building each
     var rows = [];
     data.lists.forEach((element) => {
@@ -169,7 +184,7 @@ export class MetricsCards extends React.Component {
     savedState['timer'] = null;
 
     // update data
-    this.setState(savedState, this.updateData());
+    this.setState(savedState, this.updateData);
   }  
 
   componentWillUnmount() {
@@ -188,7 +203,7 @@ export class MetricsCards extends React.Component {
 
     return (
       <Grid gutter="sm">
-        <GridItem lg={4} md={6} sm={12}>
+        <GridItem lg={3} md={6} sm={12}>
           <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
               <div style={{ "paddingBottom": "15px" }}>
@@ -198,30 +213,54 @@ export class MetricsCards extends React.Component {
                   ))}
                 </FormSelect>
               </div>
-              <DataList aria-label="Lifetime Metrics">
-                <DataListItem aria-labelledby="simple-item1">
-                  <DataListCell>Queries</DataListCell>
-                  <DataListCell>{ LocaleNumber(this.getDataMetric(data, 'total-' + currentMetrics + '-queries')) } </DataListCell>
+              <DataList aria-label="Metrics">
+                <DataListItem aria-labelledby="label-query">
+                  <DataListCell width={2}><span id="label-query">Queries</span></DataListCell>
+                  <DataListCell width={1}>{ LocaleNumber(this.getDataMetric(data, 'total-' + currentMetrics + '-queries')) } </DataListCell>
                 </DataListItem>
-                <DataListItem aria-labelledby="simple-item2">
-                  <DataListCell>Blocked</DataListCell>
-                  <DataListCell>{ LocaleNumber(this.getDataMetric(data, 'blocked-' + currentMetrics + '-queries')) }</DataListCell>
+                <DataListItem aria-labelledby="label-blocked">
+                  <DataListCell width={2}><span id="label-blocked">Blocked</span></DataListCell>
+                  <DataListCell width={1}>{ LocaleNumber(this.getDataMetric(data, 'blocked-' + currentMetrics + '-queries')) }</DataListCell>
                 </DataListItem>
               </DataList>            
             </CardBody>
           </Card>          
         </GridItem>
-        <GridItem lg={8} md={6} sm={12}>
+        <GridItem lg={3} md={6} sm={12}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
+            <CardHeader>Top Clients</CardHeader>
+            <CardBody>
+              <MetricsTopList topType="clients"/>
+            </CardBody>
+          </Card>
+        </GridItem>           
+        <GridItem lg={3} md={6} sm={12}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
+            <CardHeader>Top Rule Matches</CardHeader>
+            <CardBody>
+              <MetricsTopList topType="rules"/>
+            </CardBody>
+          </Card>
+        </GridItem>        
+        <GridItem lg={3} md={6} sm={12}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
+            <CardHeader>Top Domains</CardHeader>
+            <CardBody>
+              <MetricsTopList topType="domains"/>
+            </CardBody>
+          </Card>
+        </GridItem>
+        <GridItem lg={6} md={6} sm={12}>
           <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
               <GudgeonChart metrics={ this.chartMetrics } />
             </CardBody>
           </Card>
         </GridItem>
-        <GridItem lg={7} md={6} sm={12}>
+        <GridItem lg={6} md={6} sm={12}>
           <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
-              <Table aria-label="Block Lists" variant={TableVariant.compact} cells={columns} rows={rows}>
+              <Table aria-label="Lists" variant={TableVariant.compact} cells={columns} rows={rows}>
                 <TableHeader />
                 <TableBody />
               </Table>            

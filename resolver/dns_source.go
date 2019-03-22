@@ -22,7 +22,7 @@ const (
 )
 
 // how long to wait before source is active again
-var backoffInterval = 60 * time.Second
+var backoffInterval = 15 * time.Second
 var defaultTimeout = 1 * time.Second
 
 var validProtocols = []string{"udp", "tcp", "tcp-tls"}
