@@ -1,6 +1,7 @@
 {
   "name": "gudgeon",
   "dependencies": {
+    "core-js": "3.0.0",
     "axios": "^0.18.0",
     "react": "^16.8.3",
     "react-dom": "^16.8.3",
@@ -25,11 +26,10 @@
     "pretty-bytes": "^5.1.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.3.4",
-    "@babel/polyfill": "^7.2.5",
+    "@babel/core": "^7.4.0",
     "babel-loader": "^8.0.5",
     "@babel/preset-react": "^7.0.0",
-    "@babel/preset-env": "^7.3.4",
+    "@babel/preset-env": "^7.4.2",
     "@babel/plugin-proposal-class-properties": "^7.3.4",
     "babel-plugin-transform-runtime": "^6.23",
     "copy-webpack-plugin": "^5.0.0",

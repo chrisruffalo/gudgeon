@@ -123,7 +123,7 @@ module.exports = {
                             plugins: ['@patternfly/react-styles/babel', '@babel/plugin-proposal-class-properties'],
                             presets: [
                                 '@babel/preset-react',
-                                [ '@babel/preset-env', { "useBuiltIns": "entry" } ] 
+                                [ '@babel/preset-env', { "useBuiltIns": "entry", "corejs": "3" } ] 
                             ]
                         }
                     }
