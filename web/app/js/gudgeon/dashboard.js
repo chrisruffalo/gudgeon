@@ -39,8 +39,8 @@ export class Dashboard extends React.Component {
       label: "Queries",
       formatter: LocaleNumber,
       series: {
-        queries: { name: "Queries", key: "gudgeon-total-interval-queries" }, 
-        blocked: { name: "Blocked", key: "gudgeon-blocked-interval-queries" } 
+        queries: { name: "Queries/s", key: "gudgeon-session-queries-ps" }, 
+        blocked: { name: "Blocked/s", key: "gudgeon-session-blocks-ps" } 
       }
     },
     "memory": {

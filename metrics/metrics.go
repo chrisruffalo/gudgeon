@@ -37,6 +37,8 @@ const (
 	BlockedQueries         = "blocked-session-queries"
 	BlockedLifetimeQueries = "blocked-lifetime-queries"
 	BlockedIntervalQueries = "blocked-interval-queries"
+	QueriesPerSecond       = "session-queries-ps"
+	BlocksPerSecond        = "session-blocks-ps"
 	QueryTime              = "query-time"
 	// cache entries
 	CurrentCacheEntries = "cache-entries"
@@ -326,6 +328,13 @@ func (metrics *metrics) record(info *metricsInfo) {
 	metrics.Get(TotalLifetimeQueries).Inc(1)
 	metrics.Get(TotalIntervalQueries).Inc(1)
 
+	// manage queries per interval into queries per second
+	duration, err := util.ParseDuration(metrics.config.Metrics.Interval)
+	if err == nil {
+		metrics.Get(QueriesPerSecond).Set(int64(metrics.Get(TotalIntervalQueries).Value() / int64(duration.Seconds())))
+		metrics.Get(BlocksPerSecond).Set(int64(metrics.Get(BlockedIntervalQueries).Value() / int64(duration.Seconds())))
+	}
+
 	// add cache hits
 	if info.result != nil && info.result.Cached {
 		metrics.Get(CachedQueries).Inc(1)
@@ -382,6 +391,8 @@ func (metrics *metrics) insert(currentTime time.Time) {
 	// clear and restart interval
 	metrics.Get(TotalIntervalQueries).Clear()
 	metrics.Get(BlockedIntervalQueries).Clear()
+	metrics.Get(QueriesPerSecond).Clear()
+	metrics.Get(BlocksPerSecond).Clear()
 	metrics.lastInsert = currentTime
 }
 

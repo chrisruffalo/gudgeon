@@ -70,28 +70,32 @@ module.exports = {
             canPrint: true
         }),
 
-        //copy patternfly assets for demo app
         new CopyWebpackPlugin([
+            // copy favicon.ico, basically
             {
                 from: { glob: __dirname + '/web/app/ico/*.ico'},
                 to: __dirname + '/web/static/',
                 flatten: true
             },            
+            // copy raw html if needed
             {
                 from: { glob: __dirname + '/web/app/html/*.html'},
                 to: __dirname + '/web/static/',
                 flatten: true
             },
+            // copy html templates
             {
                 from: { glob: __dirname + '/web/app/html/*.tmpl'},
                 to: __dirname + '/web/static/',
                 flatten: true
             },      
+            // copy images from app
             {
                 from: { glob: __dirname + '/web/app/img/*'},
                 to: './img',
                 flatten: true
             },       
+            //copy patternfly assets for app
             {
                 from: { glob: './node_modules/@patternfly/patternfly/assets/images/*.*'},
                 to: './img',
