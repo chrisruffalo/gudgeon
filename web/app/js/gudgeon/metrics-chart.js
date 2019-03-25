@@ -50,8 +50,8 @@ export class GudgeonChart extends React.Component {
     { value: (60 * 60 * 2), label: '2h', disabled: false },
     { value: (60 * 60 * 4), label: '4h', disabled: false },
     { value: (60 * 60 * 6), label: '6h', disabled: false },
-    { value: (60 * 60 * 6), label: '12h', disabled: false },
-    { value: (60 * 60 * 6), label: '24h', disabled: false },
+    { value: (60 * 60 * 12), label: '12h', disabled: false },
+    { value: (60 * 60 * 24), label: '24h', disabled: false },
     { value: -1, label: 'All Time', disabled: false },
   ];
 
@@ -334,10 +334,8 @@ export class GudgeonChart extends React.Component {
     }
 
     // if no domain is specified, use calculated domain
-    if ( this.props.metrics[selected].domain != null ) {
-      if ( this.props.metrics[selected].domain.maxY != null ) {
-        chartSettings['axis']['y']['max'] = this.props.metrics[selected].domain.maxY;
-      }
+    if ( this.props.metrics[selected].domain != null && this.props.metrics[selected].domain.maxY != null ) {
+      chartSettings['axis']['y']['max'] = this.props.metrics[selected].domain.maxY;
     } else {
       if ( domainMaxY > 0 ) {
        chartSettings['axis']['y']['max'] = Math.floor(domainMaxY * 1.25); 
@@ -356,30 +354,12 @@ export class GudgeonChart extends React.Component {
     if ( this.chart == null ) {
       this.chart = this.generateChart();
     } else {
-      const { columns, selected, domainMaxY } = this.state;
+      const { selected, columns, domainMaxY } = this.state;
 
-      const yAxis = {
-        min: 0,
-        padding: { 
-          top: 0,
-          bottom: 10
-        },            
-        tick: {
-          outer: false,
-          format: this.wrapAxisFormatter(this.props.metrics[selected].formatter),
-          count: 3,
-          culling: {
-            max: 3
-          }
-        }
+      this.chart.load({ columns: columns });
+      if ( this.props.metrics[selected]['domain'] == null || this.props.metrics[selected]['domain']['maxY'] == null ) {
+        this.chart.axis.max({ y: domainMaxY * 1.25 })
       }
-
-      // change domain axis
-      if ( domainMaxY > 0 ) {
-        yAxis['max'] = Math.floor(domainMaxY * 1.25); 
-      }
-
-      this.chart.load({ columns: columns, axes: { y: yAxis } });
     }
   }
 
@@ -400,7 +380,7 @@ export class GudgeonChart extends React.Component {
       metricSelect = (
         <FormSelect style={{ "gridColumnStart": 1 }} value={this.state.selected} onChange={this.onMetricKeyChange} aria-label="Select Metric">
           { metricOptions }
-        </FormSelect>      
+        </FormSelect>
       );
     }
 

@@ -98,7 +98,9 @@ type metrics struct {
 
 	metricsInfoChan chan *metricsInfo
 	db              *sql.DB
-	stmtCache       map[string]*sql.Stmt
+
+	detailTx   *sql.Tx
+	detailStmt *sql.Stmt
 
 	cacheSizeFunc CacheSizeFunction
 
@@ -122,6 +124,7 @@ type Metrics interface {
 
 	// Query metrics from db
 	Query(start time.Time, end time.Time) ([]*MetricsEntry, error)
+	QueryStream(returnChan chan *MetricsEntry, start time.Time, end time.Time) error
 
 	// top information
 	TopClients(limit int) []*TopInfo
@@ -178,11 +181,11 @@ func New(config *config.GudgeonConfig) Metrics {
 			return nil
 		}
 
-		// create stmt cache
-		metrics.stmtCache = make(map[string]*sql.Stmt)
-
 		// init lifetime metric counts
 		metrics.load()
+
+		// flush any outstanding metrics in the temp table
+		metrics.flushDetailedMetrics()
 
 		// prune metrics after load (in case the service has been down longer than the prune interval)
 		metrics.prune()
@@ -205,6 +208,26 @@ func (metrics *metrics) worker() {
 	metrics.doneTicker = make(chan bool)
 	metrics.lastInsert = time.Now()
 
+	// flush metrics if db is function
+	pruneDuration := 1 * time.Hour
+	detailFlushDuration := 5 * time.Second
+	var (
+		flushTimer time.Timer
+		pruneTimer time.Timer
+	)
+
+	// only start and close these timers if a db is configured
+	if metrics.db != nil {
+		// only do this part if detailed configuration is enabled
+		if *metrics.config.Metrics.Detailed {
+			flushTimer := time.NewTimer(detailFlushDuration)
+			defer flushTimer.Stop()
+		}
+
+		pruneTimer := time.NewTimer(pruneDuration)
+		defer pruneTimer.Stop()
+	}
+
 	defer metrics.ticker.Stop()
 
 	for {
@@ -217,9 +240,13 @@ func (metrics *metrics) worker() {
 			if metrics.db != nil {
 				// insert new metrics
 				metrics.insert(time.Now())
-				// prune old metrics
-				metrics.prune()
 			}
+		case <-pruneTimer.C:
+			metrics.prune()
+			pruneTimer.Reset(detailFlushDuration)
+		case <-flushTimer.C:
+			metrics.flushDetailedMetrics()
+			flushTimer.Reset(detailFlushDuration)
 		case info := <-metrics.metricsInfoChan:
 			metrics.record(info)
 		case <-metrics.doneTicker:
@@ -318,6 +345,16 @@ func (metrics *metrics) record(info *metricsInfo) {
 }
 
 func (metrics *metrics) insert(currentTime time.Time) {
+	if metrics.detailTx != nil {
+		defer metrics.detailTx.Rollback()
+		err := metrics.detailTx.Commit()
+		metrics.detailTx = nil
+		if err != nil {
+			log.Errorf("Could not commit pending metrics temp entries: %s", err)
+			return
+		}
+	}
+
 	// get all metrics
 	all := metrics.GetAll()
 
@@ -356,41 +393,69 @@ func (metrics *metrics) prune() {
 	}
 }
 
-func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, error) {
+// allows the same query and row scan logic to share code
+type queryAccumulator = func(entry *MetricsEntry)
+
+// implementation of the underlying query function
+func (metrics *metrics) query(qA queryAccumulator, start time.Time, end time.Time) error {
+	// don't do anything with nil accumulator
+	if qA == nil {
+		return nil
+	}
+
 	rows, err := metrics.db.Query("SELECT FromTime, AtTime, MetricsJson, IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime ASC", start, end)
 	if err != nil {
-		return []*MetricsEntry{}, err
+		return err
 	}
 	defer rows.Close()
 
-	results := make([]*MetricsEntry, 0)
-
 	var (
-		atTime            time.Time
-		fromTime          time.Time
 		metricsJsonString string
-		intervalSeconds   int
 	)
 
+	var me *MetricsEntry
 	for rows.Next() {
-		err = rows.Scan(&atTime, &fromTime, &metricsJsonString, &intervalSeconds)
+		me = &MetricsEntry{}
+
+		err = rows.Scan(&me.AtTime, &me.FromTime, &metricsJsonString, &me.IntervalSeconds)
 		if err != nil {
 			log.Errorf("Error scanning for metrics query: %s", err)
 			continue
 		}
-		// load entry values
-		entry := &MetricsEntry{
-			AtTime:          atTime,
-			FromTime:        fromTime,
-			IntervalSeconds: intervalSeconds,
-		}
 		// unmarshal string into values
-		json.Unmarshal([]byte(metricsJsonString), &entry.Values)
-		// add metrics to results
-		results = append(results, entry)
+		json.Unmarshal([]byte(metricsJsonString), &me.Values)
+
+		// call accumulator function
+		qA(me)
 	}
 
-	return results, nil
+	return nil
+}
+
+// traditional query that returns an arry of metrics entries, good for testing, small queries
+func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, error) {
+	entries := make([]*MetricsEntry, 0, 100)
+	acc := func(me *MetricsEntry) {
+		if me == nil {
+			return
+		}
+		entries = append(entries, me)
+	}
+	err := metrics.query(acc, start, end)
+	return entries, err
+}
+
+// less traditional query type that allows the web endpoint to stream the json back out as rows are scanned
+func (metrics *metrics) QueryStream(returnChan chan *MetricsEntry, start time.Time, end time.Time) error {
+	acc := func(me *MetricsEntry) {
+		if me == nil {
+			return
+		}
+		returnChan <- me
+	}
+	err := metrics.query(acc, start, end)
+	close(returnChan)
+	return err
 }
 
 func (metrics *metrics) load() {
@@ -464,9 +529,10 @@ func (metrics *metrics) Stop() {
 		metrics.insert(time.Now())
 		metrics.prune()
 
-		// close prepared statements
-		for _, val := range metrics.stmtCache {
-			val.Close()
+		// flush outstanding details
+		metrics.flushDetailedMetrics()
+		if metrics.detailStmt != nil {
+			metrics.detailStmt.Close()
 		}
 
 		// close db

@@ -75,81 +75,16 @@ func (web *web) GetMetrics(c *gin.Context) {
 	})
 }
 
-// takes a list of metrics entries and condenses them together so it looks
-// pretty much the same when zoomed out but at a lower resolution
-func condenseMetrics(metricsEntries []*metrics.MetricsEntry) []*metrics.MetricsEntry {
-	// use the time distance between the first and last entry to calculate how "far" it is
-	stime := metricsEntries[0].AtTime
-	etime := metricsEntries[len(metricsEntries)-1].AtTime
-	distance := int64(etime.Sub(stime).Hours())
+func condenseMetric(target *metrics.MetricsEntry, from *metrics.MetricsEntry, counter int) {
+	target.AtTime = from.AtTime
+	target.IntervalSeconds += from.IntervalSeconds
 
-	// only apply factor over 2 hours
-	if distance > 2 {
-		// use the hour distance to calculate the factor
-		factor := int(distance)
-
-		if distance >= 8 {
-			factor = factor * 2
+	for k, v := range target.Values {
+		if f, found := from.Values[k]; found {
+			current := int64(v.Value() * int64(counter-1))
+			v.Set((current + f.Value()) / int64(counter))
 		}
-
-		// max factor is 1024 (which would be 42 days in one graph)
-		if factor > 1024 {
-			factor = 1024
-		}
-
-		// make a new list to hold entries with a base capacity
-		tempMetricsEntries := make([]*metrics.MetricsEntry, 0, len(metricsEntries)/factor)
-
-		// start index at 0
-		sidx := 0
-
-		// chomp through the list in sizes of ${factor}
-		for sidx < len(metricsEntries) {
-			eidx := sidx + factor
-			// constrain to list length
-			if eidx >= len(metricsEntries) {
-				eidx = len(metricsEntries) - 1
-			}
-
-			// base entry in metrics entry
-			tEntry := metricsEntries[sidx]
-
-			// add to list before processing
-			tempMetricsEntries = append(tempMetricsEntries, tEntry)
-
-			// if the end is too close to the start we're done
-			if eidx <= sidx+1 {
-				break
-			}
-
-			// for each remaining entry in this segment we want to add
-			// the interval and the all of the times as well as adjust
-			// the "at" time at the end
-			for _, fEntry := range metricsEntries[sidx+1 : eidx] {
-				tEntry.IntervalSeconds += fEntry.IntervalSeconds
-				tEntry.AtTime = fEntry.AtTime
-				for k, v := range fEntry.Values {
-					if _, found := tEntry.Values[k]; found {
-						tEntry.Values[k].Inc(v.Value())
-					}
-				}
-			}
-
-			// average entries out according to the number of entries
-			// we want the data to look the same, not be coallated
-			for _, v := range tEntry.Values {
-				v.Set(v.Value() / int64(len(metricsEntries[sidx:eidx])))
-			}
-
-			// increment by factor
-			sidx += factor
-		}
-
-		// use new metrics entries copy
-		return tempMetricsEntries
 	}
-
-	return metricsEntries
 }
 
 func (web *web) QueryMetrics(c *gin.Context) {
@@ -191,34 +126,93 @@ func (web *web) QueryMetrics(c *gin.Context) {
 		queryEnd = &endTime
 	}
 
-	// get results
-	metricsEntries, err := web.metrics.Query(*queryStart, *queryEnd)
-	if err != nil {
-		c.String(http.StatusServiceUnavailable, "Error retrieving metrics")
-		return
+	keepMetrics := []string{}
+	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
+		keepMetrics = strings.Split(filterStrings, ",")
 	}
 
-	// filter so that only wanted metrics are shown
-	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
-		keepMetrics := strings.Split(filterStrings, ",")
-		for _, entry := range metricsEntries {
-			for k, _ := range entry.Values {
+	condenseMetrics := false
+	if condense := c.Query("condense"); len(condense) > 0 && ("true" == condense || "1" == condense) {
+		condenseMetrics = true
+	}
+
+	firstEntry := true
+	entryChan := make(chan *metrics.MetricsEntry)
+
+	// hold an entry for condensing into
+	var heldEntry *metrics.MetricsEntry
+
+	// calculate condensation factor
+	stime := *queryStart
+	etime := *queryEnd
+	distance := int(etime.Sub(stime).Hours())
+	factor := distance / 2
+	if distance >= 24 {
+		distance = distance / 2
+	}
+	if distance > 48 {
+		distance = distance / 2
+	}
+	if factor >= 512 {
+		factor = 512
+	}
+	condenseCounter := 1
+
+	go web.metrics.QueryStream(entryChan, *queryStart, *queryEnd)
+
+	// start empty array
+	c.String(http.StatusOK, "[")
+	for me := range entryChan {
+		if me == nil {
+			continue
+		}
+
+		// filter out metrics that are not in the "keep list"
+		if len(keepMetrics) > 0 {
+			for k, _ := range me.Values {
 				if !util.StringIn(k, keepMetrics) {
-					delete(entry.Values, k)
+					delete(me.Values, k)
 				}
+			}
+		}
+
+		// if we are condensing, do condense logic, otherwise just
+		// stream output
+		if condenseMetrics {
+			if heldEntry == nil || condenseCounter < 2 {
+				heldEntry = me
+			} else {
+				condenseMetric(heldEntry, me, condenseCounter)
+			}
+			condenseCounter++
+			me = heldEntry
+		}
+
+		if !condenseMetrics || (condenseMetrics && condenseCounter >= factor) {
+			if !firstEntry {
+				c.String(http.StatusOK, ",")
+			}
+			firstEntry = false
+			c.JSON(http.StatusOK, me)
+
+			// if condensing start over
+			if condenseMetrics {
+				heldEntry = nil
+				condenseCounter = 1
 			}
 		}
 	}
 
-	// highly experimental but makes the UI much more responsive:
-	// condensing reduces the resolution of the metrics so that we can see a longer time scale
-	// on the same graph without overloading the web ui
-	if condense := c.Query("condense"); len(condense) > 0 && ("true" == condense || "1" == condense) && len(metricsEntries) >= 2 {
-		metricsEntries = condenseMetrics(metricsEntries)
+	// write any additional held entires
+	if heldEntry != nil {
+		if !firstEntry {
+			c.String(http.StatusOK, ",")
+		}
+		c.JSON(http.StatusOK, heldEntry)
 	}
 
-	// return encoded results
-	c.JSON(http.StatusOK, metricsEntries)
+	// finish array
+	c.String(http.StatusOK, "]")
 }
 
 func (web *web) GetQueryLogInfo(c *gin.Context) {
@@ -353,7 +347,7 @@ func (web *web) GetTop(c *gin.Context) {
 		if err == nil {
 			limit = iLimit
 		}
-	}	
+	}
 
 	topType := c.Params.ByName("type")
 	if topType != "" {
@@ -417,10 +411,11 @@ func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine, metrics 
 		api.GET("/metrics/current", web.GetMetrics)
 		api.GET("/metrics/query", web.QueryMetrics)
 		api.GET("/metrics/top/:type", web.GetTop)
+		// testing/troubleshoting/diagnostics
 		api.GET("/test/components", web.GetTestComponents)
 		api.GET("/test/query", web.GetTestResult)
 		// attach query log
-		api.GET("/log", web.GetQueryLogInfo)
+		api.GET("/query/list", web.GetQueryLogInfo)
 	}
 
 	// go serve

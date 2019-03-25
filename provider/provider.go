@@ -244,7 +244,7 @@ func (provider *provider) Shutdown() error {
 		}
 	}
 
-	// todo: this just isn't right, maybe a waitgroup here and 
+	// todo: this just isn't right, maybe a waitgroup here and
 	// go routines for shutting down each server?
 	<-context.Done()
 

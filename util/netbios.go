@@ -11,8 +11,8 @@ import (
 	"github.com/miekg/dns"
 )
 
-var netBiosContextTime = 10*time.Second
-var netBiosDeadlineTime = 5*time.Second
+var netBiosContextTime = 10 * time.Second
+var netBiosDeadlineTime = 5 * time.Second
 
 // this is an experimental feature
 // pulled from: https://github.com/jpillora/icmpscan

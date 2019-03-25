@@ -23,7 +23,7 @@ import (
 
 const (
 	// constant insert statement
-	qlogInsertStatement = "INSERT INTO qlog (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, Match, MatchList, MatchRule, Cached, Created) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	qlogInsertStatement = "INSERT INTO qlog_temp (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, Match, MatchList, MatchRule, Cached, Created) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
@@ -236,15 +236,6 @@ func New(conf *config.GudgeonConfig) (QLog, error) {
 }
 
 func (qlog *qlog) prune() {
-	// close outstanding transaction during prune
-	if qlog.tx != nil {
-		err := qlog.tx.Commit()
-		if err != nil {
-			qlog.tx.Rollback()
-		}
-		qlog.tx = nil
-	}
-
 	duration, _ := util.ParseDuration(qlog.qlConf.Duration)
 	_, err := qlog.store.Exec("DELETE FROM qlog WHERE Created <= ?", time.Now().Add(-1*duration))
 	if err != nil {
@@ -263,7 +254,8 @@ func (qlog *qlog) queue(info *LogInfo) {
 	if qlog.tx == nil {
 		qlog.tx, err = qlog.store.Begin()
 		if err != nil {
-			log.Errorf("Could not start transaction: %s", err)
+			qlog.tx = nil
+			log.Errorf("Starting qlog insert transaction: %s", err)
 			return
 		}
 	}
@@ -272,31 +264,55 @@ func (qlog *qlog) queue(info *LogInfo) {
 		qlog.pstmt, err = qlog.tx.Prepare(qlogInsertStatement)
 		if err != nil {
 			qlog.tx.Rollback()
-			log.Errorf("Preparing statement: %s", err)
-			qlog.tx = nil
+			log.Errorf("Preparing qlog statement: %s", err)
 			qlog.pstmt = nil
+			qlog.tx = nil
 			return
 		}
 	}
 
 	_, err = qlog.tx.Stmt(qlog.pstmt).Exec(info.Address, info.ClientName, info.Consumer, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.Match, info.MatchList, info.MatchRule, info.Cached, info.Created)
 	if err != nil {
-		log.Errorf("Insert into qlog: %s", err)
+		log.Errorf("Insert into temp qlog: %s", err)
 	}
 }
 
 func (qlog *qlog) flush() {
-	if qlog.tx == nil {
+	if qlog.tx != nil {
+		defer qlog.tx.Rollback()
+		err := qlog.tx.Commit()
+		qlog.tx = nil
+		if err != nil {
+			log.Errorf("Could not flush pending temp qlog entries: %s", err)
+			return
+		}
+	}
+
+	// only use scoped transaction for flush/move
+	tx, err := qlog.store.Begin()
+	if err != nil {
+		log.Errorf("Starting qlog insert transaction: %s", err)
+		return
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec("INSERT INTO qlog (Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Cached, Blocked, Match, MatchList, MatchRule, Created) SELECT Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Cached, Blocked, Match, MatchList, MatchRule, Created FROM qlog_temp WHERE true")
+	if err != nil {
+		log.Errorf("Could not flush query log data: %s", err)
 		return
 	}
 
-	// commit transaction
-	err := qlog.tx.Commit()
+	_, err = tx.Exec("Delete FROM qlog_temp")
 	if err != nil {
-		qlog.tx.Rollback()
-		log.Errorf("Could not close qlog transaction: %s", err)
+		log.Errorf("Could not delete from temp qlog table: %s", err)
+		return
 	}
-	qlog.tx = nil
+
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		log.Errorf("Could not commit queries to log: %s", err)
+	}
 }
 
 func (qlog *qlog) log(info *LogInfo) {
@@ -565,12 +581,6 @@ func (qlog *qlog) logWorker() {
 			if *(qlog.qlConf.Persist) {
 				qlog.queue(info)
 			}
-		case <-qlog.doneChan:
-			// when the function is over the shutdown method waits for
-			// a message back on the doneChan to know that we are done
-			// shutting down
-			defer func() { qlog.doneChan <- true }()
-			return
 		case <-flushTimer.C:
 			log.Tracef("Flush timer triggered")
 			qlog.flush()
@@ -579,6 +589,12 @@ func (qlog *qlog) logWorker() {
 			log.Tracef("Prune timer triggered")
 			qlog.prune()
 			pruneTimer.Reset(1 * time.Hour)
+		case <-qlog.doneChan:
+			// when the function is over the shutdown method waits for
+			// a message back on the doneChan to know that we are done
+			// shutting down
+			defer func() { qlog.doneChan <- true }()
+			return
 		}
 	}
 }
