@@ -48,12 +48,14 @@ export class Gudgeon extends React.Component {
     var NavItems = [];
     if ( window.config().metrics ) {
       NavItems.push(<NavItem to="#dashboard" key="dashboard"><Link activeClassName="pf-m-current" to="/dashboard">Dashboard</Link></NavItem>);
-      NavItems.push(<NavItem to="#charts" key="charts"><Link activeClassName="pf-m-current" to="/charts">Charts</Link></NavItem>);
+      if ( window.config().metrics_persist ) {
+        NavItems.push(<NavItem to="#charts" key="charts"><Link activeClassName="pf-m-current" to="/charts">Charts</Link></NavItem>);
+      }
       if ( defaultRoute == "" ) {
         defaultRoute = "/dashboard"
       }
     }
-    if ( window.config().query_log ) {
+    if ( window.config().query_log && window.config().query_log_persist ) {
       NavItems.push(<NavItem to="#qlog" key="qlog"><Link activeClassName="pf-m-current" to="/qlog">Query Log</Link></NavItem>);
       if ( defaultRoute == "" ) {
         defaultRoute = "/qlog"
@@ -102,8 +104,8 @@ export class Gudgeon extends React.Component {
             <p className={css(gudgeonStyles.footerText)}><a href="https://github.com/chrisruffalo/gudgeon">@GitHub</a></p>
           </SplitItem>
           <SplitItem>
-            <p className={css(gudgeonStyles.footerText)}>{ window.version().version }</p>
-            <p className={css(gudgeonStyles.footerText)}>git@{ window.version().githash }</p>
+            <p className={css(gudgeonStyles.footerText)}>{ window.version().version }{ window.version().release != "" ? "-" + window.version().release : ""}</p>
+            <p className={css(gudgeonStyles.footerText)}><a href={ "https://github.com/chrisruffalo/gudgeon/commit/" + window.version().githash }>git@{ window.version().githash }</a></p>
           </SplitItem>
         </Split>      
       </div>      
@@ -114,7 +116,7 @@ export class Gudgeon extends React.Component {
 
     const Dboard = window.config().metrics ? ( <Dashboard /> ) : null;
     const Charts = window.config().metrics ? ( <GudgeonCharts /> ) : null;
-    const QLog = window.config().query_log ? ( <QueryLog />) : null;
+    const QLog = window.config().query_log && window.config().query_log_persist ? ( <QueryLog />) : null;
     const QTest = ( <QueryTest /> );
 
     return (
@@ -124,8 +126,8 @@ export class Gudgeon extends React.Component {
             <PageSection>
               <Switch>
                 { window.config().metrics ? <Route path="/dashboard" component={ () => Dboard } /> : null }
-                { window.config().metrics ? <Route path="/charts" component={ () => Charts } /> : null }
-                { window.config().query_log ? <Route path="/qlog" component={ () => QLog } /> : null }
+                { window.config().metrics && window.config().metrics_persist ? <Route path="/charts" component={ () => Charts } /> : null }
+                { window.config().query_log && window.config().query_log_persist ? <Route path="/qlog" component={ () => QLog } /> : null }
                 <Route path="/qtest" component={ () => QTest } />
                 { Catcher }
               </Switch>

@@ -201,6 +201,45 @@ export class Dashboard extends React.Component {
   render() {
     const { columns, data, rows, currentMetrics } = this.state;
 
+    const TopCards = window.config().metrics_detailed ? (
+      <React.Fragment>
+        <GridItem lg={3} md={6} sm={12}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
+            <CardHeader>Top Clients</CardHeader>
+            <CardBody>
+              <MetricsTopList topType="clients"/>
+            </CardBody>
+          </Card>
+        </GridItem>           
+        <GridItem lg={3} md={6} sm={12}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
+            <CardHeader>Top Rule Matches</CardHeader>
+            <CardBody>
+              <MetricsTopList topType="rules"/>
+            </CardBody>
+          </Card>
+        </GridItem>        
+        <GridItem lg={3} md={6} sm={12}>
+          <Card className={css(gudgeonStyles.maxHeight)}>
+            <CardHeader>Top Domains</CardHeader>
+            <CardBody>
+              <MetricsTopList topType="domains"/>
+            </CardBody>
+          </Card>
+        </GridItem>
+      </React.Fragment> 
+    ) : null;
+
+    const OverviewChart = window.config().metrics && window.config().metrics_persist ? (
+      <GridItem lg={6} md={6} sm={12}>
+        <Card className={css(gudgeonStyles.maxHeight)}>
+          <CardBody>
+            <GudgeonChart metrics={ this.chartMetrics } />
+          </CardBody>
+        </Card>
+      </GridItem>
+    ) : null;
+
     return (
       <Grid gutter="sm">
         <GridItem lg={3} md={6} sm={12}>
@@ -226,37 +265,8 @@ export class Dashboard extends React.Component {
             </CardBody>
           </Card>          
         </GridItem>
-        <GridItem lg={3} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
-            <CardHeader>Top Clients</CardHeader>
-            <CardBody>
-              <MetricsTopList topType="clients"/>
-            </CardBody>
-          </Card>
-        </GridItem>           
-        <GridItem lg={3} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
-            <CardHeader>Top Rule Matches</CardHeader>
-            <CardBody>
-              <MetricsTopList topType="rules"/>
-            </CardBody>
-          </Card>
-        </GridItem>        
-        <GridItem lg={3} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
-            <CardHeader>Top Domains</CardHeader>
-            <CardBody>
-              <MetricsTopList topType="domains"/>
-            </CardBody>
-          </Card>
-        </GridItem>
-        <GridItem lg={6} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
-            <CardBody>
-              <GudgeonChart metrics={ this.chartMetrics } />
-            </CardBody>
-          </Card>
-        </GridItem>
+        { TopCards }
+        { OverviewChart }
         <GridItem lg={6} md={6} sm={12}>
           <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
