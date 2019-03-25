@@ -211,23 +211,23 @@ func (metrics *metrics) worker() {
 	// flush metrics if db is function
 	pruneDuration := 1 * time.Hour
 	detailFlushDuration := 5 * time.Second
-	var (
-		flushTimer time.Timer
-		pruneTimer time.Timer
-	)
 
-	// only start and close these timers if a db is configured
-	if metrics.db != nil {
-		// only do this part if detailed configuration is enabled
-		if *metrics.config.Metrics.Detailed {
-			flushTimer := time.NewTimer(detailFlushDuration)
-			defer flushTimer.Stop()
-		}
+	flushTimer := time.NewTimer(detailFlushDuration)
+	defer flushTimer.Stop()
+	// prune every hour (also prunes on startup)
+	pruneTimer := time.NewTimer(pruneDuration)
+	defer pruneTimer.Stop()
 
-		pruneTimer := time.NewTimer(pruneDuration)
-		defer pruneTimer.Stop()
+
+	// only stop these timers if they are not needed
+	if metrics.db == nil {
+		pruneTimer.Stop()
+	}
+	if !*metrics.config.Metrics.Detailed {
+		flushTimer.Stop()
 	}
 
+	// stop the normal metrics ticker that records and inserts records
 	defer metrics.ticker.Stop()
 
 	for {
@@ -243,7 +243,7 @@ func (metrics *metrics) worker() {
 			}
 		case <-pruneTimer.C:
 			metrics.prune()
-			pruneTimer.Reset(detailFlushDuration)
+			pruneTimer.Reset(pruneDuration)
 		case <-flushTimer.C:
 			metrics.flushDetailedMetrics()
 			flushTimer.Reset(detailFlushDuration)

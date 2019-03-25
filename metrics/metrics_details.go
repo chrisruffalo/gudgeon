@@ -89,8 +89,8 @@ func (metrics *metrics) flushDetailedMetrics() {
 
 	// statements
 	stmts := []string{
-		"INSERT INTO lists (Name, ShortName, Hits) SELECT ListName, ListShortName, 1 FROM metrics_temp WHERE true ON CONFLICT(ShortName) DO UPDATE SET Hits = Hits + 1",
-		"INSERT INTO rule_hits (ListId, Rule, Hits) SELECT l.Id, m.Rule, 1 FROM metrics_temp m JOIN lists l ON m.ListShortName = l.ShortName WHERE true ON CONFLICT (ListId, Rule) DO UPDATE SET Hits = Hits + 1",
+		"INSERT INTO lists (Name, ShortName, Hits) SELECT ListName, ListShortName, 1 FROM metrics_temp WHERE ListShortName != '' ON CONFLICT(ShortName) DO UPDATE SET Hits = Hits + 1",
+		"INSERT INTO rule_hits (ListId, Rule, Hits) SELECT l.Id, m.Rule, 1 FROM metrics_temp m JOIN lists l ON m.ListShortName = l.ShortName WHERE m.Rule != '' ON CONFLICT (ListId, Rule) DO UPDATE SET Hits = Hits + 1",
 		"INSERT INTO client_metrics (Address, Count) SELECT Address, 1 FROM metrics_temp WHERE true ON CONFLICT (Address) DO UPDATE SET Count = Count + 1",
 		"INSERT INTO domain_metrics (DomainName, Count) SELECT QueryDomain, 1 FROM metrics_temp WHERE true ON CONFLICT (DomainName) DO UPDATE SET Count = Count + 1",
 		"INSERT INTO query_types (QueryType, Count) SELECT QueryType, 1 FROM metrics_temp WHERE true ON CONFLICT (QueryType) DO UPDATE SET Count = Count + 1",
@@ -101,13 +101,13 @@ func (metrics *metrics) flushDetailedMetrics() {
 	for _, s := range stmts {
 		_, err := tx.Exec(s)
 		if err != nil {
-			log.Errorf("Flushing metrics (stmt=\"%s\") data: %s", s, err)
+			log.Errorf("Moving metrics (stmt=\"%s\") data: %s", s, err)
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Errorf("Committing flush: %s", err)
+		log.Errorf("Committing metrics flush: %s", err)
 	}
 }
 
