@@ -36,12 +36,16 @@ gudgeon:
                             # ENDPOINT returns the IP of the endpoint that serviced the request
                             # Setting a specific IP ("192.168.0.1", "0.0.0.0", or "127.0.0.1") will override the response for that domain
 
+  # common database settings for metrics/query log
+  database:
+    flush: 1s       # shared setting for query log and metrics, this is how often buffered items will be flushed to their target tables (minimum/default is 1s)
+
   # the query log is used to log queries to disk for later inspection or revision
   query_log:
     enabled: true   # enabled by default, to disable query log set to "false"
+    persist: true   # if not true then the queries will only be logged to disk (if that is enabled) (default: true)
     duration: 10d   # how long to keep queries on disk, older queries are deleted
     stdout: false   # should queries be logged to standard out
-    interval: 1s    # how often to flush/commit the query log queue to the database file
     file: ./.gudgeon/logs/query.log # log queries to file AND stdout (you can set stdout to false and log to jsut the file)
     lookup: true    # enable reverse lookups (default: true)
     mdns: true      # if lookup is enabled, use mdns/avahi/zeroconf/bonjour for getting device/computer names (default: true)
@@ -51,9 +55,10 @@ gudgeon:
   # metrics can be saved to disk for use by the ui or exported to something like prometheus
   metrics:
     enabled: true   # enabled by default, to disable metrics set to "false"
+    persist: true   # will metrics be persisted to the database, if false only the current interval is visible (default: true)
     detailed: true  # enabled by default: save per-domain, per-client, per-rule, per-list, per-type metrics
     duration: 10d   # how long to save metrics for, they will be deleted/removed after this period
-    interval: 15s   # how often to write metrics to log, lowering the interval increases storage requirements (min is 500ms)
+    interval: 15s   # how often to write periodic metrics to the log, lowering the interval increases storage requirements (min is 1s)
 
   # control network options
   network:

@@ -16,15 +16,15 @@ func TestProviderStartStop(t *testing.T) {
 	config := testutil.Conf(t, "./testdata/provider-test.yml")
 
 	// prepare engine with config options
-	engine, err := engine.New(config, nil)
+	engine, err := engine.NewEngine(config)
 	if err != nil {
 		t.Errorf("Could not build engine: %s", err)
 		return
 	}
 
 	// create a new provider and start hosting
-	provider := NewProvider()
-	provider.Host(config, engine, nil, nil)
+	provider := NewProvider(engine)
+	provider.Host(config, engine)
 	time.Sleep(5 * time.Second)
 
 	// make sure they shut down
@@ -50,15 +50,15 @@ func TestProviderLocalResolution(t *testing.T) {
 	config := testutil.Conf(t, "./testdata/provider-test.yml")
 
 	// prepare engine with config options
-	engine, err := engine.New(config, nil)
+	engine, err := engine.NewEngine(config)
 	if err != nil {
 		t.Errorf("Could not build engine: %s", err)
 		return
 	}
 
 	// create a new provider and start hosting
-	provider := NewProvider()
-	provider.Host(config, engine, nil, nil)
+	provider := NewProvider(engine)
+	provider.Host(config, engine)
 	time.Sleep(5 * time.Second)
 
 	// create dns sources and use it

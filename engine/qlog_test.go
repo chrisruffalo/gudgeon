@@ -1,6 +1,7 @@
-package qlog
+package engine
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
@@ -15,7 +16,13 @@ func TestNewQueryLog(t *testing.T) {
 	conf := testutil.Conf(t, "testdata/dbtest.yml")
 
 	// create new query log
-	qlog, err := New(conf)
+	db, err := createEngineDB(conf)
+	if err != nil {
+		t.Errorf("Could not create test qlog DB")
+		return
+	}
+
+	qlog, err := NewQueryLog(conf, db)
 
 	if err != nil {
 		t.Errorf("Error during qlog creation: %s", err)
@@ -34,19 +41,31 @@ func TestQueryLogQuery(t *testing.T) {
 	conf := testutil.Conf(t, "testdata/dbtest.yml")
 
 	// create new query log
-	qlogInterface, err := New(conf)
+	db, err := createEngineDB(conf)
+	if err != nil {
+		t.Errorf("Could not create test qlog DB")
+		return
+	}
+
+	// create new query log
+	qlog, err := NewQueryLog(conf, db)
 	if err != nil {
 		t.Errorf("Error during qlog creation: %s", err)
 		return
 	}
 
-	qlog := qlogInterface.(*qlog)
+	// create new recorder
+	rec := &recorder{ 
+		db: db,
+		qlog: qlog,
+		stmts: make(map[string]*sql.Stmt),
+	}
 
 	// log 1000 entries
 	totalEntries := 86400 / 24 / 2 // about half an hour at one query per second
 	for i := 0; i < totalEntries; i++ {
 		// create message for sending to various endpoints
-		msg := new(LogInfo)
+		msg := &InfoRecord{}
 		if i%2 == 0 { // address shifts between two values
 			msg.Address = "192.168.0.2"
 		} else {
@@ -84,11 +103,11 @@ func TestQueryLogQuery(t *testing.T) {
 		msg.Created = time.Now()
 
 		// log msg
-		qlog.queue(msg)
+		rec.buffer(msg)
 	}
 
 	// flush waiting batch entries
-	qlog.flush()
+	rec.flush()
 
 	// query entries based on address
 	query := &QueryLogQuery{

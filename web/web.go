@@ -14,8 +14,6 @@ import (
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
-	"github.com/chrisruffalo/gudgeon/metrics"
-	"github.com/chrisruffalo/gudgeon/qlog"
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
@@ -26,12 +24,12 @@ const (
 type web struct {
 	conf     *config.GudgeonConfig
 	server   *http.Server
-	metrics  metrics.Metrics
-	queryLog qlog.QLog
+	metrics  engine.Metrics
+	queryLog engine.QueryLog
 }
 
 type Web interface {
-	Serve(conf *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics, qlog qlog.QLog) error
+	Serve(conf *config.GudgeonConfig, engine engine.Engine) error
 	Stop()
 }
 
@@ -71,7 +69,7 @@ func (web *web) GetMetrics(c *gin.Context) {
 	})
 }
 
-func condenseMetric(target *metrics.MetricsEntry, from *metrics.MetricsEntry, counter int) {
+func condenseMetric(target *engine.MetricsEntry, from *engine.MetricsEntry, counter int) {
 	target.AtTime = from.AtTime
 	target.IntervalSeconds += from.IntervalSeconds
 
@@ -133,10 +131,10 @@ func (web *web) QueryMetrics(c *gin.Context) {
 	}
 
 	firstEntry := true
-	entryChan := make(chan *metrics.MetricsEntry)
+	entryChan := make(chan *engine.MetricsEntry)
 
 	// hold an entry for condensing into
-	var heldEntry *metrics.MetricsEntry
+	var heldEntry *engine.MetricsEntry
 
 	// calculate condensation factor
 	stime := *queryStart
@@ -218,7 +216,7 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 	}
 
 	// set default query options
-	query := &qlog.QueryLogQuery{}
+	query := &engine.QueryLogQuery{}
 	if query.Limit < 1 {
 		query.Limit = 100 // default limit to 100 entries
 	}
@@ -333,7 +331,7 @@ func (web *web) GetTestComponents(c *gin.Context) {
 }
 
 func (web *web) GetTop(c *gin.Context) {
-	var results []*metrics.TopInfo
+	var results []*engine.TopInfo
 
 	limit := 5
 
@@ -383,10 +381,10 @@ func (web *web) GetTestResult(c *gin.Context) {
 	}
 }
 
-func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics, qlog qlog.QLog) error {
+func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine) error {
 	// set metrics endpoint
-	web.metrics = metrics
-	web.queryLog = qlog
+	web.metrics = engine.Metrics()
+	web.queryLog = engine.QueryLog()
 	web.conf = conf
 
 	// create new router

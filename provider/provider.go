@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coreos/go-systemd/activation"
@@ -14,38 +15,39 @@ import (
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
-	"github.com/chrisruffalo/gudgeon/metrics"
-	"github.com/chrisruffalo/gudgeon/qlog"
-	"github.com/chrisruffalo/gudgeon/resolver"
 )
 
 type provider struct {
 	engine  engine.Engine
-	metrics metrics.Metrics
-	qlog    qlog.QLog
 	servers []*dns.Server
 }
 
 type Provider interface {
-	Host(config *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics, qlog qlog.QLog) error
+	Host(config *config.GudgeonConfig, engine engine.Engine) error
 	//UpdateConfig(config *GudgeonConfig) error
 	//UpdateEngine(engine *engine.Engine) error
 	Shutdown() error
 }
 
-func NewProvider() Provider {
+func NewProvider(engine engine.Engine) Provider {
 	provider := new(provider)
+	provider.engine = engine
 	provider.servers = make([]*dns.Server, 0)
 	return provider
 }
 
-func (provider *provider) serve(netType string, addr string) *dns.Server {
-	server := &dns.Server{
-		Addr:         addr,
-		Net:          netType,
+func defaultServer() *dns.Server {
+	return &dns.Server {
 		ReadTimeout:  2 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
+}
+
+func (provider *provider) serve(netType string, addr string) *dns.Server {
+	server := defaultServer()
+	server.Addr = addr
+	server.Net = netType
+
 	log.Infof("Listen to %s on address: %s", strings.ToUpper(netType), addr)
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
@@ -56,10 +58,7 @@ func (provider *provider) serve(netType string, addr string) *dns.Server {
 }
 
 func (provider *provider) listen(listener net.Listener, packetConn net.PacketConn) *dns.Server {
-	server := &dns.Server{
-		ReadTimeout:  2 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
+	server := defaultServer()
 	if packetConn != nil {
 		if t, ok := packetConn.(*net.UDPConn); ok && t != nil {
 			log.Infof("Listen on datagram: %s", t.LocalAddr().String())
@@ -85,8 +84,6 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	var (
 		address  *net.IP
 		response *dns.Msg
-		rCon     *resolver.RequestContext
-		result   *resolver.ResolutionResult
 	)
 
 	// get consumer ip from request
@@ -103,7 +100,7 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	// if an engine is available actually provide some resolution
 	if provider.engine != nil {
 		// make query and get information back for metrics/logging
-		response, rCon, result = provider.engine.Handle(address, protocol, writer, request)
+		response, _, _ = provider.engine.Handle(address, protocol, request)
 	} else {
 		// when no engine defined return that there was a server failure
 		response = new(dns.Msg)
@@ -116,8 +113,6 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 
 	// write response to response writer
 	writer.WriteMsg(response)
-	// close the writer since it's done
-	writer.Close()
 
 	// we were having some errors during write that we need to figure out
 	// and this is a good(??) way to try and find them out.
@@ -125,21 +120,11 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 		log.Errorf("recovered from error: %s", recovery)
 	}
 
-	// only needed if a resposne was collected and the query log/metrics are enabled
-	if response != nil && (provider.qlog != nil || provider.metrics != nil) {
-		// write metrics
-		if provider.metrics != nil {
-			provider.metrics.RecordQueryMetrics(address, request, response, rCon, result)
-		}
-
-		// write to query log
-		if provider.qlog != nil {
-			provider.qlog.Log(address, request, response, rCon, result)
-		}
-	}
+	// explicitly close the writer since it's done
+	writer.Close()
 }
 
-func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine, metrics metrics.Metrics, qlog qlog.QLog) error {
+func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine) error {
 	// get network config
 	netConf := config.Network
 
@@ -167,19 +152,8 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 		provider.engine = engine
 	}
 
-	if metrics != nil {
-		provider.metrics = metrics
-	}
-
-	if qlog != nil {
-		provider.qlog = qlog
-	}
-
 	// global dns handle function
 	dns.HandleFunc(".", provider.handle)
-
-	// server collector
-	var server *dns.Server
 
 	// open interface connections
 	if *netConf.Systemd && len(fileSockets) > 0 {
@@ -187,18 +161,10 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 		for _, f := range fileSockets {
 			// check if udp
 			if pc, err := net.FilePacketConn(f); err == nil {
-				server = provider.listen(nil, pc)
-				if server != nil {
-					provider.servers = append(provider.servers, server)
-					server = nil
-				}
+				provider.servers = append(provider.servers, provider.listen(nil, pc))
 				f.Close()
 			} else if pc, err := net.FileListener(f); err == nil { // then check if tcp
-				server = provider.listen(pc, nil)
-				if server != nil {
-					provider.servers = append(provider.servers, server)
-					server = nil
-				}
+				provider.servers = append(provider.servers, provider.listen(pc, nil))
 				f.Close()
 			}
 		}
@@ -207,20 +173,13 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 	if len(interfaces) > 0 {
 		log.Infof("Using [%d] configured interfaces...", len(interfaces))
 		for _, iface := range interfaces {
+
 			addr := fmt.Sprintf("%s:%d", iface.IP, iface.Port)
 			if *iface.TCP {
-				server = provider.serve("tcp", addr)
-				if server != nil {
-					provider.servers = append(provider.servers, server)
-					server = nil
-				}
+				provider.servers = append(provider.servers, provider.serve("tcp", addr))
 			}
 			if *iface.UDP {
-				server = provider.serve("udp", addr)
-				if server != nil {
-					provider.servers = append(provider.servers, server)
-					server = nil
-				}
+				provider.servers = append(provider.servers, provider.serve("udp", addr))
 			}
 		}
 	}
@@ -229,24 +188,29 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 }
 
 func (provider *provider) Shutdown() error {
-	context, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// set with a 60 second timeout
+	context, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
+
+	// start a waitgroup
+	wg := &sync.WaitGroup{}
 
 	for _, server := range provider.servers {
 		// stop each server separately
 		if server != nil {
-			err := server.ShutdownContext(context)
-			if err != nil {
-				log.Errorf("During shutdown: %s", err)
-			} else {
+			// add newly started go function to wg
+			wg.Add(1)
+			// do a go shutdown function with wg for each server
+			go func () {
+				server.ShutdownContext(context)
 				log.Infof("Shtudown server: %s", server.Addr)
-			}
+				wg.Done()
+			}()
 		}
 	}
 
-	// todo: this just isn't right, maybe a waitgroup here and
-	// go routines for shutting down each server?
-	<-context.Done()
+	// wait for group to be done
+	wg.Wait()
 
 	return nil
 }

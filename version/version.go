@@ -5,7 +5,7 @@ import (
 )
 
 // pick up version from build process, but use these defaults
-var Version = "v0.5.X"
+var Version = "v0.6.X"
 var Release = "1"
 var GitHash = "0000000"
 var LongVersion = ""

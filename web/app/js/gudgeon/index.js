@@ -105,7 +105,7 @@ export class Gudgeon extends React.Component {
           </SplitItem>
           <SplitItem>
             <p className={css(gudgeonStyles.footerText)}>{ window.version().version }{ window.version().release != "" ? "-" + window.version().release : ""}</p>
-            <p className={css(gudgeonStyles.footerText)}><a href={ "https://github.com/chrisruffalo/gudgeon/commit/" + window.version().githash }>git@{ window.version().githash }</a></p>
+            <p className={css(gudgeonStyles.footerText)}><a href={ "https://github.com/chrisruffalo/gudgeon/tree/" + window.version().githash }>git@{ window.version().githash }</a></p>
           </SplitItem>
         </Split>      
       </div>      

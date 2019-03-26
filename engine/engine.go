@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"net"
 	"path"
@@ -61,6 +62,18 @@ type engine struct {
 	// that is being used as backing storage and state behind the engine
 	session string
 
+	// database for long term data storage
+	db *sql.DB
+
+	// metrics instance for engine
+	metrics Metrics
+
+	// qlog instance for engine
+	qlog QueryLog
+
+	// recorder - combined query data recorder
+	recorder *recorder
+
 	// maintain config pointer
 	config *config.GudgeonConfig
 
@@ -92,8 +105,17 @@ type Engine interface {
 	IsDomainRuleMatched(consumer *net.IP, domain string) (rule.Match, *config.GudgeonList, string)
 	Resolve(domainName string) (string, error)
 	Reverse(address string) string
-	Handle(address *net.IP, protocol string, dnsWriter dns.ResponseWriter, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
+	Handle(address *net.IP, protocol string, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
+
+	// stats
 	CacheSize() int64
+
+	// inner providers
+	QueryLog() QueryLog
+	Metrics() Metrics
+
+	// shutdown
+	Shutdown()
 }
 
 func (engine *engine) getConsumerForIp(consumerIp *net.IP) *consumer {
@@ -391,9 +413,18 @@ func (engine *engine) Reverse(address string) string {
 	return ""
 }
 
-func (engine *engine) Handle(address *net.IP, protocol string, dnsWriter dns.ResponseWriter, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
-	// return results
-	return engine.performRequest(address, protocol, request)
+// entry point for external handler
+func (engine *engine) Handle(address *net.IP, protocol string, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
+	// get results
+	response, rCon, result := engine.performRequest(address, protocol, request)
+
+	// log them if recorder is active
+	if engine.recorder != nil {
+		engine.recorder.queue(address, request, response, rCon, result)
+	}
+
+	// return only the result
+	return response, rCon, result
 }
 
 func (engine *engine) CacheSize() int64 {
@@ -401,4 +432,25 @@ func (engine *engine) CacheSize() int64 {
 		return int64(engine.resolvers.Cache().Size())
 	}
 	return 0
+}
+
+func (engine *engine) Metrics() Metrics {
+	return engine.metrics
+}
+
+func (engine *engine) QueryLog() QueryLog {
+	return engine.qlog
+}
+
+func (engine *engine) Shutdown() {
+	// shutting down the recorder shuts down
+	// other elements in turn
+	if nil != engine.recorder {
+		engine.recorder.shutdown()
+	}
+
+	// close db
+	if nil != engine.db {
+		engine.db.Close()
+	}
 }

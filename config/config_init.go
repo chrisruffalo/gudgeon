@@ -71,6 +71,13 @@ func (config *GudgeonConfig) verifyAndInit() ([]string, []error) {
 	errors = append(errors, err...)
 	warnings = append(warnings, warn...)
 
+	if config.Database == nil {
+		config.Database = &GudgeonDatabase{ Flush: "1s" }
+	}
+	warn, err = config.Database.verifyAndInit()
+	errors = append(errors, err...)
+	warnings = append(warnings, warn...)
+
 	// metrics configuration
 	if config.Metrics == nil {
 		config.Metrics = &GudgeonMetrics{}
@@ -154,6 +161,26 @@ func (network *GudgeonNetwork) verifyAndInit() ([]string, []error) {
 	return []string{}, []error{}
 }
 
+func (database *GudgeonDatabase) verifyAndInit() ([]string, []error) {
+	// collect warnings
+	warnings := make([]string, 0)
+
+	if "" == database.Flush {
+		database.Flush = "1s"
+	}
+	if parsed, err := util.ParseDuration(database.Flush); err != nil {
+		warnings = append(warnings, fmt.Sprintf("Could not parse database flush interval: %s, using default (1s)", err))
+		database.Flush = "1s"
+	} else if parsed > time.Minute {
+		warnings = append(warnings, fmt.Sprintf("A flush interval greater than 1m is probably too long, consider changing this value (%s)", database.Flush))
+	} else if parsed < 500*time.Millisecond {
+		warnings = append(warnings, fmt.Sprintf("A flush interval less than 500ms is probably too short, using default value (1s)"))
+		database.Flush = "1s"
+	}
+
+	return warnings, []error{}
+}
+
 func (metrics *GudgeonMetrics) verifyAndInit() ([]string, []error) {
 	// collect warnings
 	warnings := make([]string, 0)
@@ -231,19 +258,6 @@ func (ql *GudgeonQueryLog) verifyAndInit() ([]string, []error) {
 	} else if parsed < time.Hour {
 		warnings = append(warnings, fmt.Sprintf("A query log duration less than 1 hour (1h) is probably too short, using 1h"))
 		ql.Duration = "1h"
-	}
-
-	if "" == ql.BatchInterval {
-		ql.BatchInterval = "1s"
-	}
-	if parsed, err := util.ParseDuration(ql.BatchInterval); err != nil {
-		warnings = append(warnings, fmt.Sprintf("Could not parse query log batch interval: %s, using default", err))
-		ql.BatchInterval = "1s"
-	} else if parsed > time.Minute {
-		warnings = append(warnings, fmt.Sprintf("A batch interval greater than 1m is probably too long, consider changing this value (%s)", ql.BatchInterval))
-	} else if parsed < 500*time.Millisecond {
-		warnings = append(warnings, fmt.Sprintf("A batch interval less than 500ms is probably too short, using default value (1s)"))
-		ql.BatchInterval = "1s"
 	}
 
 	return warnings, []error{}

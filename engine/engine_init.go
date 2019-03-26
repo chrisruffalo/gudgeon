@@ -1,16 +1,20 @@
 package engine
 
 import (
+	"database/sql"
 	"encoding/base64"
+	"fmt"
 	"os"
+	"path"
 	"runtime"
 	"strings"
 
+	"github.com/GeertJohan/go.rice"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
-	gmetrics "github.com/chrisruffalo/gudgeon/metrics"
+	"github.com/chrisruffalo/gudgeon/db"
 	"github.com/chrisruffalo/gudgeon/resolver"
 	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/util"
@@ -39,7 +43,41 @@ func assignedLists(listNames []string, listTags []string, lists []*config.Gudgeo
 	return should
 }
 
-func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
+func createEngineDB(conf *config.GudgeonConfig) (*sql.DB, error) {
+	// get path to long-standing data ({home}/'data') and make sure it exists
+	dataDir := conf.DataRoot()
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		os.MkdirAll(dataDir, os.ModePerm)
+	}
+
+	// determine path
+	dbDir := path.Join(dataDir, "engine")
+
+	// create directory
+	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
+		os.MkdirAll(dbDir, os.ModePerm)
+	}
+
+	// get path to db file
+	dbPath := path.Join(dbDir, "gudgeon.db")
+
+	// find migrations
+	migrationsBox := rice.MustFindBox("migrations")
+
+	// open database
+	var err error
+	db, err := db.OpenAndMigrate(dbPath, "", migrationsBox)
+	if err != nil {
+		return nil, fmt.Errorf("Engine DB: %s", err)
+	}
+
+	return db, nil
+}
+
+func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
+	// error collection
+	var err error
+
 	// create return object
 	engine := new(engine)
 	engine.config = conf
@@ -54,6 +92,36 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 	os.MkdirAll(conf.Home, os.ModePerm)
 	os.MkdirAll(conf.SessionRoot(), os.ModePerm)
 	os.MkdirAll(engine.Root(), os.ModePerm)
+
+	// configure db if required
+	if (*conf.Metrics.Enabled && *conf.Metrics.Persist) || (*conf.QueryLog.Enabled && *conf.QueryLog.Persist) {
+		var err error
+		engine.db, err = createEngineDB(conf)
+		if err != nil {
+			return nil, err
+		}
+
+		// build metrics instance from db
+		if *conf.Metrics.Enabled && *conf.Metrics.Persist {
+			engine.metrics = NewMetrics(conf, engine.db)
+			engine.metrics.UseCacheSizeFunction(engine.CacheSize)
+		}
+
+		// build qlog instance from db
+		if *conf.QueryLog.Enabled && *conf.QueryLog.Persist {
+			engine.qlog, err = NewQueryLog(conf, engine.db)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// create recorder
+	engine.recorder, err = NewRecorder(engine)
+	if err != nil {
+		return nil, err
+	}
+
 
 	// configure resolvers
 	engine.resolvers = resolver.NewResolverMap(conf, conf.Resolvers)
@@ -164,7 +232,8 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 	engine.store, listCounts = rule.CreateStore(engine.Root(), conf)
 
 	// use/set metrics if they are enabled
-	if metrics != nil {
+	if engine.metrics != nil {
+		metrics := engine.metrics
 		for idx, list := range conf.Lists {
 			log.Infof("List '%s' loaded %d rules", list.CanonicalName(), listCounts[idx])
 			rulesCounter := metrics.Get("rules-list-" + list.ShortName())
@@ -172,7 +241,7 @@ func New(conf *config.GudgeonConfig, metrics gmetrics.Metrics) (Engine, error) {
 			rulesCounter.Inc(int64(listCounts[idx]))
 			totalCount += uint64(listCounts[idx])
 		}
-		totalRulesCounter := metrics.Get(gmetrics.TotalRules)
+		totalRulesCounter := metrics.Get(TotalRules)
 		totalRulesCounter.Inc(int64(totalCount))
 	}
 

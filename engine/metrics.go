@@ -1,17 +1,14 @@
-package metrics
+package engine
 
 import (
 	"database/sql"
 	"math"
-	"net"
 	"os"
-	"path"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/GeertJohan/go.rice"
 	"github.com/json-iterator/go"
 	"github.com/miekg/dns"
 	"github.com/shirou/gopsutil/mem"
@@ -19,7 +16,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
-	"github.com/chrisruffalo/gudgeon/db"
 	"github.com/chrisruffalo/gudgeon/resolver"
 	"github.com/chrisruffalo/gudgeon/rule"
 	"github.com/chrisruffalo/gudgeon/util"
@@ -101,15 +97,11 @@ type metrics struct {
 	metricsInfoChan chan *metricsInfo
 	db              *sql.DB
 
-	detailTx   *sql.Tx
-	detailStmt *sql.Stmt
-
 	cacheSizeFunc CacheSizeFunction
 
 	// time management for interval insert
 	lastInsert time.Time
 	ticker     *time.Ticker
-	doneTicker chan bool
 }
 
 type CacheSizeFunction = func() int64
@@ -120,9 +112,6 @@ type Metrics interface {
 
 	// use cache function
 	UseCacheSizeFunction(function CacheSizeFunction)
-
-	// record relevant metrics based on request
-	RecordQueryMetrics(ip *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult)
 
 	// Query metrics from db
 	Query(start time.Time, end time.Time) ([]*MetricsEntry, error)
@@ -137,6 +126,13 @@ type Metrics interface {
 
 	// stop the metrics collection
 	Stop()
+
+	// package db management methods
+	update()
+	insert(tx *sql.Tx, currentTime time.Time)
+	record(info *InfoRecord) 
+	flush(tx *sql.Tx)
+	prune(tx *sql.Tx)
 }
 
 // write all metrics out to encoder
@@ -149,113 +145,27 @@ var json = jsoniter.Config{
 	DisallowUnknownFields:         false,
 }.Froze()
 
-func New(config *config.GudgeonConfig) Metrics {
+func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 	metrics := &metrics{
 		config:     config,
 		metricsMap: make(map[string]*Metric),
 	}
 
 	if *(config.Metrics.Persist) {
-		// get path to long-standing data ({home}/'data') and make sure it exists
-		dataDir := config.DataRoot()
-		if _, err := os.Stat(dataDir); os.IsNotExist(err) {
-			os.MkdirAll(dataDir, os.ModePerm)
-		}
-
-		// open db
-		dbDir := path.Join(dataDir, "metrics")
-		// create directory
-		if _, err := os.Stat(dbDir); os.IsNotExist(err) {
-			os.MkdirAll(dbDir, os.ModePerm)
-		}
-
-		// get path to db
-		dbPath := path.Join(dbDir, "metrics.db")
-
-		// do migrations
-		migrationsBox := rice.MustFindBox("metrics-migrations")
-
-		// open database
-		var err error
-		metrics.db, err = db.OpenAndMigrate(dbPath, "", migrationsBox)
-		if err != nil {
-			log.Errorf("Metrics: %s", err)
-			return nil
-		}
+		// use provided/shared db
+		metrics.db = db
 
 		// init lifetime metric counts
 		metrics.load()
-
-		// flush any outstanding metrics in the temp table
-		metrics.flushDetailedMetrics()
-
-		// prune metrics after load (in case the service has been down longer than the prune interval)
-		metrics.prune()
 	}
 
 	// update metrics initially
 	metrics.update()
 
-	// create channel for incoming metrics and start recorder
-	metrics.metricsInfoChan = make(chan *metricsInfo, 100000)
-	go metrics.worker()
-
-	return metrics
-}
-
-func (metrics *metrics) worker() {
-	// start ticker to persist data and update periodic metrics
-	duration, _ := util.ParseDuration(metrics.config.Metrics.Interval)
-	metrics.ticker = time.NewTicker(duration)
-	metrics.doneTicker = make(chan bool)
+	// start metrics insert worker
 	metrics.lastInsert = time.Now()
 
-	// flush metrics if db is function
-	pruneDuration := 1 * time.Hour
-	detailFlushDuration := 5 * time.Second
-
-	flushTimer := time.NewTimer(detailFlushDuration)
-	defer flushTimer.Stop()
-	// prune every hour (also prunes on startup)
-	pruneTimer := time.NewTimer(pruneDuration)
-	defer pruneTimer.Stop()
-
-
-	// only stop these timers if they are not needed
-	if metrics.db == nil {
-		pruneTimer.Stop()
-	}
-	if !*metrics.config.Metrics.Detailed {
-		flushTimer.Stop()
-	}
-
-	// stop the normal metrics ticker that records and inserts records
-	defer metrics.ticker.Stop()
-
-	for {
-		select {
-		case <-metrics.ticker.C:
-			// update periodic metrics
-			metrics.update()
-
-			// only insert/prune if a db exists
-			if metrics.db != nil {
-				// insert new metrics
-				metrics.insert(time.Now())
-			}
-		case <-pruneTimer.C:
-			metrics.prune()
-			pruneTimer.Reset(pruneDuration)
-		case <-flushTimer.C:
-			metrics.flushDetailedMetrics()
-			flushTimer.Reset(detailFlushDuration)
-		case info := <-metrics.metricsInfoChan:
-			metrics.record(info)
-		case <-metrics.doneTicker:
-			defer func() { metrics.doneTicker <- true }()
-			return
-		}
-	}
+	return metrics
 }
 
 func (metrics *metrics) GetAll() map[string]*Metric {
@@ -286,6 +196,13 @@ func (metrics *metrics) Get(name string) *Metric {
 func (metrics *metrics) update() {
 	// get pid
 	pid := os.Getpid()
+
+	// capture queries per interval into queries per second
+	duration, err := util.ParseDuration(metrics.config.Metrics.Interval)
+	if err == nil {
+		metrics.Get(QueriesPerSecond).Set(int64(math.Round(float64(metrics.Get(TotalIntervalQueries).Value()) / float64(duration.Seconds()))))
+		metrics.Get(BlocksPerSecond).Set(int64(math.Round(float64(metrics.Get(BlockedIntervalQueries).Value()) / float64(duration.Seconds()))))
+	}	
 
 	// get process
 	process, err := process.NewProcess(int32(pid))
@@ -319,51 +236,31 @@ func (metrics *metrics) update() {
 	}
 }
 
-func (metrics *metrics) record(info *metricsInfo) {
-	// update specific/detailed metrics
-	metrics.updateDetailedMetrics(info)
-
+func (metrics *metrics) record(info *InfoRecord) {
 	// first add count to total queries
 	metrics.Get(TotalQueries).Inc(1)
 	metrics.Get(TotalLifetimeQueries).Inc(1)
 	metrics.Get(TotalIntervalQueries).Inc(1)
 
-	// manage queries per interval into queries per second
-	duration, err := util.ParseDuration(metrics.config.Metrics.Interval)
-	if err == nil {
-		metrics.Get(QueriesPerSecond).Set(int64(metrics.Get(TotalIntervalQueries).Value() / int64(duration.Seconds())))
-		metrics.Get(BlocksPerSecond).Set(int64(metrics.Get(BlockedIntervalQueries).Value() / int64(duration.Seconds())))
-	}
-
 	// add cache hits
-	if info.result != nil && info.result.Cached {
+	if info.Result != nil && info.Result.Cached {
 		metrics.Get(CachedQueries).Inc(1)
 	}
 
 	// add blocked queries
-	if info.result != nil && (info.result.Blocked || info.result.Match == rule.MatchBlock) {
+	if info.Result != nil && (info.Result.Blocked || info.Result.Match == rule.MatchBlock) {
 		metrics.Get(BlockedQueries).Inc(1)
 		metrics.Get(BlockedLifetimeQueries).Inc(1)
 		metrics.Get(BlockedIntervalQueries).Inc(1)
 
-		if info.result.MatchList != nil {
-			metrics.Get("rules-session-matched-" + info.result.MatchList.ShortName()).Inc(1)
-			metrics.Get("rules-lifetime-matched-" + info.result.MatchList.ShortName()).Inc(1)
+		if info.Result.MatchList != nil {
+			metrics.Get("rules-session-matched-" + info.Result.MatchList.ShortName()).Inc(1)
+			metrics.Get("rules-lifetime-matched-" + info.Result.MatchList.ShortName()).Inc(1)
 		}
 	}
 }
 
-func (metrics *metrics) insert(currentTime time.Time) {
-	if metrics.detailTx != nil {
-		defer metrics.detailTx.Rollback()
-		err := metrics.detailTx.Commit()
-		metrics.detailTx = nil
-		if err != nil {
-			log.Errorf("Could not commit pending metrics temp entries: %s", err)
-			return
-		}
-	}
-
+func (metrics *metrics) insert(tx *sql.Tx, currentTime time.Time) {
 	// get all metrics
 	all := metrics.GetAll()
 
@@ -375,7 +272,7 @@ func (metrics *metrics) insert(currentTime time.Time) {
 	}
 
 	stmt := "INSERT INTO metrics (FromTime, AtTime, MetricsJson, IntervalSeconds) VALUES (?, ?, ?, ?)"
-	pstmt, err := metrics.db.Prepare(stmt)
+	pstmt, err := tx.Prepare(stmt)
 	if err != nil {
 		log.Errorf("Error preparing metrics statement: %s", err)
 		return
@@ -391,14 +288,14 @@ func (metrics *metrics) insert(currentTime time.Time) {
 	// clear and restart interval
 	metrics.Get(TotalIntervalQueries).Clear()
 	metrics.Get(BlockedIntervalQueries).Clear()
-	metrics.Get(QueriesPerSecond).Clear()
-	metrics.Get(BlocksPerSecond).Clear()
+	//metrics.Get(QueriesPerSecond).Clear()
+	//metrics.Get(BlocksPerSecond).Clear()
 	metrics.lastInsert = currentTime
 }
 
-func (metrics *metrics) prune() {
+func (metrics *metrics) prune(tx *sql.Tx) {
 	duration, _ := util.ParseDuration(metrics.config.Metrics.Duration)
-	_, err := metrics.db.Exec("DELETE FROM metrics WHERE AtTime <= ?", time.Now().Add(-1*duration))
+	_, err := tx.Exec("DELETE FROM metrics WHERE AtTime <= ?", time.Now().Add(-1*duration))
 	if err != nil {
 		log.Errorf("Error pruning metrics data: %s", err)
 	}
@@ -513,40 +410,6 @@ func (metrics *metrics) UseCacheSizeFunction(function CacheSizeFunction) {
 	metrics.cacheSizeFunc = function
 }
 
-func (metrics *metrics) RecordQueryMetrics(ip *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
-	msg := new(metricsInfo)
-	if ip != nil {
-		msg.address = ip.String()
-	}
-	msg.request = request
-	msg.response = response
-	msg.result = result
-	msg.rCon = rCon
-	metrics.metricsInfoChan <- msg
-}
-
 func (metrics *metrics) Stop() {
-	// wait for done ticker
-	metrics.doneTicker <- true
-	<-metrics.doneTicker
-	close(metrics.doneTicker)
 
-	// close metrics info channel
-	close(metrics.metricsInfoChan)
-
-	// close db and shutdown timer if it exists
-	if metrics.db != nil {
-		// insert one last time
-		metrics.insert(time.Now())
-		metrics.prune()
-
-		// flush outstanding details
-		metrics.flushDetailedMetrics()
-		if metrics.detailStmt != nil {
-			metrics.detailStmt.Close()
-		}
-
-		// close db
-		metrics.db.Close()
-	}
 }

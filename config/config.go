@@ -24,6 +24,10 @@ type GudgeonTLS struct {
 	Enabled bool `yaml:"enabled"`
 }
 
+type GudgeonDatabase struct {
+	Flush string `yaml:"flush"`
+}
+
 type GudgeonQueryLog struct {
 	// controls if the entire feature is enabled/disabled
 	Enabled *bool `yaml:"enabled"`
@@ -35,8 +39,6 @@ type GudgeonQueryLog struct {
 	Stdout *bool `yaml:"stdout"`
 	// if we should log to a file, the path to that file (does not rotate automatically)
 	File string `yaml:"file"`
-	// how often to flush outstanding transactions/queries
-	BatchInterval string `yaml:"interval"`
 	// reverse lookup using query engine
 	ReverseLookup *bool `yaml:"lookup"`
 	// add mdns/zeroconf/bonjour capability to lookup
@@ -208,6 +210,7 @@ type GudgeonWeb struct {
 type GudgeonConfig struct {
 	Home      string             `yaml:"home"`
 	Storage   *GudgeonStorage    `yaml:"storage"`
+	Database  *GudgeonDatabase   `yaml:"database"`
 	Metrics   *GudgeonMetrics    `yaml:"metrics"`
 	QueryLog  *GudgeonQueryLog   `yaml:"query_log"`
 	Network   *GudgeonNetwork    `yaml:"network"`

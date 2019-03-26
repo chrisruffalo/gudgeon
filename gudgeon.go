@@ -12,9 +12,7 @@ import (
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
-	"github.com/chrisruffalo/gudgeon/metrics"
 	"github.com/chrisruffalo/gudgeon/provider"
-	gqlog "github.com/chrisruffalo/gudgeon/qlog"
 	"github.com/chrisruffalo/gudgeon/util"
 	"github.com/chrisruffalo/gudgeon/version"
 	"github.com/chrisruffalo/gudgeon/web"
@@ -27,8 +25,6 @@ type Gudgeon struct {
 	config   *config.GudgeonConfig
 	engine   engine.Engine
 	provider provider.Provider
-	qlog     gqlog.QLog
-	metrics  metrics.Metrics
 	web      web.Web
 }
 
@@ -45,61 +41,25 @@ func (gudgeon *Gudgeon) Start() error {
 	// error
 	var err error
 
-	// components
-	var (
-		mets metrics.Metrics
-		qlog gqlog.QLog
-		eng  engine.Engine
-	)
-
-	// create glue method to glue engine and query log together without binding them together
-	// in a way that creates a cycle. note: there's probably a better way to do this
-	rlookup := func(address string) string {
-		if eng != nil {
-			return eng.Reverse(address)
-		}
-		return ""
-	}
-
-	// clean out session directory
-	if "" != config.SessionRoot() {
-		util.ClearDirectory(config.SessionRoot())
-	}
-
-	// create metrics
-	if *config.Metrics.Enabled {
-		mets = metrics.New(config)
-		gudgeon.metrics = mets
-	}
-
-	// create query log
-	if *config.QueryLog.Enabled {
-		qlog, err = gqlog.NewWithReverseLookup(config, rlookup)
-		if err != nil {
-			return err
-		}
-		gudgeon.qlog = qlog
-	}
-
-	// prepare engine with config options
-	eng, err = engine.New(config, mets)
+	// create engine which handles resolution, logging, etc
+	engine, err := engine.NewEngine(config)
 	if err != nil {
 		return err
 	}
-	gudgeon.engine = eng
-	if mets != nil {
-		mets.UseCacheSizeFunction(eng.CacheSize)
+	if engine == nil {
+		return fmt.Errorf("Could not create required engine component")
 	}
+	gudgeon.engine = engine
 
 	// create a new provider and start hosting
-	provider := provider.NewProvider()
-	provider.Host(config, eng, mets, qlog)
+	provider := provider.NewProvider(engine)
+	provider.Host(config, engine)
 	gudgeon.provider = provider
 
 	// open web ui if web enabled
 	if config.Web.Enabled {
 		web := web.New()
-		web.Serve(config, eng, mets, qlog)
+		web.Serve(config, engine)
 		gudgeon.web = web
 	}
 
@@ -124,19 +84,10 @@ func (gudgeon *Gudgeon) Shutdown() {
 		gudgeon.web.Stop()
 	}
 
-	// stop metrics
-	if gudgeon.metrics != nil {
-		log.Infof("Shutting down Metrics service...")
-		gudgeon.metrics.Stop()
-	}
-
-	// stop query log
-	if gudgeon.qlog != nil {
-		log.Infof("Shutting down Query Log service...")
-		gudgeon.qlog.Stop()
-	}
-
-}
+	// stop/shutdown engine
+	log.Infof("Shutting down Engine...")
+	gudgeon.engine.Shutdown()
+}	
 
 func main() {
 	// set initial log instance configuration
