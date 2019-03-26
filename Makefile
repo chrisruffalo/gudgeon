@@ -38,7 +38,7 @@ SQLITE_DEP?=https://sqlite.org/2019/sqlite-autoconf-3270200.tar.gz
 
 # rice command
 RICECMD=$(abspath $(GOBIN)/rice)
-RICEPATHS=-i ./qlog/ -i ./web/ -i ./metrics/ -i ./rule/
+RICEPATHS=-i ./engine/ -i ./web/
 
 # fpm command (gem for creating packages)
 FPMCMD=fpm

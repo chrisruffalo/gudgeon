@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/chrisruffalo/gudgeon/config"
 )
 
@@ -103,6 +105,7 @@ func Download(engine Engine, config *config.GudgeonConfig, list *config.GudgeonL
 	url := list.Source
 
 	// get written lines
+	log.Infof("Downloading '%s'...", url)
 	err := downloadFile(engine, path, url)
 	if err != nil {
 		return err
