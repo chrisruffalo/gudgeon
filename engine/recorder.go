@@ -273,7 +273,9 @@ func (recorder *recorder) worker() {
 	if *recorder.conf.QueryLog.ReverseLookup && *recorder.conf.QueryLog.MdnsLookup {
 		mdnsDuration = 1 * time.Second
 		mdnsQueryTimer = time.NewTimer(mdnsDuration)
-	}			
+	} else {
+		mdnsQueryTimer = &time.Timer{}
+	}
 
 	// start ticker to persist data and update periodic metrics
 	metricsDuration, _ := util.ParseDuration(recorder.conf.Metrics.Interval)

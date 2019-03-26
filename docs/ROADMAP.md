@@ -6,8 +6,8 @@ In no particular order these are the future improvements that are coming to Gudg
   * **In Progress:**Ability to stop/start/restart different consumers (provider, web)
   * **In Progress:** Integration tests that use start/stop mechanics for end-to-end testing
   * File watching and reloading minimal configuration changes without service restart or downtime (hot reload)
-  * Package refactoring to put `rule`, `resolver`, `qlog`, and `metrics` in engine package (at a minimum)
-  * Reverse lookup moved outside of query log and into part of engine
+  * **In Progress:** Package refactoring to put `rule`, `resolver`, `qlog`, and `metrics` in engine package (at a minimum)
+  * **Done:** Reverse lookup moved outside of query log and into part of engine
   * Ability to track query latency/processing time
   * Unindexed single tables for SQL insert speed before batching into long-term storage
 * Metrics
