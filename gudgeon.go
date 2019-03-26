@@ -87,7 +87,7 @@ func (gudgeon *Gudgeon) Shutdown() {
 	// stop/shutdown engine
 	log.Infof("Shutting down Engine...")
 	gudgeon.engine.Shutdown()
-}	
+}
 
 func main() {
 	// set initial log instance configuration

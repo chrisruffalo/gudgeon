@@ -130,7 +130,7 @@ type Metrics interface {
 	// package db management methods
 	update()
 	insert(tx *sql.Tx, currentTime time.Time)
-	record(info *InfoRecord) 
+	record(info *InfoRecord)
 	flush(tx *sql.Tx)
 	prune(tx *sql.Tx)
 }
@@ -202,7 +202,7 @@ func (metrics *metrics) update() {
 	if err == nil {
 		metrics.Get(QueriesPerSecond).Set(int64(math.Round(float64(metrics.Get(TotalIntervalQueries).Value()) / float64(duration.Seconds()))))
 		metrics.Get(BlocksPerSecond).Set(int64(math.Round(float64(metrics.Get(BlockedIntervalQueries).Value()) / float64(duration.Seconds()))))
-	}	
+	}
 
 	// get process
 	process, err := process.NewProcess(int32(pid))

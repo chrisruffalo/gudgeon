@@ -26,21 +26,20 @@ const (
 	bufferInsertStatement = "INSERT INTO buffer (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, Match, MatchList, MatchListShort, MatchRule, Cached, Created) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
-
 // coordinates all recording functions/features
 // and is _very tightly_ coupled to the other
 // aspects
 type recorder struct {
 	// direct reference back to engine
-	engine  *engine
-	conf    *config.GudgeonConfig
+	engine *engine
+	conf   *config.GudgeonConfig
 
 	// db access
-	db      *sql.DB
-	tx      *sql.Tx
+	db *sql.DB
+	tx *sql.Tx
 
 	// statement cache for keeping statements for repeated inserts
-	stmts   map[string]*sql.Stmt
+	stmts map[string]*sql.Stmt
 
 	// cache lookup info
 	cache     *cache.Cache
@@ -79,10 +78,10 @@ type InfoRecord struct {
 	Blocked bool
 
 	// matching
-	Match     rule.Match
-	MatchList string
+	Match          rule.Match
+	MatchList      string
 	MatchListShort string
-	MatchRule string
+	MatchRule      string
 
 	// cached in resolver cache store
 	Cached bool
@@ -95,15 +94,15 @@ type InfoRecord struct {
 
 // created from raw engine
 func NewRecorder(engine *engine) (*recorder, error) {
-	recorder := &recorder {
-		engine:  	engine,
-		db:         engine.db,
-		stmts:      make(map[string]*sql.Stmt),
-		conf:    	engine.config,
-		qlog:    	engine.qlog,
-		metrics: 	engine.metrics,
-		infoQueue: 	make(chan *InfoRecord, recordQueueSize),
-		doneChan:   make(chan bool),
+	recorder := &recorder{
+		engine:    engine,
+		db:        engine.db,
+		stmts:     make(map[string]*sql.Stmt),
+		conf:      engine.config,
+		qlog:      engine.qlog,
+		metrics:   engine.metrics,
+		infoQueue: make(chan *InfoRecord, recordQueueSize),
+		doneChan:  make(chan bool),
 	}
 
 	// create reverse lookup cache with given ttl and given reap interval
@@ -131,7 +130,7 @@ func NewRecorder(engine *engine) (*recorder, error) {
 
 	// return recorder
 	return recorder, nil
-} 
+}
 
 func (recorder *recorder) stmt(tx *sql.Tx, input string) *sql.Stmt {
 	if stmt, found := recorder.stmts[input]; found {
@@ -147,17 +146,17 @@ func (recorder *recorder) stmt(tx *sql.Tx, input string) *sql.Stmt {
 }
 
 // queue new entries, this is the method connected
-// to the engine that will transfer as an async 
+// to the engine that will transfer as an async
 // entry point to the worker
 func (recorder *recorder) queue(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
 	// create message for sending to various endpoints
-	msg := &InfoRecord {
-		Address: address.String(),
-		Request: request,
-		Response: response,
-		Result: result,
+	msg := &InfoRecord{
+		Address:        address.String(),
+		Request:        request,
+		Response:       response,
+		Result:         result,
 		RequestContext: rCon,
-		Created: time.Now(),
+		Created:        time.Now(),
 	}
 
 	// put on channel if channel is available
@@ -256,7 +255,7 @@ func (recorder *recorder) condition(info *InfoRecord) {
 	}
 
 	// get reverse lookup name
-	info.ClientName = recorder.reverseLookup(info)	
+	info.ClientName = recorder.reverseLookup(info)
 }
 
 // the worker is intended as the goroutine that
@@ -265,7 +264,7 @@ func (recorder *recorder) condition(info *InfoRecord) {
 func (recorder *recorder) worker() {
 	// make timer that is only activated in some ways
 	var (
-		mdnsDuration time.Duration
+		mdnsDuration   time.Duration
 		mdnsQueryTimer *time.Timer
 	)
 
@@ -317,7 +316,7 @@ func (recorder *recorder) worker() {
 					recorder.doWithIsolatedTransaction(func(tx *sql.Tx) {
 						recorder.metrics.insert(tx, time.Now())
 					})
-				}			
+				}
 			}
 		case info := <-recorder.infoQueue:
 			// calculate and interpret new information
@@ -333,11 +332,11 @@ func (recorder *recorder) worker() {
 				recorder.qlog.log(info)
 			}
 
-			// record metrics 
+			// record metrics
 			if recorder.metrics != nil {
 				recorder.metrics.record(info)
 			}
-		case <- mdnsQueryTimer.C:
+		case <-mdnsQueryTimer.C:
 			// make query
 			MulticastMdnsQuery()
 
@@ -346,7 +345,7 @@ func (recorder *recorder) worker() {
 			if mdnsDuration > (15 * time.Minute) {
 				mdnsDuration = (15 * time.Minute)
 			}
-			mdnsQueryTimer.Reset(mdnsDuration)			
+			mdnsQueryTimer.Reset(mdnsDuration)
 		case <-flushTimer.C:
 			log.Tracef("Flush timer triggered")
 			recorder.flush()
@@ -391,7 +390,7 @@ func (recorder *recorder) doWithIsolatedTransaction(next func(tx *sql.Tx)) {
 	// do function
 	next(tx)
 
-	err = tx.Commit() 
+	err = tx.Commit()
 	if err != nil {
 		tx.Rollback()
 		log.Errorf("Flushing buffered entries: %s", err)

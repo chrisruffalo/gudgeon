@@ -37,7 +37,7 @@ func NewProvider(engine engine.Engine) Provider {
 }
 
 func defaultServer() *dns.Server {
-	return &dns.Server {
+	return &dns.Server{
 		ReadTimeout:  3 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
@@ -201,7 +201,7 @@ func (provider *provider) Shutdown() error {
 			// add newly started go function to wg
 			wg.Add(1)
 			// do a go shutdown function with wg for each server
-			go func () {
+			go func() {
 				server.ShutdownContext(context)
 				log.Infof("Shtudown server: %s", server.Addr)
 				wg.Done()

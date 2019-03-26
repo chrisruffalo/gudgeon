@@ -122,7 +122,6 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 		return nil, err
 	}
 
-
 	// configure resolvers
 	engine.resolvers = resolver.NewResolverMap(conf, conf.Resolvers)
 

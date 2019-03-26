@@ -49,8 +49,8 @@ type QueryLogQuery struct {
 
 // store database location
 type qlog struct {
-	qlConf      *config.GudgeonQueryLog
-	db         *sql.DB
+	qlConf *config.GudgeonQueryLog
+	db     *sql.DB
 
 	fileLogger *log.Logger
 	stdLogger  *log.Logger

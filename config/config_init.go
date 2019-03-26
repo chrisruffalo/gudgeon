@@ -72,7 +72,7 @@ func (config *GudgeonConfig) verifyAndInit() ([]string, []error) {
 	warnings = append(warnings, warn...)
 
 	if config.Database == nil {
-		config.Database = &GudgeonDatabase{ Flush: "1s" }
+		config.Database = &GudgeonDatabase{Flush: "1s"}
 	}
 	warn, err = config.Database.verifyAndInit()
 	errors = append(errors, err...)

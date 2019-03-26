@@ -14,7 +14,7 @@ For all of these reasons Gudgeon has been created to allow more flexibility in h
 ![Dashboard Screenshot](docs/screenshots/dashboard.png "Dashboard")
 
 ## Contents
-* [History](docks/HISTORY.md)
+* [History](docs/HISTORY.md)
 * [Acknowlegements](docs/ACK.md)
 * [Concept of Operations](docs/OPERATIONS.md)
 * [Configuration](docs/CONFIG.md)

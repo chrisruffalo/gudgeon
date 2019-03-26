@@ -70,7 +70,6 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 		store.tx = nil
 	}
 
-
 	if store.tx == nil {
 		var err error
 		store.tx, err = store.db.Begin()

@@ -55,9 +55,9 @@ func TestQueryLogQuery(t *testing.T) {
 	}
 
 	// create new recorder
-	rec := &recorder{ 
-		db: db,
-		qlog: qlog,
+	rec := &recorder{
+		db:    db,
+		qlog:  qlog,
 		stmts: make(map[string]*sql.Stmt),
 	}
 
