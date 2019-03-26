@@ -14,15 +14,14 @@ For all of these reasons Gudgeon has been created to allow more flexibility in h
 ![Dashboard Screenshot](docs/screenshots/dashboard.png "Dashboard")
 
 ## Contents
+* [History](docks/HISTORY.md)
 * [Acknowlegements](docs/ACK.md)
 * [Concept of Operations](docs/OPERATIONS.md)
 * [Configuration](docs/CONFIG.md)
 * [Feature Roadmap](docs/ROADMAP.md)
 * [Questions & Answers](docs/QA.md)
 * [What About...](docs/WHATABOUT.md)
-
-## History
-Gudgeon has been serving **all** of my home DNS traffic since 01/14/2019. Eating my own dogfood has been challenging and there've been a few issues where I've had to get to my laptop and start coding to restore service or bring pihole back online. The intervals between incidents have been steadily increasing. In early March 2019 there was an issue with the reverse lookup feature (specifically Netbios lookup) was causing everything to back up which was eventually fixed.
+* [Screenshots](docs/SCREENSHOTS.md)
 
 ## Features
 * Go Routines for non-blocking request handling enables high-througput especially with simultaneous requests

@@ -58,15 +58,6 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 }
 
 func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
-	if store.tx == nil {
-		var err error
-		store.tx, err = store.db.Begin()
-		if err != nil {
-			log.Errorf("Could not start transaction: %s", err)
-			return
-		}
-	}
-
 	if store.tx != nil && store.batch > txBatchSize {
 		err := store.tx.Commit()
 		if err != nil {
@@ -74,16 +65,14 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 			return
 		}
 
-		// close statment
-		if store.stmt != nil {
-			store.stmt.Close()
-			store.stmt = nil
-		}
-
 		// restart batch
 		store.batch = 0
+		store.tx = nil
+	}
 
-		// restart transaction
+
+	if store.tx == nil {
+		var err error
 		store.tx, err = store.db.Begin()
 		if err != nil {
 			log.Errorf("Could not start transaction: %s", err)
@@ -95,7 +84,7 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 	if store.stmt == nil {
 		var err error
 
-		stmt := "INSERT OR IGNORE INTO rules (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)"
+		stmt := "INSERT OR IGNORE INTO rules_initial (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)"
 		store.stmt, err = store.tx.Prepare(stmt)
 		if err != nil {
 			log.Errorf("Preparing rule storage statement: %s", err)
@@ -103,7 +92,7 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 		}
 	}
 
-	_, err := store.stmt.Exec(list.ShortName(), rule)
+	_, err := store.tx.Stmt(store.stmt).Exec(list.ShortName(), rule)
 	if err != nil {
 		store.tx.Rollback()
 		log.Errorf("Could not insert into rules store: %s", err)
@@ -130,6 +119,18 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 		}
 		// clean up after
 		store.tx = nil
+	}
+
+	// move rules
+	_, err := store.db.Exec("INSERT INTO rules (ListRowId, Rule) SELECT ListRowId, Rule FROM rules_initial")
+	if err != nil {
+		log.Errorf("Could not move rules into indexed table: %s", err)
+	}
+
+	// delete rules
+	_, err = store.db.Exec("DELETE FROM rules_initial WHERE true")
+	if err != nil {
+		log.Errorf("Could not remove unindexed rules: %s", err)
 	}
 
 	// close and re-open db

@@ -38,7 +38,7 @@ func NewProvider(engine engine.Engine) Provider {
 
 func defaultServer() *dns.Server {
 	return &dns.Server {
-		ReadTimeout:  2 * time.Second,
+		ReadTimeout:  3 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 }

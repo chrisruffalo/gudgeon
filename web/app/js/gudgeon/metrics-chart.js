@@ -338,7 +338,11 @@ export class GudgeonChart extends React.Component {
       chartSettings['axis']['y']['max'] = this.props.metrics[selected].domain.maxY;
     } else {
       if ( domainMaxY > 0 ) {
-       chartSettings['axis']['y']['max'] = Math.floor(domainMaxY * 1.25); 
+        var calcDomainMax = Math.floor(domainMaxY * 1.25);
+        if ( calcDomainMax < 10 ) {
+          calcDomainMax = 10;
+        }        
+        chartSettings['axis']['y']['max'] = calcDomainMax; 
       }
     }
 
@@ -360,12 +364,11 @@ export class GudgeonChart extends React.Component {
 
       // manually set domain max if needed
       if ( this.props.metrics[selected]['domain'] == null || this.props.metrics[selected]['domain']['maxY'] == null ) {
-        var calcDomainMax = domainMaxY * 1.25;
-        if ( calcDomainMax > 10 ) {
-          this.chart.axis.max({ y: calcDomainMax })
-        } else {
-          this.chart.axis.max({ y: 10 })
+        var calcDomainMax = Math.floor(domainMaxY * 1.25);
+        if ( calcDomainMax < 10 ) {
+          calcDomainMax = 10;
         }
+        this.chart.axis.max({ y: calcDomainMax })
       }
     }
   }
