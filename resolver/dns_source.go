@@ -16,7 +16,7 @@ import (
 
 const (
 	defaultPort    = uint(53)
-	defaultTlsPort = uint(853)
+	defaultTLSPort = uint(853)
 	portDelimeter  = ":"
 	protoDelimeter = "/"
 )
@@ -37,7 +37,7 @@ type dnsSource struct {
 	tlsConfig   *tls.Config
 }
 
-func newDnsSource(sourceAddress string) Source {
+func newDNSSource(sourceAddress string) Source {
 	source := new(dnsSource)
 	source.port = 0
 	source.dnsServer = ""
@@ -73,7 +73,7 @@ func newDnsSource(sourceAddress string) Source {
 	// recover from parse errors or use default port in event port wasn't set
 	if source.port == 0 {
 		if "tcp-tls" == source.protocol {
-			source.port = defaultTlsPort
+			source.port = defaultTLSPort
 		} else {
 			source.port = defaultPort
 		}
@@ -109,12 +109,12 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 		Timeout: defaultTimeout,
 	}
 	if coType == "tcp-tls" {
-		if conn, err := dialer.DialContext(context, "tcp", remoteAddress); err != nil {
+		conn, err := dialer.DialContext(context, "tcp", remoteAddress)
+		if err != nil {
 			return nil, err
-		} else {
-			co.Conn = tls.Client(conn, dnsSource.tlsConfig)
-			defer conn.Close()
 		}
+		co.Conn = tls.Client(conn, dnsSource.tlsConfig)
+		defer conn.Close()
 	} else {
 		if co.Conn, err = dialer.DialContext(context, coType, remoteAddress); err != nil {
 			return nil, err

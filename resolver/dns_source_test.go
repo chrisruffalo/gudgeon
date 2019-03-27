@@ -41,7 +41,7 @@ func TestDnsSourceResolution(t *testing.T) {
 		m.Question[0] = dns.Question{Name: d.domain, Qtype: dns.TypeA, Qclass: dns.ClassINET}
 
 		// create source
-		source := newDnsSource(d.serverAddress)
+		source := newDNSSource(d.serverAddress)
 
 		// use source to resolve
 		rCon := DefaultRequestContext()

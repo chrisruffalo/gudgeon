@@ -149,10 +149,10 @@ func (resolver *resolver) answer(rCon *RequestContext, context *ResolutionContex
 			}
 
 			return response, nil
-		} else {
-			emptyCounter++
 		}
 
+		// count empty sources
+		emptyCounter++
 	}
 
 	// log error because no sources managed to resolve in this resolver

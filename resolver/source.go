@@ -29,14 +29,14 @@ func NewSource(sourceSpecification string) Source {
 				log.Errorf("Loading zone file: %s", err)
 			}
 			return source
-		} else {
-			return newHostFileSource(sourceSpecification)
 		}
+
+		return newHostFileSource(sourceSpecification)
 	}
 
 	// a source that is an IP or that has other hallmarks of an address is a dns source
 	if ip := net.ParseIP(sourceSpecification); ip != nil || strings.Contains(sourceSpecification, ":") || strings.Contains(sourceSpecification, "/") {
-		return newDnsSource(sourceSpecification)
+		return newDNSSource(sourceSpecification)
 	}
 
 	// fall back to looking for a resolver source which will basically be a no-op resolver in the event

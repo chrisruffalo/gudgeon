@@ -190,11 +190,11 @@ func (metrics *GudgeonMetrics) verifyAndInit() ([]string, []error) {
 	}
 
 	if metrics.Persist == nil {
-		metrics.Persist = boolPointer(true)
+		metrics.Persist = metrics.Enabled
 	}
 
 	if metrics.Detailed == nil {
-		metrics.Detailed = boolPointer(true)
+		metrics.Detailed = metrics.Enabled
 	}
 
 	if "" == metrics.Duration {
@@ -230,23 +230,23 @@ func (ql *GudgeonQueryLog) verifyAndInit() ([]string, []error) {
 	}
 
 	if ql.Persist == nil {
-		ql.Persist = boolPointer(true)
+		ql.Persist = ql.Enabled
 	}
 
 	if ql.Stdout == nil {
-		ql.Stdout = boolPointer(true)
+		ql.Stdout = ql.Enabled
 	}
 
 	if ql.ReverseLookup == nil {
-		ql.ReverseLookup = boolPointer(true)
+		ql.ReverseLookup = ql.Enabled
 	}
 
 	if ql.MdnsLookup == nil {
-		ql.MdnsLookup = boolPointer(true)
+		ql.MdnsLookup = ql.Enabled
 	}
 
 	if ql.NetbiosLookup == nil {
-		ql.NetbiosLookup = boolPointer(true)
+		ql.NetbiosLookup = ql.Enabled
 	}
 
 	if "" == ql.Duration {

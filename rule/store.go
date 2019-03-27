@@ -104,7 +104,7 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 				// load the text into the store which will load it into the next delegate
 				// if it doesn't match the parameters of that store
 				store.Load(list, text)
-				listCounter += 1
+				listCounter++
 			}
 		}
 

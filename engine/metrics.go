@@ -318,20 +318,20 @@ func (metrics *metrics) query(qA queryAccumulator, start time.Time, end time.Tim
 	defer rows.Close()
 
 	var (
-		metricsJsonString string
+		metricsJSONString string
 	)
 
 	var me *MetricsEntry
 	for rows.Next() {
 		me = &MetricsEntry{}
 
-		err = rows.Scan(&me.AtTime, &me.FromTime, &metricsJsonString, &me.IntervalSeconds)
+		err = rows.Scan(&me.AtTime, &me.FromTime, &metricsJSONString, &me.IntervalSeconds)
 		if err != nil {
 			log.Errorf("Error scanning for metrics query: %s", err)
 			continue
 		}
 		// unmarshal string into values
-		json.Unmarshal([]byte(metricsJsonString), &me.Values)
+		json.Unmarshal([]byte(metricsJSONString), &me.Values)
 
 		// call accumulator function
 		qA(me)
@@ -374,27 +374,27 @@ func (metrics *metrics) load() {
 	}
 	defer rows.Close()
 
-	var metricsJsonString string
+	var metricsJSONString string
 	for rows.Next() {
-		err = rows.Scan(&metricsJsonString)
+		err = rows.Scan(&metricsJSONString)
 		if err != nil {
 			log.Errorf("Error scanning for metrics results: %s", err)
 			continue
 		}
-		if "" != metricsJsonString {
+		if "" != metricsJSONString {
 			break
 		}
 	}
 
 	// can't do anything with empty string, set, or object
-	metricsJsonString = strings.TrimSpace(metricsJsonString)
-	if "" == metricsJsonString || "{}" == metricsJsonString || "[]" == metricsJsonString {
+	metricsJSONString = strings.TrimSpace(metricsJSONString)
+	if "" == metricsJSONString || "{}" == metricsJSONString || "[]" == metricsJSONString {
 		return
 	}
 
 	// unmarshal object
 	var data map[string]*Metric
-	json.Unmarshal([]byte(metricsJsonString), &data)
+	json.Unmarshal([]byte(metricsJSONString), &data)
 
 	// load any metric that has "lifetime" in the key
 	// from the database so that we can manage rules

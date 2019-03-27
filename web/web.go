@@ -56,7 +56,7 @@ func (web *web) GetMetrics(c *gin.Context) {
 
 	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
 		keepMetrics := strings.Split(filterStrings, ",")
-		for k, _ := range metrics {
+		for k := range metrics {
 			if !util.StringIn(k, keepMetrics) {
 				delete(metrics, k)
 			}
@@ -163,7 +163,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 
 		// filter out metrics that are not in the "keep list"
 		if len(keepMetrics) > 0 {
-			for k, _ := range me.Values {
+			for k := range me.Values {
 				if !util.StringIn(k, keepMetrics) {
 					delete(me.Values, k)
 				}

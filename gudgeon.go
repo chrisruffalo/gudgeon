@@ -21,6 +21,7 @@ import (
 // default divider
 var divider = "==============================="
 
+// Gudgeon Core Gudgeon object for executing a Gudgeon process
 type Gudgeon struct {
 	config   *config.GudgeonConfig
 	engine   engine.Engine
@@ -28,6 +29,7 @@ type Gudgeon struct {
 	web      web.Web
 }
 
+// NewGudgeon Create a new Gudgeon instance from a given Gudgeon Config
 func NewGudgeon(config *config.GudgeonConfig) *Gudgeon {
 	return &Gudgeon{
 		config: config,

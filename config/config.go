@@ -227,29 +227,29 @@ type GudgeonConfig struct {
 	consumerMap map[string]*GudgeonConsumer
 }
 
-func (conf *GudgeonConfig) GetResolver(name string) *GudgeonResolver {
-	if value, found := conf.resolverMap[name]; found {
+func (config *GudgeonConfig) GetResolver(name string) *GudgeonResolver {
+	if value, found := config.resolverMap[name]; found {
 		return value
 	}
 	return nil
 }
 
-func (conf *GudgeonConfig) GetList(name string) *GudgeonList {
-	if value, found := conf.listMap[name]; found {
+func (config *GudgeonConfig) GetList(name string) *GudgeonList {
+	if value, found := config.listMap[name]; found {
 		return value
 	}
 	return nil
 }
 
-func (conf *GudgeonConfig) GetGroup(name string) *GudgeonGroup {
-	if value, found := conf.groupMap[name]; found {
+func (config *GudgeonConfig) GetGroup(name string) *GudgeonGroup {
+	if value, found := config.groupMap[name]; found {
 		return value
 	}
 	return nil
 }
 
-func (conf *GudgeonConfig) GetConsumer(name string) *GudgeonConsumer {
-	if value, found := conf.consumerMap[name]; found {
+func (config *GudgeonConfig) GetConsumer(name string) *GudgeonConsumer {
+	if value, found := config.consumerMap[name]; found {
 		return value
 	}
 	return nil

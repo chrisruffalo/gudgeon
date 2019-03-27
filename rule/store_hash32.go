@@ -43,7 +43,7 @@ func (store *hashStore32) Load(list *config.GudgeonList, rule string) {
 }
 
 func (store *hashStore32) Finalize(sessionRoot string, lists []*config.GudgeonList) {
-	for k, _ := range store.hashes {
+	for k := range store.hashes {
 		// sort
 		sort.Slice(store.hashes[k], func(i, j int) bool {
 			return store.hashes[k][i] < store.hashes[k][j]

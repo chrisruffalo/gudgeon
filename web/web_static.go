@@ -49,7 +49,13 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 			path = "/index.html"
 		}
 
-		if file, err := fs.Open(path); err != nil || file == nil {
+		// try and open the target file
+		file, err := fs.Open(path)
+
+		// if there was an error opening the file or if the file is nil
+		// then look for it as a template and if the template is found
+		// then process the template
+		if err != nil || file == nil {
 			// look for template file and serve it if it exists
 			tmpl, err := fs.Open(path + templateFileExtension)
 			if err != nil || tmpl == nil {
@@ -88,9 +94,10 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 				}
 			}
 			return
-		} else {
-			file.Close()
 		}
+
+		// done with file at this point
+		file.Close()
 
 		// remove etag headers (don't request caching)
 		for _, v := range etagHeaders {

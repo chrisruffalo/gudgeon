@@ -15,7 +15,7 @@ import (
 // key delimeter
 const (
 	delimeter                 = "|"
-	dnsMaxTtl                 = uint32(604800)
+	dnsMaxTTL                 = uint32(604800)
 	defaultCacheScrapeMinutes = 1
 )
 
@@ -63,7 +63,7 @@ func New() Cache {
 	return gocache
 }
 
-func minTtl(currentMin uint32, records []dns.RR) uint32 {
+func minTTL(currentMin uint32, records []dns.RR) uint32 {
 	for _, value := range records {
 		currentMin = min(currentMin, value.Header().Ttl)
 	}
@@ -109,11 +109,11 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 	}
 
 	// get ttl from parts and use lowest ttl as cache value
-	ttl := minTtl(dnsMaxTtl, response.Answer)
+	ttl := minTTL(dnsMaxTTL, response.Answer)
 	if len(response.Answer) < 1 {
-		ttl = minTtl(dnsMaxTtl, response.Ns)
+		ttl = minTTL(dnsMaxTTL, response.Ns)
 		if len(response.Ns) < 1 {
-			ttl = minTtl(dnsMaxTtl, response.Extra)
+			ttl = minTTL(dnsMaxTTL, response.Extra)
 		}
 	}
 

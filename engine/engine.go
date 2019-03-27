@@ -119,24 +119,24 @@ type Engine interface {
 	Shutdown()
 }
 
-func (engine *engine) getConsumerForIp(consumerIp *net.IP) *consumer {
+func (engine *engine) getConsumerForIP(consumerIP *net.IP) *consumer {
 	var foundConsumer *consumer
 
 	for _, activeConsumer := range engine.consumers {
 		for _, match := range activeConsumer.configConsumer.Matches {
 			// test ip match
 			if "" != match.IP {
-				matchIp := net.ParseIP(match.IP)
-				if matchIp != nil && bytes.Compare(matchIp.To16(), consumerIp.To16()) == 0 {
+				matchIP := net.ParseIP(match.IP)
+				if matchIP != nil && bytes.Compare(matchIP.To16(), consumerIP.To16()) == 0 {
 					foundConsumer = activeConsumer
 					break
 				}
 			}
 			// test range match
 			if foundConsumer == nil && match.Range != nil && "" != match.Range.Start && "" != match.Range.End {
-				startIp := net.ParseIP(match.Range.Start)
-				endIp := net.ParseIP(match.Range.End)
-				if startIp != nil && endIp != nil && bytes.Compare(consumerIp.To16(), startIp.To16()) >= 0 && bytes.Compare(consumerIp.To16(), endIp.To16()) <= 0 {
+				startIP := net.ParseIP(match.Range.Start)
+				endIP := net.ParseIP(match.Range.End)
+				if startIP != nil && endIP != nil && bytes.Compare(consumerIP.To16(), startIP.To16()) >= 0 && bytes.Compare(consumerIP.To16(), endIP.To16()) <= 0 {
 					foundConsumer = activeConsumer
 					break
 				}
@@ -144,7 +144,7 @@ func (engine *engine) getConsumerForIp(consumerIp *net.IP) *consumer {
 			// test net (subnet) match
 			if foundConsumer == nil && "" != match.Net {
 				_, parsedNet, err := net.ParseCIDR(match.Net)
-				if err == nil && parsedNet != nil && parsedNet.Contains(*consumerIp) {
+				if err == nil && parsedNet != nil && parsedNet.Contains(*consumerIP) {
 					foundConsumer = activeConsumer
 					break
 				}
@@ -166,8 +166,8 @@ func (engine *engine) getConsumerForIp(consumerIp *net.IP) *consumer {
 	return foundConsumer
 }
 
-func (engine *engine) getConsumerGroups(consumerIp *net.IP) []string {
-	consumer := engine.getConsumerForIp(consumerIp)
+func (engine *engine) getConsumerGroups(consumerIP *net.IP) []string {
+	consumer := engine.getConsumerForIP(consumerIP)
 	return engine.getGroups(consumer)
 }
 
@@ -181,8 +181,8 @@ func (engine *engine) getGroups(consumer *consumer) []string {
 	return []string{"default"}
 }
 
-func (engine *engine) getConsumerResolvers(consumerIp *net.IP) []string {
-	consumer := engine.getConsumerForIp(consumerIp)
+func (engine *engine) getConsumerResolvers(consumerIP *net.IP) []string {
+	consumer := engine.getConsumerForIP(consumerIP)
 	return engine.getResolvers(consumer)
 }
 
@@ -197,9 +197,9 @@ func (engine *engine) getResolvers(consumer *consumer) []string {
 }
 
 // return if the domain matches any rule
-func (engine *engine) IsDomainRuleMatched(consumerIp *net.IP, domain string) (rule.Match, *config.GudgeonList, string) {
+func (engine *engine) IsDomainRuleMatched(consumerIP *net.IP, domain string) (rule.Match, *config.GudgeonList, string) {
 	// get consumer
-	consumer := engine.getConsumerForIp(consumerIp)
+	consumer := engine.getConsumerForIP(consumerIP)
 	return engine.domainRuleMatchedForConsumer(consumer, domain)
 }
 
@@ -262,7 +262,7 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 	rCon.Protocol = protocol
 
 	// get consumer and use it to set initial/noreply result
-	consumer := engine.getConsumerForIp(address)
+	consumer := engine.getConsumerForIP(address)
 	result := &resolver.ResolutionResult{
 		Consumer: consumer.configConsumer.Name,
 	}
