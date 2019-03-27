@@ -26,7 +26,7 @@ func LookupNetBIOSName(address string) (string, error) {
 	}
 
 	m := &dns.Msg{}
-	m.SetQuestion("CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.", dns.TypeSRV)
+	m.SetQuestion("CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.", 33)
 
 	// forcibly set the flags to 0, for some reaon I couldn't figure a way
 	// to do this in the dns library and this seems to be the best other shot
@@ -44,7 +44,7 @@ func LookupNetBIOSName(address string) (string, error) {
 		Timeout: 2 * time.Second,
 	}
 
-	conn, err := dialer.DialContext(context, "tcp", ip.String()+":137")
+	conn, err := dialer.DialContext(context, "udp", ip.String()+":137")
 	if err != nil {
 		return "", fmt.Errorf("Dialing: %s", err)
 	}

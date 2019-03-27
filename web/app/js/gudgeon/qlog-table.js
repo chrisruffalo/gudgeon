@@ -48,7 +48,7 @@ export class QueryLog extends React.Component {
           var responseText = rowData.ResponseText
           var responseCode = rowData.Rcode
           if ( responseText == null || responseText == "" || responseText.length < 0) {
-            if (responseCode != null && "" != responseCode ) {
+            if (responseCode != null && "" != responseCode && "NOERROR" != responseCode ) {
               responseText = responseCode
             } else {
               responseText = "( EMPTY )"
