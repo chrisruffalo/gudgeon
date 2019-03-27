@@ -324,14 +324,53 @@ export class GudgeonChart extends React.Component {
                 },
                 format: '%I:%M%p %m/%d/%y'
               }
+          },
+          y2: {
+            show: false,
+            min: 0,
+            padding: { 
+              top: 0,
+              bottom: 10
+            },             
+            tick: {
+              outer: false,
+              format: this.wrapAxisFormatter(null),
+              count: 3,
+              culling: {
+                max: 3
+              }
+            }
           }
       },
       tooltip: { 
         format: { 
-          value: this.props.metrics[selected].formatter
+          // real bad hack for y2 values to not use the same formatter
+          value: (value, ratio, id) => {
+            var key;
+            for ( key in this.props.metrics[selected].series ) {
+              if ( id == this.props.metrics[selected].series[key].name && this.props.metrics[selected].series[key].axis == "y2" ) {
+                return value
+              }
+            }
+            return this.props.metrics[selected].formatter(value)
+          }
         } 
-      }      
+      }     
     };
+
+    // determine axes
+    var axes = {};
+    var key;
+    for ( key in this.props.metrics[selected].series ) {
+      var yaxis = this.props.metrics[selected].series[key].axis;
+      if ( yaxis != "y2" ) {
+        yaxis = "y";
+      } else {
+        chartSettings['axis']['y2']['show'] = true; 
+      }
+      axes[this.props.metrics[selected].series[key].name] = yaxis;
+    }
+    chartSettings['data']['axes'] = axes;
 
     // set colors from color map
     chartSettings['data']['colors'] = [];
@@ -355,6 +394,8 @@ export class GudgeonChart extends React.Component {
     if ( this.props.metrics[selected].ticks ) {
       chartSettings['axis']['y']['tick']['values'] = this.props.metrics[selected].ticks;
     }
+
+    console.dir(chartSettings);
 
     // generate the chart (bound to that div)
     return c3.generate(chartSettings);

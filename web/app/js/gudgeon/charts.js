@@ -39,7 +39,8 @@ export class GudgeonCharts extends React.Component {
       formatter: HumanBytes,
       series: {
         heap: { name: "Allocated Heap", key: "gudgeon-allocated-bytes" }, 
-        rss: { name: "Resident Memory", key: "gudgeon-process-used-bytes" } 
+        rss: { name: "Resident Memory", key: "gudgeon-process-used-bytes" },
+        cache: { name: "Cache Entries", key: "gudgeon-cache-entries", axis: "y2" }
       }
     }
   }

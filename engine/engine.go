@@ -20,6 +20,7 @@ import (
 // incomplete list of not-implemented queries
 var notImplemented = map[uint16]bool{
 	dns.TypeNone: true,
+	dns.TypeNULL: true,
 	dns.TypeIXFR: true,
 	dns.TypeAXFR: true,
 }
@@ -274,6 +275,14 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 		return response, rCon, result
 	}
 
+	// drop questions for domain names that could be malicious
+	if len(request.Question[0].Name) < 1 || len(request.Question[0].Name) > 255 {
+		response = new(dns.Msg)
+		response.SetReply(request)
+		response.Rcode = dns.RcodeBadName
+		return response, rCon, result
+	}
+
 	// drop questions that aren't implemented
 	qType := request.Question[0].Qtype
 	if _, found := notImplemented[qType]; found {
@@ -286,9 +295,12 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 	// get domain name
 	domain := request.Question[0].Name
 
-	// get block status and just move on if the consumer itself is blocked
+	// get block status and refuse the request
 	if consumer.configConsumer.Block {
 		result.Blocked = true
+		response = new(dns.Msg)
+		response.Rcode = dns.RcodeRefused
+		response.SetReply(request)
 	} else {
 		match, list, ruleText := engine.domainRuleMatchedForConsumer(consumer, domain)
 		if match != rule.MatchNone {
@@ -335,12 +347,13 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 		result.Message = fmt.Sprintf("%v", recovery)
 	}
 
+	// new result
 	if result == nil {
 		result = &resolver.ResolutionResult{}
 	}
 
 	// update/set
-	if result != nil && consumer != nil && consumer.configConsumer != nil {
+	if consumer != nil && consumer.configConsumer != nil {
 		result.Consumer = consumer.configConsumer.Name
 	}
 

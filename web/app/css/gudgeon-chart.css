@@ -14,3 +14,8 @@
 .c3-axis-y .domain {
     display: none;
 }
+
+/* remove y2 axis line */
+.c3-axis-y2 .domain {
+    display: none;
+}
