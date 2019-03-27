@@ -331,6 +331,11 @@ func (web *web) GetTestComponents(c *gin.Context) {
 }
 
 func (web *web) GetTop(c *gin.Context) {
+	if web.metrics == nil || !(*web.conf.Metrics.Detailed) {
+		c.String(http.StatusNotFound, "Detailed Metrics not enabled)")
+		return
+	}
+
 	var results []*engine.TopInfo
 
 	limit := 5

@@ -94,21 +94,25 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 	os.MkdirAll(engine.Root(), os.ModePerm)
 
 	// configure db if required
-	if (*conf.Metrics.Enabled && *conf.Metrics.Persist) || (*conf.QueryLog.Enabled && *conf.QueryLog.Persist) {
-		var err error
-		engine.db, err = createEngineDB(conf)
-		if err != nil {
-			return nil, err
+	if *conf.Metrics.Enabled || *conf.QueryLog.Enabled {
+
+		//  if persistance functions are enabled, create db
+		if (*conf.Metrics.Enabled && *conf.Metrics.Persist) || (*conf.QueryLog.Enabled && *conf.QueryLog.Persist) {
+			var err error
+			engine.db, err = createEngineDB(conf)
+			if err != nil {
+				return nil, err
+			}
 		}
 
-		// build metrics instance from db
-		if *conf.Metrics.Enabled && *conf.Metrics.Persist {
+		// build metrics instance (with db if not null)
+		if *conf.Metrics.Enabled {
 			engine.metrics = NewMetrics(conf, engine.db)
 			engine.metrics.UseCacheSizeFunction(engine.CacheSize)
 		}
 
-		// build qlog instance from db
-		if *conf.QueryLog.Enabled && *conf.QueryLog.Persist {
+		// build qlog instance (with db if not null)
+		if *conf.QueryLog.Enabled {
 			engine.qlog, err = NewQueryLog(conf, engine.db)
 			if err != nil {
 				return nil, err

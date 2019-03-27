@@ -18,7 +18,7 @@ func (metrics *metrics) flush(tx *sql.Tx) {
 	stmts := []string{
 		"INSERT INTO list_metrics (Name, ShortName, Hits) SELECT MatchList, MatchListShort, 1 FROM buffer WHERE MatchListShort != '' ON CONFLICT(ShortName) DO UPDATE SET Hits = Hits + 1",
 		"INSERT INTO rule_metrics (ListId, Rule, Hits) SELECT l.Id, b.MatchRule, 1 FROM buffer b JOIN list_metrics l ON b.MatchListShort = l.ShortName WHERE b.MatchRule != '' ON CONFLICT (ListId, Rule) DO UPDATE SET Hits = Hits + 1",
-		"INSERT INTO client_metrics (Address, Count) SELECT Address, 1 FROM buffer WHERE true ON CONFLICT (Address) DO UPDATE SET Count = Count + 1",
+		"INSERT INTO client_metrics (Address, ClientName, Count) SELECT b.Address, b.ClientName, 1 FROM buffer b WHERE true ON CONFLICT (Address) DO UPDATE SET Count = Count + 1, ClientName = (SELECT ClientName FROM buffer b WHERE b.Address = Address ORDER BY length(ClientName) LIMIT 1)",
 		"INSERT INTO domain_metrics (DomainName, Count) SELECT RequestDomain, 1 FROM buffer WHERE true ON CONFLICT (DomainName) DO UPDATE SET Count = Count + 1",
 		"INSERT INTO query_metrics (QueryType, Count) SELECT RequestType, 1 FROM buffer WHERE true ON CONFLICT (QueryType) DO UPDATE SET Count = Count + 1",
 	}
@@ -70,7 +70,7 @@ func (metrics *metrics) top(stmt string, limit int) []*TopInfo {
 }
 
 func (metrics *metrics) TopClients(limit int) []*TopInfo {
-	return metrics.top("SELECT Address, Count FROM client_metrics ORDER BY Count DESC", limit)
+	return metrics.top("SELECT CASE WHEN ClientName = '' THEN Address ELSE ClientName END AS Name, Count FROM client_metrics ORDER BY Count DESC", limit)
 }
 
 func (metrics *metrics) TopDomains(limit int) []*TopInfo {

@@ -42,6 +42,12 @@ CREATE TABLE qlog (
     StartTime      DATETIME,
     EndTime        DATETIME
 );
+-- create qlog index columns
+CREATE INDEX idx_qlog_Address ON qlog (Address);
+CREATE INDEX idx_qlog_RequestDomain ON qlog (RequestDomain);
+CREATE INDEX idx_qlog_Match ON qlog (Match);
+CREATE INDEX idx_qlog_Created ON qlog (Created);
+CREATE INDEX idx_qlog_Cached ON qlog (Cached);
 
 -- table for storing periodically collected metrics values
 CREATE TABLE metrics (
@@ -51,15 +57,8 @@ CREATE TABLE metrics (
     IntervalSeconds  INT
 );
 -- indexes for table
-CREATE INDEX metrics_FromTime_Index ON metrics (FromTime);
-CREATE INDEX metrics_AtTime_Index ON metrics (AtTime);
-
--- create qlog index columns
-CREATE INDEX idx_qlog_Address ON qlog (Address);
-CREATE INDEX idx_qlog_RequestDomain ON qlog (RequestDomain);
-CREATE INDEX idx_qlog_Match ON qlog (Match);
-CREATE INDEX idx_qlog_Created ON qlog (Created);
-CREATE INDEX idx_qlog_Cached ON qlog (Cached);
+CREATE INDEX idx_metrics_FromTime ON metrics (FromTime);
+CREATE INDEX idx_metrics_AtTime ON metrics (AtTime);
 
 -- create new table for storing client metrics
 CREATE TABLE client_metrics (

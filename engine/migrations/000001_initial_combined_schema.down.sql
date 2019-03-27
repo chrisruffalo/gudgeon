@@ -1,5 +1,6 @@
 DROP TABLE buffer;
 DROP TABLE qlog;
+DROP TABLE metrics;
 DROP TABLE client_metrics;
 DROP TABLE domain_metrics;
 DROP TABLE query_metrics;

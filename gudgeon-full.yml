@@ -74,6 +74,10 @@ gudgeon:
   # resolvers specify what dns sources to use. the default resolver
   # is used for groups with no resolvers. 
   - name: default # a name to identify the resolver group
+    hosts: # you can specify host entries inline
+    - 172.0.0.1 gudgeon.io          # normal host entry
+    - gudgeon.io apps.gudgeon.io    # host alias/cname entry (apps.gudgeon.io is aliased to gudgeon.io)
+    - 172.0.0.2 *.apps.gudgeon.io   # wildcard entry
     sources: # a list of sources to use to get IP information
              # these can be:
              # The IP of an upstream server

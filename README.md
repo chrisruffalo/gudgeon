@@ -82,7 +82,7 @@ With the prerequisites installed you can build Gudgeon by...
 * Prepare NPM environment with `[]$ make npm`
 * Downloading vendor assets (react, etc) with `[]$ make webpack` 
   * This needs to be done each time web assets change
-  * You can use hot reloading in dev mode with: `[]$ node_modules/.bin/webpack-cli --config webpack.config.js --watch`
+  * You can use hot reloading in dev mode with: `[]$ npm run build:dev` and using `go run gudgeon.go` 
 * Building the binary for your target platform with `[]$ make build`
 
 The `download` target is used to download new dependencies when needed. The `prepare` target is only needed if the required Go tools change. The output of the process is a statically compiled for a few different platforms. The binary is statically compiled to make it easily portable to platforms and other systems that do not have libc, recent Golang compilers, or other required libraries.

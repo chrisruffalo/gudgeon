@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"database/sql"
 	"testing"
 	"time"
 
@@ -56,9 +55,8 @@ func TestQueryLogQuery(t *testing.T) {
 
 	// create new recorder
 	rec := &recorder{
-		db:    db,
-		qlog:  qlog,
-		stmts: make(map[string]*sql.Stmt),
+		db:   db,
+		qlog: qlog,
 	}
 
 	// log 1000 entries

@@ -15,17 +15,13 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
-// how many rules to take in before committing the transaction
-const txBatchSize = 75000
-
 // the static names of the rules database
 const sqlDbName = "rules.db"
 
 type sqlStore struct {
-	stmt  *sql.Stmt
-	db    *sql.DB
-	tx    *sql.Tx
-	batch int
+	db *sql.DB
+
+	tx *sql.Tx
 }
 
 func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
@@ -58,18 +54,6 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 }
 
 func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
-	if store.tx != nil && store.batch > txBatchSize {
-		err := store.tx.Commit()
-		if err != nil {
-			log.Errorf("Commiting rules to rules DB: %s", err)
-			return
-		}
-
-		// restart batch
-		store.batch = 0
-		store.tx = nil
-	}
-
 	if store.tx == nil {
 		var err error
 		store.tx, err = store.db.Begin()
@@ -79,57 +63,48 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 		}
 	}
 
-	// only prepare the statement when it is nil (after batch insert)
-	if store.stmt == nil {
-		var err error
-
-		stmt := "INSERT OR IGNORE INTO rules_initial (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)"
-		store.stmt, err = store.tx.Prepare(stmt)
-		if err != nil {
-			log.Errorf("Preparing rule storage statement: %s", err)
-			return
-		}
-	}
-
-	_, err := store.tx.Stmt(store.stmt).Exec(list.ShortName(), rule)
+	_, err := store.tx.Exec("INSERT OR IGNORE INTO rules_initial (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)", list.ShortName(), rule)
 	if err != nil {
 		store.tx.Rollback()
 		log.Errorf("Could not insert into rules store: %s", err)
 		store.tx = nil
-		store.stmt = nil
 	}
-
-	// increase batch size
-	store.batch++
 }
 
 func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList) {
-	// clean up statement
-	if store.stmt != nil {
-		store.stmt.Close()
-		store.stmt = nil
-	}
-
 	// close transaction if it exists
 	if store.tx != nil {
 		err := store.tx.Commit()
 		if err != nil {
+			store.tx.Rollback()
 			log.Errorf("Commiting rules to rules DB: %s", err)
 		}
+		log.Tracef("Closing initial transaction...")
 		// clean up after
 		store.tx = nil
 	}
 
-	// move rules
-	_, err := store.db.Exec("INSERT INTO rules (ListRowId, Rule) SELECT ListRowId, Rule FROM rules_initial")
+	tx, err := store.db.Begin()
 	if err != nil {
-		log.Errorf("Could not move rules into indexed table: %s", err)
-	}
+		log.Errorf("Could not start finalization transaction: %s", err)
+	} else {
+		// move rules
+		_, err := tx.Exec("INSERT INTO rules (ListRowId, Rule) SELECT ListRowId, Rule FROM rules_initial")
+		if err != nil {
+			log.Errorf("Could not move rules into indexed table: %s", err)
+		}
 
-	// delete rules
-	_, err = store.db.Exec("DELETE FROM rules_initial WHERE true")
-	if err != nil {
-		log.Errorf("Could not remove unindexed rules: %s", err)
+		// delete rules
+		_, err = tx.Exec("DELETE FROM rules_initial WHERE true")
+		if err != nil {
+			log.Errorf("Could not remove unindexed rules: %s", err)
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			tx.Rollback()
+			log.Errorf("Could not commit moved rules: %s", err)
+		}
 	}
 
 	// close and re-open db

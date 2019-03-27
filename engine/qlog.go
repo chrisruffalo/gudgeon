@@ -127,7 +127,7 @@ func (qlog *qlog) prune(tx *sql.Tx) {
 }
 
 func (qlog *qlog) flush(tx *sql.Tx) {
-	_, err := tx.Exec("INSERT INTO qlog (Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Cached, Blocked, Match, MatchList, MatchRule, Created) SELECT Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Cached, Blocked, Match, MatchList, MatchRule, Created FROM buffer WHERE true")
+	_, err := tx.Exec("INSERT INTO qlog (Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Rcode, Cached, Blocked, Match, MatchList, MatchRule, Created) SELECT Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Rcode, Cached, Blocked, Match, MatchList, MatchRule, Created FROM buffer WHERE true")
 	if err != nil {
 		log.Errorf("Could not flush query log data: %s", err)
 		return
@@ -179,9 +179,21 @@ func (qlog *qlog) log(info *InfoRecord) {
 		fields["requestDomain"] = info.RequestDomain
 		fields["requestType"] = info.RequestType
 		fields["cached"] = false
+		fields["rcode"] = info.Rcode
 	}
 
-	if result != nil {
+	if response.Rcode == dns.RcodeServerFailure {
+		// write as error and return
+		if qlog.fileLogger != nil {
+			qlog.fileLogger.WithFields(fields).Error(fmt.Sprintf("SERVFAIL:[%s]", result.Message))
+		}
+		if qlog.stdLogger != nil {
+			builder.WriteString(fmt.Sprintf("SERVFAIL:[%s]", result.Message))
+			qlog.stdLogger.Error(builder.String())
+		}
+
+		return
+	} else if result != nil && response.Rcode != dns.RcodeNameError {
 		if result.Blocked {
 			builder.WriteString("BLOCKED")
 		} else if result.Match == rule.MatchBlock {
@@ -259,17 +271,6 @@ func (qlog *qlog) log(info *InfoRecord) {
 				}
 			}
 		}
-	} else if response.Rcode == dns.RcodeServerFailure {
-		// write as error and return
-		if qlog.fileLogger != nil {
-			qlog.fileLogger.WithFields(fields).Error(fmt.Sprintf("SERVFAIL:[%s]", result.Message))
-		}
-		if qlog.stdLogger != nil {
-			builder.WriteString(fmt.Sprintf("SERVFAIL:[%s]", result.Message))
-			qlog.stdLogger.Error(builder.String())
-		}
-
-		return
 	} else {
 		builder.WriteString(fmt.Sprintf("RESPONSE[%s]", dns.RcodeToString[response.Rcode]))
 	}
@@ -289,7 +290,7 @@ func (qlog *qlog) Query(query *QueryLogQuery) ([]*InfoRecord, uint64) {
 	}
 
 	// select entries from qlog
-	selectStmt := "SELECT Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, Match, MatchList, MatchRule, Cached, Created FROM qlog"
+	selectStmt := "SELECT Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Rcode, Blocked, Match, MatchList, MatchRule, Cached, Created FROM qlog"
 	countStmt := "SELECT COUNT(*) FROM qlog"
 
 	// so we can dynamically build the where clause
@@ -427,7 +428,7 @@ func (qlog *qlog) Query(query *QueryLogQuery) ([]*InfoRecord, uint64) {
 	var info *InfoRecord
 	for rows.Next() {
 		info = &InfoRecord{}
-		err = rows.Scan(&info.Address, &info.ClientName, &info.Consumer, &info.RequestDomain, &info.RequestType, &info.ResponseText, &info.Blocked, &info.Match, &info.MatchList, &info.MatchRule, &info.Cached, &info.Created)
+		err = rows.Scan(&info.Address, &info.ClientName, &info.Consumer, &info.RequestDomain, &info.RequestType, &info.ResponseText, &info.Rcode, &info.Blocked, &info.Match, &info.MatchList, &info.MatchRule, &info.Cached, &info.Created)
 		if err != nil {
 			log.Errorf("Scanning qlog results: %s", err)
 			continue

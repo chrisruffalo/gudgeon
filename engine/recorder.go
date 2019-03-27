@@ -23,7 +23,7 @@ const (
 	recordQueueSize = 100000
 
 	// single instance of insert statement used for inserting into the "buffer"
-	bufferInsertStatement = "INSERT INTO buffer (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Blocked, Match, MatchList, MatchListShort, MatchRule, Cached, Created) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	bufferInsertStatement = "INSERT INTO buffer (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Rcode, Blocked, Match, MatchList, MatchListShort, MatchRule, Cached, Created) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
 // coordinates all recording functions/features
@@ -73,6 +73,7 @@ type InfoRecord struct {
 	RequestDomain  string
 	RequestType    string
 	ResponseText   string
+	Rcode          string
 
 	// hard consumer blocked
 	Blocked bool
@@ -97,7 +98,6 @@ func NewRecorder(engine *engine) (*recorder, error) {
 	recorder := &recorder{
 		engine:    engine,
 		db:        engine.db,
-		stmts:     make(map[string]*sql.Stmt),
 		conf:      engine.config,
 		qlog:      engine.qlog,
 		metrics:   engine.metrics,
@@ -123,26 +123,13 @@ func NewRecorder(engine *engine) (*recorder, error) {
 		// flush and prune
 		recorder.flush()
 		recorder.prune()
-
-		// start worker
-		go recorder.worker()
 	}
+
+	// start worker
+	go recorder.worker()
 
 	// return recorder
 	return recorder, nil
-}
-
-func (recorder *recorder) stmt(tx *sql.Tx, input string) *sql.Stmt {
-	if stmt, found := recorder.stmts[input]; found {
-		return stmt
-	}
-	stmt, err := tx.Prepare(input)
-	if err != nil {
-		log.Errorf("Could not prepare statement: %s", err)
-		return nil
-	}
-	recorder.stmts[input] = stmt
-	return stmt
 }
 
 // queue new entries, this is the method connected
@@ -215,6 +202,8 @@ func (recorder *recorder) reverseLookup(info *InfoRecord) string {
 	return name
 }
 
+// takes the inner (request, resposne, context, result) information
+// and moves it to relevant top-level InfoRecord information
 func (recorder *recorder) condition(info *InfoRecord) {
 	// condition the info item
 	if info.Request != nil && len(info.Request.Question) > 0 {
@@ -227,6 +216,8 @@ func (recorder *recorder) condition(info *InfoRecord) {
 		if len(answerValues) > 0 {
 			info.ResponseText = answerValues[0]
 		}
+
+		info.Rcode = dns.RcodeToString[info.Response.Rcode]
 	}
 
 	if info.Result != nil {
@@ -319,11 +310,11 @@ func (recorder *recorder) worker() {
 				}
 			}
 		case info := <-recorder.infoQueue:
-			// calculate and interpret new information
+			// ensure record has information required
 			recorder.condition(info)
 
 			// buffer into database
-			if nil != recorder.engine.db {
+			if nil != recorder.db {
 				recorder.buffer(info)
 			}
 
@@ -332,7 +323,7 @@ func (recorder *recorder) worker() {
 				recorder.qlog.log(info)
 			}
 
-			// record metrics
+			// record metrics for single entry
 			if recorder.metrics != nil {
 				recorder.metrics.record(info)
 			}
@@ -416,11 +407,8 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 		}
 	}
 
-	// create/get statement if needed
-	stmt := recorder.stmt(recorder.tx, bufferInsertStatement)
-
 	// insert into buffer table
-	_, err = recorder.tx.Stmt(stmt).Exec(info.Address, info.ClientName, info.Consumer, info.RequestDomain, info.RequestType, info.ResponseText, info.Blocked, info.Match, info.MatchList, info.MatchListShort, info.MatchRule, info.Cached, info.Created)
+	_, err = recorder.tx.Exec(bufferInsertStatement, info.Address, info.ClientName, info.Consumer, info.RequestDomain, info.RequestType, info.ResponseText, info.Rcode, info.Blocked, info.Match, info.MatchList, info.MatchListShort, info.MatchRule, info.Cached, info.Created)
 	if err != nil {
 		log.Errorf("Insert into buffer: %s", err)
 	}
@@ -433,6 +421,10 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 // - delete all buffered entries
 // - end transaction
 func (recorder *recorder) flush() {
+	if recorder.db == nil {
+		return
+	}
+
 	recorder.doWithIsolatedTransaction(func(tx *sql.Tx) {
 		if nil != recorder.qlog {
 			recorder.qlog.flush(tx)
@@ -456,6 +448,10 @@ func (recorder *recorder) flush() {
 // - run all subordinate prune functions
 // - end transaction
 func (recorder *recorder) prune() {
+	if recorder.db == nil {
+		return
+	}
+
 	recorder.doWithIsolatedTransaction(func(tx *sql.Tx) {
 		if nil != recorder.qlog {
 			recorder.qlog.prune(tx)
@@ -481,8 +477,10 @@ func (recorder *recorder) shutdown() {
 	close(recorder.doneChan)
 
 	// prune and flush records
-	recorder.flush()
-	recorder.prune()
+	if recorder.db != nil {
+		recorder.flush()
+		recorder.prune()
+	}
 
 	// stop/shutdown query log
 	if nil != recorder.qlog {

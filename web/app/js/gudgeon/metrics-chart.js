@@ -232,6 +232,10 @@ export class GudgeonChart extends React.Component {
 
   componentDidMount() {
     this.updateData();
+
+    setTimeout(() => {
+      window.addEventListener('resize', this.handleResize);
+    });
   }
 
   componentWillUnmount() {
@@ -239,6 +243,8 @@ export class GudgeonChart extends React.Component {
     if ( timer != null ) {
       clearTimeout(timer)
     }
+
+    window.removeEventListener('resize', this.handleResize);
 
     if ( this.chart != null ) {
       this.chart.destroy();

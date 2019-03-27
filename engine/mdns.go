@@ -162,7 +162,7 @@ func CacheMulticastMessages(cache *gocache.Cache, msgChan chan *dns.Msg) {
 			// add current values into parsed value
 			for key, cval := range cmap {
 				if pval, inParsed := parsed[key]; inParsed {
-					if "" != cval && len(cval) < len(pval) {
+					if "" != cval && "0" != cval && len(cval) < len(pval) {
 						parsed[key] = cval
 					}
 				} else {

@@ -335,6 +335,10 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 		result.Message = fmt.Sprintf("%v", recovery)
 	}
 
+	if result == nil {
+		result = &resolver.ResolutionResult{}
+	}
+
 	// update/set
 	if result != nil && consumer != nil && consumer.configConsumer != nil {
 		result.Consumer = consumer.configConsumer.Name
