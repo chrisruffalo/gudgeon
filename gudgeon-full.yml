@@ -28,7 +28,7 @@ gudgeon:
 
   # global values
   global:
-    maxTtl: 86400 # one day
+    maxTtl: 86400 # allow a max ttl of one day
     minTtl: 0     # allow immediate expiration ttls
     blockResponse: NXDOMAIN # response when a domain is blocked (found in a block list)
                             # can be NXDOMAIN, ENDPOINT, or a specific IP.
@@ -81,7 +81,7 @@ gudgeon:
     sources: # a list of sources to use to get IP information
              # these can be:
              # The IP of an upstream server
-             # A path to a file (like a hosts file)
+             # A path to a file (a hosts file or a zone file)
              # The name of another DNS group
     - local
     - internal    

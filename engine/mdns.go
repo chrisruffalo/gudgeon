@@ -154,17 +154,24 @@ func CacheMulticastMessages(cache *gocache.Cache, msgChan chan *dns.Msg) {
 				continue
 			}
 
+			// we are only caching this type of value in this cache but
+			// make sure it is the right type before continuing
 			cmap, okConvert := current.(map[string]string)
 			if !okConvert {
 				continue
 			}
 
-			// add current values into parsed value
 			for key, cval := range cmap {
-				if pval, inParsed := parsed[key]; inParsed {
-					if "" != cval && "0" != cval && len(cval) < len(pval) {
-						parsed[key] = cval
-					}
+				cval = strings.TrimSpace(cval)
+
+				// skip current value if they are empty or just "0"
+				if cval == "" || cval == "0" {
+					continue
+				}
+
+				// if the newly parsed information is shorter, add it
+				if pval, inParsed := parsed[key]; inParsed && len(cval) < len(pval) {
+					parsed[key] = cval
 				} else {
 					parsed[key] = cval
 				}
@@ -175,7 +182,7 @@ func CacheMulticastMessages(cache *gocache.Cache, msgChan chan *dns.Msg) {
 			continue
 		}
 
-		// now that we've collected allllll of the data, store it
+		// now that we've collected allllll of the data, cache it
 		for _, addr := range addresses {
 			if "" == addr {
 				continue
@@ -197,10 +204,10 @@ func ReadCachedHostname(cache *gocache.Cache, address string) string {
 		return ""
 	}
 
-	// go through the priority-ordered list of posible hostnames and
-	// load the highest priority key
+	// go through the priority-ordered list of possible hostnames and
+	// load the first found (highest priority) key
 	for _, key := range hostnameReadPriority {
-		if value, found := cmap[key]; found && "" != value {
+		if value, found := cmap[key]; found && "" != value && "0" != value {
 			return value
 		}
 	}

@@ -59,10 +59,10 @@ export class MetricsTopList extends React.Component {
   render() {
     // build data list items from data
     var { data } = this.state
-    const ListItems = data.map((item) => {
+    const ListItems = data.map((item, index) => {
       return (
-          <DataListItem key={ item.Desc } aria-labelledby={ "label-" + item.Desc }>
-            <DataListCell className={css(gudgeonStyles.smallCell)} width={2}><span className={css(gudgeonStyles.leftCard)} id={ "label-" + item.Desc }>{ item.Desc }</span></DataListCell>
+          <DataListItem key={ item.Desc } aria-labelledby={ "label-" + index }>
+            <DataListCell className={css(gudgeonStyles.smallCell)} width={2}><span className={css(gudgeonStyles.leftCard)} id={ "label-" + index }>{ item.Desc }</span></DataListCell>
             <DataListCell className={css(gudgeonStyles.smallCell)} width={1}><div className={css(gudgeonStyles.rightCard)} >{ LocaleNumber(item.Count) }</div></DataListCell>
           </DataListItem>        
       );

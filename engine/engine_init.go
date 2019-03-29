@@ -96,7 +96,7 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 	// configure db if required
 	if *conf.Metrics.Enabled || *conf.QueryLog.Enabled {
 
-		//  if persistance functions are enabled, create db
+		//  if persistence functions are enabled, create db
 		if (*conf.Metrics.Enabled && *conf.Metrics.Persist) || (*conf.QueryLog.Enabled && *conf.QueryLog.Persist) {
 			var err error
 			engine.db, err = createEngineDB(conf)
@@ -137,6 +137,7 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 
 	// use length of working groups to make list of active groups
 	groups := make([]*group, len(workingGroups))
+	groupMap := make(map[string]*group)
 
 	// process groups
 	for idx, configGroup := range workingGroups {
@@ -154,6 +155,11 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 		// set default group on engine if found
 		if "default" == configGroup.Name {
 			engine.defaultGroup = engineGroup
+		}
+
+		// save group to group map for later reference
+		if "" != configGroup.Name {
+			groupMap[configGroup.Name] = engineGroup
 		}
 	}
 
@@ -249,6 +255,7 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 	}
 
 	// set consumers as active on engine
+	engine.groups = groupMap
 	engine.consumers = consumers
 
 	// force GC after loading the engine because

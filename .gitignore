@@ -1,6 +1,9 @@
 # go files
 go.sum
 
+# ide files
+.idea/
+
 # testing/sample directories
 .gudgeon
 

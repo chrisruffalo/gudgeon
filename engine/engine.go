@@ -92,6 +92,9 @@ type engine struct {
 
 	// the resolution structure
 	resolvers resolver.ResolverMap
+
+	// map of group names to processed/configured engine groups
+	groups map[string]*group
 }
 
 func (engine *engine) Root() string {
@@ -197,13 +200,13 @@ func (engine *engine) getResolvers(consumer *consumer) []string {
 }
 
 // return if the domain matches any rule
-func (engine *engine) IsDomainRuleMatched(consumerIP *net.IP, domain string) (rule.Match, *config.GudgeonList, string) {
+func (engine *engine) IsDomainRuleMatched(consumerIp *net.IP, domain string) (rule.Match, *config.GudgeonList, string) {
 	// get consumer
-	consumer := engine.getConsumerForIP(consumerIP)
+	consumer := engine.getConsumerForIP(consumerIp)
 	return engine.domainRuleMatchedForConsumer(consumer, domain)
 }
 
-func (engine *engine) domainRuleMatchedForConsumer(consumer *consumer, domain string) (rule.Match, *config.GudgeonList, string) {
+func (engine *engine) domainRuleMatchForLists(lists []*config.GudgeonList, domain string) (rule.Match, *config.GudgeonList, string) {
 	// drop ending . if present from domain
 	if strings.HasSuffix(domain, ".") {
 		domain = domain[:len(domain)-1]
@@ -214,12 +217,40 @@ func (engine *engine) domainRuleMatchedForConsumer(consumer *consumer, domain st
 		return rule.MatchNone, nil, ""
 	}
 
+	// if no lists are provided, no match
+	if len(lists) < 1 {
+		return rule.MatchNone, nil, ""
+	}
+
 	// return match values
-	return engine.store.FindMatch(consumer.lists, domain)
+	return engine.store.FindMatch(lists, domain)
+}
+
+func (engine *engine) domainRuleMatchedForConsumer(consumer *consumer, domain string) (rule.Match, *config.GudgeonList, string) {
+	if consumer == nil {
+		return rule.MatchNone, nil, ""
+	}
+	return engine.domainRuleMatchForLists(consumer.lists, domain)
+}
+
+func (engine *engine) domainRuleMatchedForGroups(groups []string, domain string) (rule.Match, *config.GudgeonList, string) {
+	if len(groups) < 1 {
+		return rule.MatchNone, nil, ""
+	}
+
+	// select all lists from found groups
+	lists := make([]*config.GudgeonList, 0)
+	for _, g := range groups {
+		if group, found := engine.groups[g]; found {
+			lists = append(lists, group.lists...)
+		}
+	}
+
+	return engine.domainRuleMatchForLists(lists, domain)
 }
 
 // handles recursive resolution of cnames
-func (engine *engine) handleCnameResolution(address *net.IP, protocol string, originalRequest *dns.Msg, originalResponse *dns.Msg) *dns.Msg {
+func (engine *engine) handleCnameResolution(resolvers []string, rCon *resolver.RequestContext, originalRequest *dns.Msg, originalResponse *dns.Msg) *dns.Msg {
 	// scope provided finding response
 	var response *dns.Msg
 
@@ -234,7 +265,13 @@ func (engine *engine) handleCnameResolution(address *net.IP, protocol string, or
 		answer := originalResponse.Answer[0]
 		newName := answer.(*dns.CNAME).Target
 		cnameRequest.Question[0].Name = newName
-		cnameResponse, _, _ := engine.performRequest(address, protocol, cnameRequest)
+
+		var cnameResponse *dns.Msg
+		if len(rCon.Groups) > 0 {
+			cnameResponse, _, _ = engine.HandleWithGroups(rCon.Groups, rCon, cnameRequest)
+		} else {
+			cnameResponse, _, _ = engine.HandleWithResolvers(resolvers, rCon, cnameRequest)
+		}
 		if cnameResponse != nil && !util.IsEmptyResponse(cnameResponse) {
 			// use response
 			response = cnameResponse
@@ -250,37 +287,18 @@ func (engine *engine) handleCnameResolution(address *net.IP, protocol string, or
 	return response
 }
 
-func (engine *engine) performRequest(address *net.IP, protocol string, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
+func (engine *engine) invalidRequestHandler(request *dns.Msg) (bool, *dns.Msg) {
 	// scope provided finding response
 	var (
 		response *dns.Msg
-		err      error
 	)
-
-	// create context
-	rCon := resolver.DefaultRequestContext()
-	rCon.Protocol = protocol
-
-	// get consumer and use it to set initial/noreply result
-	consumer := engine.getConsumerForIP(address)
-	result := &resolver.ResolutionResult{
-		Consumer: consumer.configConsumer.Name,
-	}
 
 	// drop questions that don't meet minimum requirements
 	if request == nil || len(request.Question) < 1 {
 		response = new(dns.Msg)
 		response.SetReply(request)
 		response.Rcode = dns.RcodeRefused
-		return response, rCon, result
-	}
-
-	// drop questions for domain names that could be malicious
-	if len(request.Question[0].Name) < 1 || len(request.Question[0].Name) > 255 {
-		response = new(dns.Msg)
-		response.SetReply(request)
-		response.Rcode = dns.RcodeBadName
-		return response, rCon, result
+		return false, response
 	}
 
 	// drop questions that aren't implemented
@@ -289,36 +307,49 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 		response = new(dns.Msg)
 		response.SetReply(request)
 		response.Rcode = dns.RcodeNotImplemented
-		return response, rCon, result
+		return false, response
 	}
 
 	// get domain name
 	domain := request.Question[0].Name
 
-	// get block status and refuse the request
-	if consumer.configConsumer.Block {
-		result.Blocked = true
+	// drop questions for domain names that could be malicious/malformed
+	if len(domain) < 1 || len(domain) > 255 {
 		response = new(dns.Msg)
-		response.Rcode = dns.RcodeRefused
 		response.SetReply(request)
-	} else {
-		match, list, ruleText := engine.domainRuleMatchedForConsumer(consumer, domain)
-		if match != rule.MatchNone {
-			result.Match = match
-			result.MatchList = list
-			result.MatchRule = ruleText
-		}
-		if match != rule.MatchBlock {
-			// if not blocked then actually try resolution, by grabbing the resolver names
-			resolverNames := engine.getResolvers(consumer)
-			response, result, err = engine.resolvers.AnswerMultiResolvers(rCon, resolverNames, request)
-			if err != nil {
-				log.Errorf("Could not resolve <%s> for consumer '%s': %s", domain, consumer.configConsumer.Name, err)
-			} else {
-				cnameResponse := engine.handleCnameResolution(address, protocol, request, response)
-				if !util.IsEmptyResponse(cnameResponse) {
-					response = cnameResponse
-				}
+		response.Rcode = dns.RcodeBadName
+		return false, response
+	}
+
+	return true, nil
+}
+
+func (engine *engine) HandleWithResolvers(resolverNames []string, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
+	// scope provided finding response
+	var (
+		response *dns.Msg
+		err      error
+	)
+
+	// create new result
+	result := &resolver.ResolutionResult{}
+
+	// handle a request that might not be valid by returning it immediately
+	if valid, response := engine.invalidRequestHandler(request); !valid {
+		return response, rCon, result
+	}
+
+	// we are only doing resolution if there are resolvers to resolve against, otherwise
+	// we can skip this part and just return an NXDOMAIN
+	if len(resolverNames) > 0 {
+		// resolve the question using all of the resolvers specified
+		response, result, err = engine.resolvers.AnswerMultiResolvers(rCon, resolverNames, request)
+		if err != nil {
+			log.Errorf("Could not resolve <%s>: %s", request.Question[0].Name, err)
+		} else {
+			cnameResponse := engine.handleCnameResolution(resolverNames, rCon, request, response)
+			if !util.IsEmptyResponse(cnameResponse) {
+				response = cnameResponse
 			}
 		}
 	}
@@ -352,12 +383,80 @@ func (engine *engine) performRequest(address *net.IP, protocol string, request *
 		result = &resolver.ResolutionResult{}
 	}
 
+	// return result
+	return response, rCon, result
+}
+
+func (engine *engine) HandleWithGroups(groups []string, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
+	// create new result
+	result := &resolver.ResolutionResult{}
+
+	// handle a request that might not be valid by returning it immediately
+	if valid, response := engine.invalidRequestHandler(request); !valid {
+		return response, rCon, result
+	}
+
+	// on a valid request add group names to context
+	rCon.Groups = groups
+
+	match, list, ruleText := engine.domainRuleMatchedForGroups(groups, request.Question[0].Name)
+	if match != rule.MatchNone {
+		result.Match = match
+		result.MatchList = list
+		result.MatchRule = ruleText
+	}
+
+	// handle blocking at the group level
+	if match == rule.MatchBlock {
+		// todo: do configured action here
+		response := new(dns.Msg)
+		response.SetReply(request)
+		response.Rcode = dns.RcodeNameError
+		return response, rCon, result
+	}
+
+	// accumulate resolver names
+	resolverNames := make([]string, 0)
+
+	// get the resolver names for the groups, in the given order
+	for _, groupName := range groups {
+		// get resolvers from group
+		group, found := engine.groups[groupName]
+		if !found {
+			continue
+		}
+
+		resolverNames = append(resolverNames, group.configGroup.Resolvers...)
+	}
+
+	return engine.HandleWithResolvers(resolverNames, rCon, request)
+}
+
+func (engine *engine) HandleWithConsumer(consumer *consumer, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
+	// get consumer block status and refuse the request
+	if consumer.configConsumer.Block {
+		result := &resolver.ResolutionResult{
+			Consumer: consumer.configConsumer.Name,
+			Blocked:  true,
+		}
+
+		response := new(dns.Msg)
+		response.Rcode = dns.RcodeRefused
+		response.SetReply(request)
+		return response, rCon, result
+	}
+
+	// get groups for consumer
+	groups := engine.getGroups(consumer)
+
+	// return group response
+	response, rCon, result := engine.HandleWithGroups(groups, rCon, request)
+
 	// update/set
 	if consumer != nil && consumer.configConsumer != nil {
 		result.Consumer = consumer.configConsumer.Name
 	}
 
-	// return result
 	return response, rCon, result
 }
 
@@ -382,9 +481,8 @@ func (engine *engine) Resolve(domainName string) (string, error) {
 	m.Question = make([]dns.Question, 1)
 	m.Question[0] = dns.Question{Name: domainName, Qtype: dns.TypeA, Qclass: dns.ClassINET}
 
-	// get just response
-	address := net.ParseIP("127.0.0.1")
-	response, _, _ := engine.performRequest(&address, "udp", m)
+	// get just response from default consumer
+	response, _, _ := engine.HandleWithConsumer(engine.defaultConsumer, &resolver.RequestContext{ Protocol: "udp"}, m)
 
 	// return answer
 	return util.GetFirstIPResponse(response), nil
@@ -415,7 +513,7 @@ func (engine *engine) Reverse(address string) string {
 
 	// get just response
 	client := net.ParseIP("127.0.0.1")
-	response, _, _ := engine.performRequest(&client, "udp", m)
+	response, _, _ := engine.Handle(&client, "udp", m)
 
 	// look for first pointer
 	for _, answer := range response.Answer {
@@ -432,8 +530,15 @@ func (engine *engine) Reverse(address string) string {
 
 // entry point for external handler
 func (engine *engine) Handle(address *net.IP, protocol string, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
+	// get consumer
+	consumer := engine.getConsumerForIP(address)
+
+	// create context
+	rCon := resolver.DefaultRequestContext()
+	rCon.Protocol = protocol
+
 	// get results
-	response, rCon, result := engine.performRequest(address, protocol, request)
+	response, rCon, result := engine.HandleWithConsumer(consumer, rCon, request)
 
 	// log them if recorder is active
 	if engine.recorder != nil {

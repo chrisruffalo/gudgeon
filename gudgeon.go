@@ -169,4 +169,5 @@ func main() {
 	log.Infof("Signal (%s) received, stopping", s)
 	// stop gudgeon, hopefully gracefully
 	instance.Shutdown()
+
 }

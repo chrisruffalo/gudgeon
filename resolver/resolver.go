@@ -12,18 +12,19 @@ import (
 )
 
 type RequestContext struct {
-	Protocol string // the protocol that the request came in with
+	Protocol string   // the protocol that the request came in with
+	Groups   []string // the groups that belong to the original requester
 }
 
 func DefaultRequestContext() *RequestContext {
-	reqCon := new(RequestContext)
+	reqCon := &RequestContext{}
 	reqCon.Protocol = "udp" // default to udp
 	return reqCon
 }
 
 type ResolutionContext struct {
 	// resolution tools / recursive issues
-	ResolverMap ResolverMap `msg:"-"` // pointer to the resolvermap that started resolution, can be nil
+	ResolverMap ResolverMap // pointer to the resolvermap that started resolution, can be nil
 	Visited     []string    // list of visited resolver names
 	Stored      bool        // has the result been stored already
 	// reporting on actual resolver/source
@@ -32,7 +33,7 @@ type ResolutionContext struct {
 	Cached       bool   // was the result found by querying the Cache
 	// reporting on blocks
 	Blocked     bool
-	BlockedList *config.GudgeonList `msg:"-"` // pointer to blocked list
+	BlockedList *config.GudgeonList // pointer to blocked list
 	BlockedRule string              // name of actual rule
 }
 
