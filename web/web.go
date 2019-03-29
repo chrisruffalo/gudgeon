@@ -197,7 +197,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 		}
 	}
 
-	// write any additional held entires
+	// write any additional held entries
 	if heldEntry != nil {
 		if !firstEntry {
 			c.String(http.StatusOK, ",")
@@ -338,6 +338,7 @@ func (web *web) GetTop(c *gin.Context) {
 
 	var results []*engine.TopInfo
 
+	// limit to 5 by default
 	limit := 5
 
 	// allow limit setting
@@ -410,7 +411,7 @@ func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine) error {
 		api.GET("/metrics/current", web.GetMetrics)
 		api.GET("/metrics/query", web.QueryMetrics)
 		api.GET("/metrics/top/:type", web.GetTop)
-		// testing/troubleshoting/diagnostics
+		// testing/troubleshooting/diagnostics
 		api.GET("/test/components", web.GetTestComponents)
 		api.GET("/test/query", web.GetTestResult)
 		// attach query log

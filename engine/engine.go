@@ -482,7 +482,7 @@ func (engine *engine) Resolve(domainName string) (string, error) {
 	m.Question[0] = dns.Question{Name: domainName, Qtype: dns.TypeA, Qclass: dns.ClassINET}
 
 	// get just response from default consumer
-	response, _, _ := engine.HandleWithConsumer(engine.defaultConsumer, &resolver.RequestContext{ Protocol: "udp"}, m)
+	response, _, _ := engine.HandleWithConsumer(engine.defaultConsumer, &resolver.RequestContext{Protocol: "udp"}, m)
 
 	// return answer
 	return util.GetFirstIPResponse(response), nil

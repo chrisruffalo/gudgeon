@@ -20,7 +20,7 @@ export class MetricsTopList extends React.Component {
   };  
 
   updateData() {
-    var { timer } = this.state
+    var { timer } = this.state;
     if ( timer != null ) {
       clearTimeout(timer)
     }
@@ -28,7 +28,8 @@ export class MetricsTopList extends React.Component {
     Axios
       .get("/api/metrics/top/" + this.props.topType )
       .then(response => {
-        this.setState({ data: response.data })
+        this.setState({ data: response.data });
+
         var newTimer = setTimeout(() => {
           this.updateData()
         },15000); // update every 15s
@@ -50,7 +51,7 @@ export class MetricsTopList extends React.Component {
   }  
 
   componentWillUnmount() {
-    var { timer } = this.state
+    var { timer } = this.state;
     if ( timer != null ) {
       clearTimeout(timer)
     }
@@ -58,7 +59,7 @@ export class MetricsTopList extends React.Component {
   
   render() {
     // build data list items from data
-    var { data } = this.state
+    var { data } = this.state;
     const ListItems = data.map((item, index) => {
       return (
           <DataListItem key={ item.Desc } aria-labelledby={ "label-" + index }>
@@ -69,11 +70,9 @@ export class MetricsTopList extends React.Component {
     });
 
     return (
-      <React.Fragment>
-        <DataList aria-label="Lifetime Metrics">
-          {ListItems}
-        </DataList>
-      </React.Fragment>
+      <DataList aria-label="Lifetime Metrics">
+        {ListItems}
+      </DataList>
     )
   }
 }
