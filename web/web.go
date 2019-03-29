@@ -289,13 +289,27 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 		query.Direction = strings.ToUpper(direction)
 	}
 
-	results, resultLen := web.queryLog.Query(query)
+	c.String(http.StatusOK, "{")
 
-	// query against query log and return encoded results
-	c.JSON(http.StatusOK, gin.H{
-		"total": resultLen,
-		"items": results,
-	})
+	// create channels
+	infoChan := make(chan *engine.InfoRecord)
+	countChan := make(chan uint64)
+
+	go web.queryLog.QueryStream(query, infoChan, countChan)
+
+	c.String(http.StatusOK, "\"total\": %d", <-countChan)
+	c.String(http.StatusOK, ", \"items\": [")
+
+	firstRecord := true
+	for info := range infoChan {
+		if !firstRecord {
+			c.String(http.StatusOK, ", ")
+		}
+		firstRecord = false
+		c.JSON(http.StatusOK, info)
+	}
+
+	c.String(http.StatusOK, "]}")
 }
 
 func (web *web) GetTestComponents(c *gin.Context) {

@@ -2,20 +2,13 @@ import React from 'react';
 import { BrowserRouter as Router, Route, Switch, Redirect, NavLink as Link } from "react-router-dom";
 import { 
   Brand,
-  Card,
-  CardItem,
-  CardHeader,
-  CardBody,
-  Grid,
-  GridItem,
-  Nav, 
+  Nav,
   NavItem,
   NavList,
   NavVariants,
   Page, 
   PageHeader, 
   PageSection, 
-  PageSectionVariants,
   Split,
   SplitItem,
   EmptyState,
@@ -27,17 +20,13 @@ import { CubesIcon } from '@patternfly/react-icons';
 import { Dashboard } from './dashboard.js';
 import { GudgeonCharts } from './charts.js';
 import { QueryLog } from './qlog-table.js';
-import { QueryTest } from './query-test.js';
+import { QueryTester } from './query-tester.js';
 import gudgeonStyles from '../../css/gudgeon-app.css';
 import { css } from '@patternfly/react-styles';
 
 export class Gudgeon extends React.Component {
   // empty state
   state = {};
-
-  navClicked = (item, value) => {
-    console.dir(item.key);
-  };
 
   componentWillMount() {
 
@@ -51,13 +40,13 @@ export class Gudgeon extends React.Component {
       if ( window.config().metrics_persist ) {
         NavItems.push(<NavItem to="#charts" key="charts"><Link activeClassName="pf-m-current" to="/charts">Charts</Link></NavItem>);
       }
-      if ( defaultRoute == "" ) {
+      if ( defaultRoute === "" ) {
         defaultRoute = "/dashboard"
       }
     }
     if ( window.config().query_log && window.config().query_log_persist ) {
       NavItems.push(<NavItem to="#qlog" key="qlog"><Link activeClassName="pf-m-current" to="/qlog">Query Log</Link></NavItem>);
-      if ( defaultRoute == "" ) {
+      if ( defaultRoute === "" ) {
         defaultRoute = "/qlog"
       }
     }
@@ -104,7 +93,7 @@ export class Gudgeon extends React.Component {
             <p className={css(gudgeonStyles.footerText)}><a href="https://github.com/chrisruffalo/gudgeon">@GitHub</a></p>
           </SplitItem>
           <SplitItem>
-            <p className={css(gudgeonStyles.footerText)}>{ window.version().version }{ window.version().release != "" ? "-" + window.version().release : ""}</p>
+            <p className={css(gudgeonStyles.footerText)}>{ window.version().version }{ window.version().release !== "" ? "-" + window.version().release : ""}</p>
             <p className={css(gudgeonStyles.footerText)}><a href={ "https://github.com/chrisruffalo/gudgeon/tree/" + window.version().githash }>git@{ window.version().githash }</a></p>
           </SplitItem>
         </Split>      
@@ -112,12 +101,12 @@ export class Gudgeon extends React.Component {
     );
 
     // if the 
-    const Catcher = defaultRoute == "" ? ( <Route component={ () => NoFeaturesEnabled } /> ) : ( <Redirect to={ defaultRoute } /> );
+    const Catcher = defaultRoute === "" ? ( <Route component={ () => NoFeaturesEnabled } /> ) : ( <Redirect to={ defaultRoute } /> );
 
     const Dboard = window.config().metrics ? ( <Dashboard /> ) : null;
     const Charts = window.config().metrics ? ( <GudgeonCharts /> ) : null;
     const QLog = window.config().query_log && window.config().query_log_persist ? ( <QueryLog />) : null;
-    const QTest = ( <QueryTest /> );
+    const QTest = ( <QueryTester /> );
 
     return (
       <div className={css(gudgeonStyles.maxHeight)}>

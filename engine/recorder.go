@@ -216,7 +216,6 @@ func (recorder *recorder) condition(info *InfoRecord) {
 		if len(answerValues) > 0 {
 			info.ResponseText = answerValues[0]
 		}
-
 		info.Rcode = dns.RcodeToString[info.Response.Rcode]
 	}
 

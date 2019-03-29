@@ -124,7 +124,8 @@ export class Dashboard extends React.Component {
       .get("/api/metrics/current")
       .then(response => {
         // set the state with the response data and then upate the card rows
-        this.setState({ data: response.data }, this.updateMetricsState)
+        var rows = this.getResponseRows(response.data);
+        this.setState({ rows: rows});
         
         var newTimer = setTimeout(() => {
           this.updateData()
@@ -142,10 +143,7 @@ export class Dashboard extends React.Component {
       });
   }
 
-  updateMetricsState() {
-    // use state data
-    var { data } = this.state
-
+  getResponseRows(data) {
     // update the rows by building each
     var rows = [];
     data.lists.forEach((element) => {
@@ -161,8 +159,7 @@ export class Dashboard extends React.Component {
       rows.push(newRow);
     });
 
-    // update the data in the state
-    this.setState({ rows: rows })
+    return rows;
   }
 
   getDataMetric(data, key) {

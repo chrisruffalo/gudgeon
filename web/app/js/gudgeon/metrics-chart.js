@@ -8,9 +8,6 @@ import {
   FormSelect,
   FormSelectOption
 } from '@patternfly/react-core';
-import { PrettyDate } from './helpers.js';
-import gudgeonStyles from '../../css/gudgeon-app.css';
-import { css } from '@patternfly/react-styles';
 
 export class GudgeonChart extends React.Component {
   constructor(props) {
@@ -57,7 +54,7 @@ export class GudgeonChart extends React.Component {
 
   onMetricKeyChange = (value, event) => {
     // clear old timer
-    var { timer } = this.state
+    var { timer } = this.state;
     if ( timer != null ) {
       clearTimeout(timer)
     }
@@ -73,7 +70,7 @@ export class GudgeonChart extends React.Component {
 
   onTimeIntervalChange = (value, event) => {
     // clear old timer
-    var { timer } = this.state
+    var { timer } = this.state;
     if ( timer != null ) {
       clearTimeout(timer)
     }
@@ -89,7 +86,7 @@ export class GudgeonChart extends React.Component {
   };
 
   updateData() {
-    var { lastAtTime, interval, selected } = this.state
+    var { lastAtTime, interval, selected } = this.state;
 
     // get from state but allow state to be reset to null without additional logic
     // and also make sure that the last at time is after the currently selected interval
@@ -102,7 +99,7 @@ export class GudgeonChart extends React.Component {
     }
 
     // clear any existing timers
-    var { timer } = this.state
+    var { timer } = this.state;
     if ( timer != null ) {
       clearTimeout(timer)
     }
@@ -124,7 +121,7 @@ export class GudgeonChart extends React.Component {
       metricsSelected = metricsSelected + this.props.metrics[selected].series[key].key
       idx++;
     }
-    if ( metricsSelected != "" || metricsSelected.length > 0 ) {
+    if ( metricsSelected !== "" || metricsSelected.length > 0 ) {
       params["metrics"] = metricsSelected
     }
 
@@ -255,7 +252,7 @@ export class GudgeonChart extends React.Component {
   wrapAxisFormatter(inputFormatter) {
     return (value) => { 
       // no negative values
-      if ( (value + "").indexOf("-") == 0 ) {
+      if ( (value + "").indexOf("-") === 0 ) {
         return "";
       }
 
@@ -267,7 +264,7 @@ export class GudgeonChart extends React.Component {
       if ( inputFormatter != null ) {
         value = inputFormatter(value);
 
-        return value != "0" ? value : "";
+        return value !== "0" ? value : "";
       }
 
       return value > 0 ? value : "";
@@ -348,7 +345,7 @@ export class GudgeonChart extends React.Component {
           value: (value, ratio, id) => {
             var key;
             for ( key in this.props.metrics[selected].series ) {
-              if ( id == this.props.metrics[selected].series[key].name && this.props.metrics[selected].series[key].axis == "y2" ) {
+              if ( id === this.props.metrics[selected].series[key].name && this.props.metrics[selected].series[key].axis === "y2" ) {
                 return value
               }
             }
@@ -363,7 +360,7 @@ export class GudgeonChart extends React.Component {
     var key;
     for ( key in this.props.metrics[selected].series ) {
       var yaxis = this.props.metrics[selected].series[key].axis;
-      if ( yaxis != "y2" ) {
+      if ( yaxis !== "y2" ) {
         yaxis = "y";
       } else {
         chartSettings['axis']['y2']['show'] = true; 
@@ -453,7 +450,7 @@ export class GudgeonChart extends React.Component {
             </FormSelect>
           </Form>
         </div>               
-        <div id={ this.chartId } ></div>
+        <div id={ this.chartId }/>
       </React.Fragment>
     );
   }

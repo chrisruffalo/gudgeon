@@ -1,12 +1,8 @@
 import React from 'react';
 import Axios from 'axios';
 import {
-  Button,
   GridItem,
-  Card,
-  CardBody,
 } from '@patternfly/react-core';
-import Icon from '@material-ui/core/Icon';
 import { ErrorCircleOIcon, VolumeIcon } from '@patternfly/react-icons';
 import MaterialTable from 'material-table';
 import { PrettyDate } from './helpers.js';
@@ -104,10 +100,6 @@ export class QueryLog extends React.Component {
     }
   };
 
-  updateData = () => {
-
-  };
-
   dataQuery = query => new Promise((resolve, reject) => {
     // query variables
     var skip = query.page == 0 ? 0 : (query.page * query.pageSize);
@@ -127,7 +119,7 @@ export class QueryLog extends React.Component {
     }
 
     var defaultSortDir = "asc";
-    if ( query.orderBy == null || query.orderBy.title == "Created" ) {
+    if ( query.orderBy == null || query.orderBy.title === "Created" ) {
       params['sort'] = "created";
       if ( query.orderBy == null ) {
         params['direction'] = "desc";
@@ -138,7 +130,7 @@ export class QueryLog extends React.Component {
       params['sort'] = query.orderBy.toLowerCase();
     }
 
-    if ( params['direction'] == null && query.orderDirection != null && query.orderDirection != "" ) {
+    if ( params['direction'] == null && query.orderDirection != null && query.orderDirection !== "" ) {
       params['direction'] = query.orderDirection;
     }
 
@@ -173,7 +165,7 @@ export class QueryLog extends React.Component {
     return (
       <React.Fragment>
         <GridItem lg={12} md={12} sm={12}>
-          <MaterialTable columns={columns} data={this.dataQuery} actions={actions} options={options} />
+          <MaterialTable title={null} columns={columns} data={this.dataQuery} actions={actions} options={options} />
         </GridItem>
       </React.Fragment>
     )

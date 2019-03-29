@@ -59,6 +59,7 @@ type qlog struct {
 // public interface
 type QueryLog interface {
 	Query(query *QueryLogQuery) ([]*InfoRecord, uint64)
+	QueryStream(query *QueryLogQuery, infoChan chan *InfoRecord, countChan chan uint64)
 	Stop()
 
 	// package management methods
@@ -284,9 +285,11 @@ func (qlog *qlog) log(info *InfoRecord) {
 	}
 }
 
-func (qlog *qlog) Query(query *QueryLogQuery) ([]*InfoRecord, uint64) {
+type queryAccumulator = func(count uint64, info *InfoRecord)
+
+func (qlog *qlog) query(query *QueryLogQuery, accumulator queryAccumulator) {
 	if nil == qlog.db {
-		return []*InfoRecord{}, 0
+		return
 	}
 
 	// select entries from qlog
@@ -387,42 +390,34 @@ func (qlog *qlog) Query(query *QueryLogQuery) ([]*InfoRecord, uint64) {
 
 	// default length of query is 0
 	resultLen := uint64(0)
-	checkLen := false
 
 	// set limits
 	if query.Limit > 0 {
 		selectStmt = selectStmt + fmt.Sprintf(" LIMIT %d", query.Limit)
-		checkLen = true
 	}
 	if query.Skip > 0 {
 		selectStmt = selectStmt + fmt.Sprintf(" OFFSET %d", query.Skip)
-		checkLen = true
 	}
 
 	// get query length by itself without offsets and limits
 	// but based on the same query
-	if checkLen {
-		err := qlog.db.QueryRow(countStmt, whereValues...).Scan(&resultLen)
-		if err != nil {
-			log.Errorf("Could not get log item count: %s", err)
-			checkLen = false
-		}
+	err = qlog.db.QueryRow(countStmt, whereValues...).Scan(&resultLen)
+	if err != nil {
+		log.Errorf("Could not get log item count: %s", err)
 	}
+	accumulator(resultLen, nil)
 
 	// make query
 	rows, err = qlog.db.Query(selectStmt, whereValues...)
 	if err != nil {
 		log.Errorf("Query log query failed: %s", err)
-		return []*InfoRecord{}, 0
+		return
 	}
 	defer rows.Close()
 	// if rows is nil return empty array
 	if rows == nil {
-		return []*InfoRecord{}, 0
+		return
 	}
-
-	// otherwise create an array of the required size
-	results := make([]*InfoRecord, 0, resultLen)
 
 	// scan each row and get results
 	var info *InfoRecord
@@ -433,14 +428,44 @@ func (qlog *qlog) Query(query *QueryLogQuery) ([]*InfoRecord, uint64) {
 			log.Errorf("Scanning qlog results: %s", err)
 			continue
 		}
-		results = append(results, info)
+		accumulator(resultLen, info)
 	}
+}
 
-	if !checkLen {
-		resultLen = uint64(len(results))
-	}
+func (qlog *qlog) Query(query *QueryLogQuery) ([]*InfoRecord, uint64) {
+	var records []*InfoRecord
+	var totalCount uint64
 
-	return results, resultLen
+	qlog.query(query, func(count uint64, info *InfoRecord) {
+		if count > 0 {
+			totalCount = count
+		}
+		if info != nil {
+			records = append(records, info)
+		}
+	})
+
+	return records, totalCount
+}
+
+func (qlog *qlog) QueryStream(query *QueryLogQuery, infoChan chan *InfoRecord, countChan chan uint64) {
+	sendingCount := true
+
+	// use accumulator to pipe back query data
+	qlog.query(query, func(count uint64, info *InfoRecord) {
+		if sendingCount {
+			sendingCount = false
+			countChan <- count
+			// close chan after only one send
+			close(countChan)
+		}
+		if info != nil {
+			infoChan <- info
+		}
+	})
+
+	// close chan when done
+	close(infoChan)
 }
 
 func (qlog *qlog) Stop() {

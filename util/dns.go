@@ -67,7 +67,12 @@ func GetFirstIPResponse(response *dns.Msg) string {
 }
 
 func GetAnswerValues(response *dns.Msg) []string {
-	values := make([]string, 0)
+	// return empty list if answer values are not present
+	if response == nil || len(response.Answer) < 1 {
+		return []string{}
+	}
+
+	values := make([]string, 0, len(response.Answer))
 
 	for _, rr := range response.Answer {
 		value := GetRecordValue(rr)
@@ -99,9 +104,19 @@ func GetRecordValue(record interface{}) string {
 		if typed.AAAA != nil {
 			output = typed.AAAA.String()
 		}
+	// PTR
+	case *dns.PTR:
+		output = GetRecordValue(*typed)
+	case dns.PTR:
+		output = typed.Ptr
+	// TXT
+	case *dns.TXT:
+		output = GetRecordValue(*typed)
+	case dns.TXT:
+		output = strings.Join(typed.Txt, " ")
 	// generic catch-all for RR
 	case dns.RR:
-		output = typed.String()
+		output = dns.TypeToString[typed.Header().Rrtype] + "= " + typed.String()
 	default:
 		// no-op because "" is already the default string
 	}

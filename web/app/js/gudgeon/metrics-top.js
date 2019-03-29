@@ -62,7 +62,7 @@ export class MetricsTopList extends React.Component {
     var { data } = this.state;
     const ListItems = data.map((item, index) => {
       return (
-          <DataListItem key={ item.Desc } aria-labelledby={ "label-" + index }>
+          <DataListItem key={ index } aria-labelledby={ "label-" + index }>
             <DataListCell className={css(gudgeonStyles.smallCell)} width={2}><span className={css(gudgeonStyles.leftCard)} id={ "label-" + index }>{ item.Desc }</span></DataListCell>
             <DataListCell className={css(gudgeonStyles.smallCell)} width={1}><div className={css(gudgeonStyles.rightCard)} >{ LocaleNumber(item.Count) }</div></DataListCell>
           </DataListItem>        

@@ -99,9 +99,18 @@ func TestGetRecordValue(t *testing.T) {
 
 	// AAAA record
 	if "::1" != GetRecordValue(&dns.AAAA{Hdr: hdr, AAAA: net.ParseIP("::1")}) {
-		t.Errorf("Could not parse expectd 127.0.0.1 from A record")
+		t.Errorf("Could not parse expectd ::1 from AAAA record")
 	}
 
+	// PTR Record
+	if "google.com" != GetRecordValue(&dns.PTR{Hdr: hdr, Ptr: "google.com"}) {
+		t.Errorf("Could not parse expectd 'google.com' from PTR record")
+	}
+
+	// TXT Record
+	if "h hello" != GetRecordValue(&dns.TXT{Hdr: hdr, Txt: []string{"h", "hello"}}) {
+		t.Errorf("Could not parse expected TXT record")
+	}
 }
 
 func TestGetAnswerValues(t *testing.T) {
@@ -115,7 +124,7 @@ func TestGetAnswerValues(t *testing.T) {
 			Opcode:            dns.OpcodeQuery,
 		},
 	}
-	response.Answer = make([]dns.RR, 2)
+	response.Answer = make([]dns.RR, 3)
 
 	// add a
 	response.Answer[0] = &dns.A{
@@ -126,6 +135,12 @@ func TestGetAnswerValues(t *testing.T) {
 	response.Answer[1] = &dns.AAAA{
 		Hdr:  dns.RR_Header{Name: "test.", Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},
 		AAAA: net.ParseIP("::1"),
+	}
+
+	// add ptr
+	response.Answer[2] = &dns.PTR{
+		Hdr: dns.RR_Header{Name: "test.", Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 0},
+		Ptr: "google.com",
 	}
 
 	// get values

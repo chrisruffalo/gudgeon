@@ -302,10 +302,10 @@ func (metrics *metrics) prune(tx *sql.Tx) {
 }
 
 // allows the same query and row scan logic to share code
-type queryAccumulator = func(entry *MetricsEntry)
+type metricsAccumulator = func(entry *MetricsEntry)
 
 // implementation of the underlying query function
-func (metrics *metrics) query(qA queryAccumulator, start time.Time, end time.Time) error {
+func (metrics *metrics) query(qA metricsAccumulator, start time.Time, end time.Time) error {
 	// don't do anything with nil accumulator
 	if qA == nil {
 		return nil
