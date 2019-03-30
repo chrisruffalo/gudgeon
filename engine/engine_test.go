@@ -33,6 +33,8 @@ func TestBasicEngine(t *testing.T) {
 	if matched, _, _ := engine.IsDomainRuleMatched(parseIP("192.168.0.1"), "crittercism.com"); matched != rule.MatchBlock {
 		t.Errorf("Domain 'crittercism.com' should be blocked but it is not")
 	}
+
+	engine.Shutdown()
 }
 
 func TestConsumerMatching(t *testing.T) {
@@ -98,4 +100,36 @@ func TestConsumerMatching(t *testing.T) {
 			}
 		}
 	}
+
+	testEngine.Shutdown()
+}
+
+func TestReverseLookup(t *testing.T) {
+	// create config and engine from config
+	config := testutil.Conf(t, "testdata/simple-reverse.yml")
+	defer os.RemoveAll(config.Home)
+
+	engine, err := NewEngine(config)
+	if err != nil {
+		t.Errorf("Could not create engine: %s", err)
+	}
+
+	data := []struct {
+		ip       string
+		expected string
+	}{
+		// all fqdns will have the last '.' appended to the last label, just be aware when adding more test cases
+		{"127.0.0.1", "localhost."},
+		{"172.0.0.1", "gudgeon.io."},
+	}
+
+	for _, d := range data {
+		result := engine.Reverse(d.ip)
+
+		if d.expected != result {
+			t.Errorf("Did not get expected reverse lookup result for '%s': %s (got %s instead)", d.ip, d.expected, result)
+		}
+	}
+
+	engine.Shutdown()
 }

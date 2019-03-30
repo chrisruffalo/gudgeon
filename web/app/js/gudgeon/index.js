@@ -30,7 +30,10 @@ export class Gudgeon extends React.Component {
 
   componentWillMount() {
 
-  };
+  }
+
+  componentWillUnmount() {
+  }
 
   render() {
     var defaultRoute = "";
@@ -50,12 +53,10 @@ export class Gudgeon extends React.Component {
         defaultRoute = "/qlog"
       }
     }
-    /*
-    NavItems.push(<NavItem to="#qtest" key="qtest"><Link activeClassName="pf-m-current" to="/qtest">Query Test</Link></NavItem>);
-    if ( defaultRoute == "" ) {
-      defaultRoute = "/qtest"
+    NavItems.push(<NavItem to="#qtest" key="qtest"><Link activeClassName="pf-m-current" to="/query_test">Query Test</Link></NavItem>);
+    if ( defaultRoute === "" ) {
+      defaultRoute = "/query_test"
     }
-    */
 
     // header navigation
     const NavigationBar = (
@@ -92,7 +93,7 @@ export class Gudgeon extends React.Component {
             <p className={css(gudgeonStyles.footerText)}>&copy; Chris Ruffalo 2019</p>
             <p className={css(gudgeonStyles.footerText)}><a href="https://github.com/chrisruffalo/gudgeon">@GitHub</a></p>
           </SplitItem>
-          <SplitItem>
+          <SplitItem isMain style={{ textAlign: "right" }}>
             <p className={css(gudgeonStyles.footerText)}>{ window.version().version }{ window.version().release !== "" ? "-" + window.version().release : ""}</p>
             <p className={css(gudgeonStyles.footerText)}><a href={ "https://github.com/chrisruffalo/gudgeon/tree/" + window.version().githash }>git@{ window.version().githash }</a></p>
           </SplitItem>
@@ -117,7 +118,7 @@ export class Gudgeon extends React.Component {
                 { window.config().metrics ? <Route path="/dashboard" component={ () => Dboard } /> : null }
                 { window.config().metrics && window.config().metrics_persist ? <Route path="/charts" component={ () => Charts } /> : null }
                 { window.config().query_log && window.config().query_log_persist ? <Route path="/qlog" component={ () => QLog } /> : null }
-                <Route path="/qtest" component={ () => QTest } />
+                <Route path="/query_test" component={ () => QTest } />
                 { Catcher }
               </Switch>
             </PageSection>

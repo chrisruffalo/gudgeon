@@ -3,6 +3,8 @@ package web
 import (
 	"context"
 	"fmt"
+	"github.com/chrisruffalo/gudgeon/resolver"
+	"github.com/miekg/dns"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,6 +26,8 @@ const (
 type web struct {
 	conf     *config.GudgeonConfig
 	server   *http.Server
+
+	engine   engine.Engine
 	metrics  engine.Metrics
 	queryLog engine.QueryLog
 }
@@ -337,8 +341,12 @@ func (web *web) GetTestComponents(c *gin.Context) {
 		resolvers = append(resolvers, r.Name)
 	}
 
+	// calling it "consumer" here is because we can only
+	// accept singular consumers at the api endpoint and
+	// this is consistent with that and the naming of the
+	// option in the drop down list
 	c.JSON(http.StatusOK, gin.H{
-		"consumers": consumers,
+		"consumer": consumers,
 		"groups":    groups,
 		"resolvers": resolvers,
 	})
@@ -387,22 +395,60 @@ func (web *web) GetTestResult(c *gin.Context) {
 	if len(domain) < 1 {
 		c.String(http.StatusNotFound, "Domain must be provided")
 	}
+	domain = dns.Fqdn(domain)
 
-	if resolver := c.Query("resolver"); len(resolver) > 0 {
-
+	// get query type
+	qtype := strings.ToUpper(c.Query("qtype"))
+	if len(qtype) < 1 {
+		c.String(http.StatusNotFound, "Query type must be provided")
+	} else {
+		if _, found := dns.StringToType[qtype]; !found {
+			c.String(http.StatusNotFound, "Query type must be a valid DNS query type")
+		}
 	}
+
+	// create a new question from domain given
+	question := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Authoritative:     true,
+			AuthenticatedData: true,
+			RecursionDesired:  true,
+			Opcode:            dns.OpcodeQuery,
+		},
+	}
+	question.Question = []dns.Question{ { Name: domain, Qclass: dns.ClassINET, Qtype: dns.StringToType[qtype]} }
+
+	var (
+		response *dns.Msg
+		result *resolver.ResolutionResult
+	)
+
+	rCon := resolver.DefaultRequestContext()
+	rCon.Protocol = "tcp"
 
 	if consumer := c.Query("consumer"); len(consumer) > 0 {
-
+		response, _, result = web.engine.HandleWithConsumerName(consumer, rCon, question)
+	} else if groups := c.Query("groups"); len(groups) > 0 {
+		response, _, result = web.engine.HandleWithGroups([]string{groups}, rCon, question)
+	} else if resolvers := c.Query("resolvers"); len(resolvers) > 0 {
+		response, _, result = web.engine.HandleWithResolvers([]string{resolvers}, rCon, question)
 	}
 
-	if group := c.Query("group"); len(group) > 0 {
-
+	var responseText string
+	if response != nil {
+		responseText = response.String()
 	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"response": response,
+		"result": result,
+		"text": responseText,
+	})
 }
 
 func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine) error {
 	// set metrics endpoint
+	web.engine = engine
 	web.metrics = engine.Metrics()
 	web.queryLog = engine.QueryLog()
 	web.conf = conf

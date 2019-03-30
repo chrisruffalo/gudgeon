@@ -163,11 +163,9 @@ export class QueryLog extends React.Component {
     const { columns, actions, options } = this.state;
 
     return (
-      <React.Fragment>
-        <GridItem lg={12} md={12} sm={12}>
-          <MaterialTable title={null} columns={columns} data={this.dataQuery} actions={actions} options={options} />
-        </GridItem>
-      </React.Fragment>
+      <GridItem lg={12} md={12} sm={12}>
+        <MaterialTable title={null} columns={columns} data={this.dataQuery} actions={actions} options={options} />
+      </GridItem>
     )
   }
 

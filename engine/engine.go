@@ -80,6 +80,8 @@ type engine struct {
 
 	// consumers that have been parsed
 	consumers []*consumer
+	// map for out-of-order consumer getting
+	consumerMap map[string]*consumer
 
 	// default consumer
 	defaultConsumer *consumer
@@ -109,7 +111,13 @@ type Engine interface {
 	IsDomainRuleMatched(consumer *net.IP, domain string) (rule.Match, *config.GudgeonList, string)
 	Resolve(domainName string) (string, error)
 	Reverse(address string) string
+
+	// different direct handle methods
 	Handle(address *net.IP, protocol string, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
+	HandleWithConsumerName(consumerName string, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
+	HandleWithConsumer(consumer *consumer, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
+	HandleWithGroups(groups []string, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
+	HandleWithResolvers(resolvers []string, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
 
 	// stats
 	CacheSize() int64
@@ -397,6 +405,9 @@ func (engine *engine) HandleWithGroups(groups []string, rCon *resolver.RequestCo
 	}
 
 	// on a valid request add group names to context
+	if rCon == nil {
+		rCon = &resolver.RequestContext{}
+	}
 	rCon.Groups = groups
 
 	match, list, ruleText := engine.domainRuleMatchedForGroups(groups, request.Question[0].Name)
@@ -430,6 +441,14 @@ func (engine *engine) HandleWithGroups(groups []string, rCon *resolver.RequestCo
 	}
 
 	return engine.HandleWithResolvers(resolverNames, rCon, request)
+}
+
+func (engine *engine) HandleWithConsumerName(consumerName string, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
+	consumer, found := engine.consumerMap[consumerName]
+	if !found {
+		consumer = engine.defaultConsumer
+	}
+	return engine.HandleWithConsumer(consumer, rCon, request)
 }
 
 func (engine *engine) HandleWithConsumer(consumer *consumer, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult) {
@@ -508,12 +527,14 @@ func (engine *engine) Reverse(address string) string {
 	ip := net.ParseIP(address)
 
 	// make question parts
-	m.Question = make([]dns.Question, 1)
-	m.Question[0] = dns.Question{Name: util.ReverseLookupDomain(&ip), Qtype: dns.TypePTR, Qclass: dns.ClassINET}
+	m.Question = []dns.Question{{Name: util.ReverseLookupDomain(&ip), Qtype: dns.TypePTR, Qclass: dns.ClassINET}}
 
-	// get just response
-	client := net.ParseIP("127.0.0.1")
-	response, _, _ := engine.Handle(&client, "udp", m)
+	// get just response using all groups
+	allGroups := make([]string, 0, len(engine.groups))
+	for _, g := range engine.groups {
+		allGroups = append(allGroups, g.configGroup.Name)
+	}
+	response, _, _ := engine.HandleWithGroups(allGroups, &resolver.RequestContext{Protocol: "udp"}, m)
 
 	// look for first pointer
 	for _, answer := range response.Answer {
@@ -524,7 +545,7 @@ func (engine *engine) Reverse(address string) string {
 		}
 	}
 
-	// return answer
+	// return empty answer if none found answer
 	return ""
 }
 

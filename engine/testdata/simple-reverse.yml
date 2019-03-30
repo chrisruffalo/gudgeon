@@ -1,0 +1,6 @@
+gudgeon:
+  resolvers:
+  - name: default
+    hosts:
+    - 127.0.0.1 localhost
+    - 172.0.0.1 gudgeon.io

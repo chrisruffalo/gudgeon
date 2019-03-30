@@ -165,14 +165,16 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 
 	// attach groups to consumers
 	consumers := make([]*consumer, len(conf.Consumers))
+	consumerMap := make(map[string]*consumer)
 	for index, configConsumer := range conf.Consumers {
 		// create an active consumer
-		consumer := new(consumer)
-		consumer.engine = engine
-		consumer.groupNames = make([]string, 0)
-		consumer.resolverNames = make([]string, 0)
-		consumer.configConsumer = configConsumer
-		consumer.lists = make([]*config.GudgeonList, 0)
+		consumer := &consumer{
+			engine:         engine,
+			groupNames:     make([]string, 0),
+			resolverNames:  make([]string, 0),
+			configConsumer: configConsumer,
+			lists:          make([]*config.GudgeonList, 0),
+		}
 
 		// set as default consumer
 		if strings.EqualFold(configConsumer.Name, "default") {
@@ -207,6 +209,9 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 
 		// add active consumer to list
 		consumers[index] = consumer
+		if configConsumer.Name != "" {
+			consumerMap[configConsumer.Name] = consumer
+		}
 	}
 
 	// load lists (from remote urls)
@@ -257,6 +262,7 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 	// set consumers as active on engine
 	engine.groups = groupMap
 	engine.consumers = consumers
+	engine.consumerMap = consumerMap
 
 	// force GC after loading the engine because
 	// of all the extra allocation that gets performed

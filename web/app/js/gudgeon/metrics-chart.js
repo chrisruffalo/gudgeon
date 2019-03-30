@@ -392,8 +392,6 @@ export class GudgeonChart extends React.Component {
       chartSettings['axis']['y']['tick']['values'] = this.props.metrics[selected].ticks;
     }
 
-    console.dir(chartSettings);
-
     // generate the chart (bound to that div)
     return c3.generate(chartSettings);
   }
