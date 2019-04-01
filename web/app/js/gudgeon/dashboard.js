@@ -125,7 +125,7 @@ export class Dashboard extends React.Component {
       .then(response => {
         // set the state with the response data and then upate the card rows
         var rows = this.getResponseRows(response.data);
-        this.setState({ rows: rows});
+        this.setState({ rows: rows, data: response.data});
         
         var newTimer = setTimeout(() => {
           this.updateData()
@@ -175,7 +175,7 @@ export class Dashboard extends React.Component {
   componentDidMount() {
     // (safely) load state
     var stateString = localStorage.getItem("gudgeon-metrics-cards-state");
-    if (stateString == "" || stateString == null) {
+    if (stateString === "" || stateString == null) {
       stateString = "{}"
     }
     var savedState = JSON.parse(stateString);
