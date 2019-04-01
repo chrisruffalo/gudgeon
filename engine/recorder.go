@@ -166,16 +166,6 @@ func (recorder *recorder) reverseLookup(info *InfoRecord) string {
 		}
 	}
 
-	name := ""
-
-	// if there is a reverselookup function use it to add a reverse lookup step
-	if *recorder.conf.QueryLog.ReverseLookup {
-		name = recorder.engine.Reverse(info.Address)
-		if strings.HasSuffix(name, ".") {
-			name = name[:len(name)-1]
-		}
-	}
-
 	// look in the mdns cache
 	if *recorder.conf.QueryLog.MdnsLookup && recorder.mdnsCache != nil {
 		name := ReadCachedHostname(recorder.mdnsCache, address)
@@ -184,7 +174,17 @@ func (recorder *recorder) reverseLookup(info *InfoRecord) string {
 		}
 	}
 
-	// if no result from rlookup then try and lookup the netbios name from the host
+	name := ""
+
+	// if reverse lookup is turned on query using the engine
+	if *recorder.conf.QueryLog.ReverseLookup {
+		name = recorder.engine.Reverse(info.Address)
+		if strings.HasSuffix(name, ".") {
+			name = name[:len(name)-1]
+		}
+	}
+
+	// if no result from regular DNS rlookup then try and lookup the netbios name from the host
 	if *recorder.conf.QueryLog.NetbiosLookup && "" == name {
 		var err error
 		name, err = util.LookupNetBIOSName(address)
