@@ -182,12 +182,23 @@ export class QueryTester extends React.Component {
     }
 
     let output = null;
-    if ( response != null && response.text != null ) {
+    if ( response != null && response.result != null ) {
+      let ruleMatch = "NONE";
+      if ( response.result.Match === 1 ) {
+        ruleMatch = "BLOCKED";
+      } else if ( response.result.Match === 2 ) {
+        ruleMatch = "ALLOWED";
+      }
+
       output = (
         <GridItem lg={12} md={12} sm={12}>
           <Card>
             <CardBody>
-              <SyntaxHighlighter language='dns' style={googlecode}>{response.text}</SyntaxHighlighter>
+              <p><strong>Match Type</strong>: { ruleMatch }</p>
+              { ruleMatch === "BLOCKED" || ruleMatch === "ALLOWED" ? (<p><strong>Match List</strong>: { response.result.MatchList.Name }</p>) : null }
+              { ruleMatch === "BLOCKED" || ruleMatch === "ALLOWED" ? (<p><strong>Match Rule</strong>: { response.result.MatchRule }</p>) : null }
+              <p><strong>Cached</strong>: { response.result.Cached ? "true" : "false" } </p>
+              { response.text != null && response.text.length > 0 ? <SyntaxHighlighter language='dns' style={googlecode}>{response.text}</SyntaxHighlighter> : null }
             </CardBody>
           </Card>
         </GridItem>
@@ -204,7 +215,6 @@ export class QueryTester extends React.Component {
                       label="Test Type"
                       fieldId="query-test-type"
                       helperText="Type of Test to Run"
-                      isDisabled={ this.state.loading }
                   >
                     <FormSelect
                         value={this.state.type}
