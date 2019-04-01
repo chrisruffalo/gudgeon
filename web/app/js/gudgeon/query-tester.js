@@ -13,6 +13,8 @@ import {
   GridItem,
   Grid
 } from "@patternfly/react-core";
+import SyntaxHighlighter from 'react-syntax-highlighter';
+import { googlecode } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 
 export class QueryTester extends React.Component {
   constructor(props) {
@@ -170,7 +172,7 @@ export class QueryTester extends React.Component {
         <GridItem lg={12} md={12} sm={12}>
           <Card>
             <CardBody>
-              <pre>`${ response.text }`</pre>
+              <SyntaxHighlighter language='text' style={googlecode}>{response.text}</SyntaxHighlighter>
             </CardBody>
           </Card>
         </GridItem>
