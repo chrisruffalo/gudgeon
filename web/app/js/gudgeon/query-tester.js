@@ -26,7 +26,8 @@ export class QueryTester extends React.Component {
     query: "",
     components: {},
     type: "consumer",
-    target: ""
+    target: "",
+    loading: false
   };
 
   typeOptions = [
@@ -69,6 +70,11 @@ export class QueryTester extends React.Component {
       return;
     }
 
+    // call into the query call after loading is established
+    this.setState({loading: true}, this._queryCall);
+  };
+
+  _queryCall = () => {
     let options = {
       domain: this.state.query,
       qtype: this.state.qtype
@@ -78,16 +84,22 @@ export class QueryTester extends React.Component {
     Axios
         .get("/api/test/query", { params: options } )
         .then(response => {
-          this.setState({ response: response.data });
+          this.setState({ response: response.data, loading: false });
         })
   };
 
   componentDidMount() {
-    Axios
-      .get("/api/test/components" )
-      .then(response => {
-        this.setState({ components: response.data, target: response.data[this.state.type][0] });
-      })
+    // create after-state set for loading callback
+    let callback = () => {
+      Axios
+          .get("/api/test/components" )
+          .then(response => {
+            this.setState({ loading: false, components: response.data, target: response.data[this.state.type][0] });
+          })
+    };
+
+    // set state for loading and callback
+    this.setState({ loading: false}, callback);
   }
 
   componentWillUnmount() {
@@ -111,6 +123,7 @@ export class QueryTester extends React.Component {
             onChange={this.onTargetChange}
             id="query-target"
             name="query-target"
+            isDisabled={ this.state.loading }
           >
             {components[this.state.type].map((option, index) => (
               <FormSelectOption isDisabled={false} key={index} value={option} label={option} />
@@ -136,6 +149,7 @@ export class QueryTester extends React.Component {
                       value={this.state.qtype}
                       onChange={this.onQtypeChange}
                       id="query-qtype"
+                      isDisabled={ this.state.loading }
           >
             {this.qtypeOptions.map((option, index) => (
                 <FormSelectOption isDisabled={false} key={index} value={option.value} label={option.label} />
@@ -155,13 +169,14 @@ export class QueryTester extends React.Component {
             onChange={this.handleQueryChange}
             id="query-string"
             name="query-string"
+            isDisabled={ this.state.loading }
           />
         </FormGroup>
       );
 
       formButtons = (
         <ActionGroup>
-          <Button isDisabled={this.state.query == null || this.state.query.length < 1} onClick={ this.doQuery } variant="primary">Query</Button>
+          <Button isDisabled={this.state.loading || this.state.query == null || this.state.query.length < 1} onClick={ this.doQuery } variant="primary">Query</Button>
         </ActionGroup>
       );
     }
@@ -172,7 +187,7 @@ export class QueryTester extends React.Component {
         <GridItem lg={12} md={12} sm={12}>
           <Card>
             <CardBody>
-              <SyntaxHighlighter language='text' style={googlecode}>{response.text}</SyntaxHighlighter>
+              <SyntaxHighlighter language='dns' style={googlecode}>{response.text}</SyntaxHighlighter>
             </CardBody>
           </Card>
         </GridItem>
@@ -189,12 +204,14 @@ export class QueryTester extends React.Component {
                       label="Test Type"
                       fieldId="query-test-type"
                       helperText="Type of Test to Run"
+                      isDisabled={ this.state.loading }
                   >
                     <FormSelect
                         value={this.state.type}
                         onChange={this.onTypeChange}
                         id="query-test-type"
                         name="query-test-type"
+                        isDisabled={ this.state.loading }
                     >
                       {this.typeOptions.map((option, index) => (
                           <FormSelectOption isDisabled={option.disabled} key={index} value={option.value} label={option.label} />
