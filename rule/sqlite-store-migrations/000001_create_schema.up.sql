@@ -15,10 +15,3 @@ CREATE TABLE IF NOT EXISTS rules (
 CREATE INDEX IF NOT EXISTS idx_rules_Rule on rules (Rule);
 CREATE INDEX IF NOT EXISTS idx_rules_ListRowId on rules (ListRowId);
 CREATE INDEX IF NOT EXISTS idx_rules_IdRule on rules (ListRowId, Rule);
-
--- rules table for initial use that has no indexes for faster insertion
-CREATE TABLE IF NOT EXISTS rules_initial ( 
-    ListRowId INTEGER, 
-    Rule TEXT, 
-    PRIMARY KEY(ListRowId, Rule) 
-) WITHOUT ROWID;

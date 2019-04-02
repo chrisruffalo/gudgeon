@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/miekg/dns"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/cache"
 	"github.com/chrisruffalo/gudgeon/config"
@@ -57,20 +58,28 @@ func result(context *ResolutionContext) *ResolutionResult {
 func NewResolverMap(config *config.GudgeonConfig, configuredResolvers []*config.GudgeonResolver) ResolverMap {
 
 	// make a new map resolver
-	resolverMap := new(resolverMap)
-
-	// empty map of resolvers
-	resolverMap.resolvers = make(map[string]Resolver, 0)
+	resolverMap := &resolverMap{
+		resolvers: make(map[string]Resolver, 0),
+	}
+	// add cache if configured
 	if *(config.Storage.CacheEnabled) {
 		resolverMap.cache = cache.New()
 	}
 
-	// resuse sources
+	// create sources from specs
+	configuredSources := make(map[string]Source)
 	sharedSources := make(map[string]Source)
+	for _, source := range config.Sources {
+		newSource := NewConfigurationSource(source, sharedSources)
+		if newSource != nil {
+			log.Infof("Configured source: %s", newSource.Name())
+			configuredSources[source.Name] = newSource
+		}
+	}
 
-	// build resolvesrs from configuration
+	// build resolvers from configuration
 	for _, resolverConfig := range configuredResolvers {
-		resolver := newSharedSourceResolver(resolverConfig, sharedSources)
+		resolver := newSharedSourceResolver(resolverConfig, configuredSources, sharedSources)
 		if resolver != nil {
 			resolverMap.resolvers[resolver.name] = resolver
 		}

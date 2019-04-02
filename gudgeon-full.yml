@@ -70,6 +70,13 @@ gudgeon:
     - ip: 0.0.0.0
       port: 5354
 
+  sources:
+  - name: google-sources
+    spec:
+    - 8.8.8.8/tcp-tls
+    - 8.8.4.4/tcp-tls
+    load_balance: true
+
   resolvers:
   # resolvers specify what dns sources to use. the default resolver
   # is used for groups with no resolvers. 
@@ -90,8 +97,7 @@ gudgeon:
     - cloudflare
   - name: google
     sources:
-    - 8.8.8.8/tcp-tls # force tcp-tls
-    - 8.8.4.4/tcp # next try tcp
+    - google-sources
   - name: local
     search:
     - lan

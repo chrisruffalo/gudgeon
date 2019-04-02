@@ -18,6 +18,11 @@
     text-align: left;
 }
 
+/* style for query log table */
+td .queryLog {
+    padding-left: 13px;
+}
+
 /* Override screen heights for .maxHeight elements */
 @media only screen and (min-width: 992px) {
     .maxHeight {

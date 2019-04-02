@@ -15,6 +15,9 @@ import {
 } from "@patternfly/react-core";
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { googlecode } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import gudgeonStyles from '../../css/gudgeon-app.css';
+import { css } from '@patternfly/react-styles';
+
 
 export class QueryTester extends React.Component {
   constructor(props) {
@@ -194,10 +197,14 @@ export class QueryTester extends React.Component {
         <GridItem lg={12} md={12} sm={12}>
           <Card>
             <CardBody>
-              <p><strong>Match Type</strong>: { ruleMatch }</p>
-              { ruleMatch === "BLOCKED" || ruleMatch === "ALLOWED" ? (<p><strong>Match List</strong>: { response.result.MatchList.Name }</p>) : null }
-              { ruleMatch === "BLOCKED" || ruleMatch === "ALLOWED" ? (<p><strong>Match Rule</strong>: { response.result.MatchRule }</p>) : null }
-              <p><strong>Cached</strong>: { response.result.Cached ? "true" : "false" } </p>
+              <table>
+                <tbody>
+                  <tr><td><strong>Cached</strong></td><td className={css(gudgeonStyles.queryLog)}>{ response.result.Cached ? "True" : "False" }</td></tr>
+                  <tr><td><strong>Match Type</strong></td><td className={css(gudgeonStyles.queryLog)}>{ ruleMatch }</td></tr>
+                  { ruleMatch === "BLOCKED" || ruleMatch === "ALLOWED" ? (<tr><td><strong>Match List</strong></td><td className={css(gudgeonStyles.queryLog)}>{ response.result.MatchList.Name }</td></tr>) : null }
+                  { ruleMatch === "BLOCKED" || ruleMatch === "ALLOWED" ? (<tr><td><strong>Match Rule</strong></td><td className={css(gudgeonStyles.queryLog)}>{ response.result.MatchRule }</td></tr>) : null }
+                </tbody>
+              </table>
               { response.text != null && response.text.length > 0 ? <SyntaxHighlighter language='dns' style={googlecode}>{response.text}</SyntaxHighlighter> : null }
             </CardBody>
           </Card>

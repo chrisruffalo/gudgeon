@@ -97,6 +97,18 @@ type GudgeonNetwork struct {
 	Interfaces []*GudgeonInterface `yaml:"interfaces"`
 }
 
+// provides more configuration options and details for sources beyond the simple source specification
+type GudgeonSource struct {
+	// name that would be in the source list for a resolver
+	Name         string                  `yaml:"name"`
+	// specs of children resolvers (same as a simple source spec)
+	Specs        []string                `yaml:"spec"`
+	// should the entries in the spec list be load balanced (default: false)
+	LoadBalance  bool                   `yaml:"load_balance"`
+	// source specific options to allow further configuration of sources
+	Options      map[string]interface{}  `yaml:"options"`
+}
+
 // a resolver is composed of a list of sources to get DNS information from
 type GudgeonResolver struct {
 	// name of the resolver
@@ -113,7 +125,7 @@ type GudgeonResolver struct {
 	Sources []string `yaml:"sources"`
 }
 
-// blocklists, blacklists, whitelists: different types of lists for domains that gudgeon will evaluate
+// GudgeonList different types of lists for domains that gudgeon will evaluate (and if they explicitly allow or block the matched entries)
 type GudgeonList struct {
 	// the name of the list
 	Name string `yaml:"name"`
@@ -215,12 +227,14 @@ type GudgeonConfig struct {
 	QueryLog  *GudgeonQueryLog   `yaml:"query_log"`
 	Network   *GudgeonNetwork    `yaml:"network"`
 	Web       *GudgeonWeb        `yaml:"web"`
+	Sources   []*GudgeonSource   `yaml:"sources"`
 	Resolvers []*GudgeonResolver `yaml:"resolvers"`
 	Lists     []*GudgeonList     `yaml:"lists"`
 	Groups    []*GudgeonGroup    `yaml:"groups"`
 	Consumers []*GudgeonConsumer `yaml:"consumers"`
 
 	// private values
+	sourceMap   map[string]*GudgeonSource
 	resolverMap map[string]*GudgeonResolver
 	listMap     map[string]*GudgeonList
 	groupMap    map[string]*GudgeonGroup

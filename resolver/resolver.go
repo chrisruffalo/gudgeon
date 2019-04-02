@@ -69,14 +69,22 @@ type Resolver interface {
 }
 
 func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
-	return newSharedSourceResolver(configuredResolver, nil)
+	return newSharedSourceResolver(configuredResolver, nil, nil)
 }
 
 // create a new resolver
-func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, sharedResolvers map[string]Source) *resolver {
+func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, configuredSources map[string]Source, sharedSources map[string]Source) *resolver {
 	// resolvers must have a name
 	if "" == configuredResolver.Name {
 		return nil
+	}
+
+	// fix maps
+	if configuredSources == nil {
+		configuredSources = make(map[string]Source, 0)
+	}
+	if sharedSources == nil {
+		sharedSources = make(map[string]Source, 0)
 	}
 
 	// make new resolver
@@ -97,6 +105,13 @@ func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, sharedR
 
 	// add sources
 	for _, configuredSource := range configuredResolver.Sources {
+		// first check if there is a configured source given for the spec,
+		// if so, we should use it instead of looking for it
+		if cS, found := configuredSources[configuredSource]; found {
+			log.Infof("Loaded configured: %s", cS.Name())
+			resolver.sources = append(resolver.sources, cS)
+		}
+
 		// special logic for adding the system source to the system resolver
 		// otherwise we use the name system and point back to it with a
 		// resolver source
@@ -105,11 +120,9 @@ func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, sharedR
 		} else {
 			var source Source
 
-			if sharedResolvers != nil {
-				if sharedSource, found := sharedResolvers[configuredSource]; found {
-					resolver.sources = append(resolver.sources, sharedSource)
-					source = sharedSource
-				}
+			if sharedSource, found := sharedSources[configuredSource]; found {
+				resolver.sources = append(resolver.sources, sharedSource)
+				source = sharedSource
 			}
 
 			if source == nil {
@@ -117,9 +130,7 @@ func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, sharedR
 				if source != nil {
 					log.Infof("Loaded source: %s", source.Name())
 					resolver.sources = append(resolver.sources, source)
-					if sharedResolvers != nil {
-						sharedResolvers[configuredSource] = source
-					}
+					sharedSources[configuredSource] = source
 				}
 			}
 		}

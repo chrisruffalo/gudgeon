@@ -21,6 +21,7 @@ func (config *GudgeonConfig) verifyAndInit() ([]string, []error) {
 	warnings := make([]string, 0)
 
 	// initialize maps
+	config.sourceMap = make(map[string]*GudgeonSource, 0)
 	config.resolverMap = make(map[string]*GudgeonResolver, 0)
 	config.listMap = make(map[string]*GudgeonList, 0)
 	config.consumerMap = make(map[string]*GudgeonConsumer, 0)
@@ -99,6 +100,11 @@ func (config *GudgeonConfig) verifyAndInit() ([]string, []error) {
 
 	// consumers
 	warn, err = config.verifyAndInitConsumers()
+	errors = append(errors, err...)
+	warnings = append(warnings, warn...)
+
+	// sources
+	warn, err = config.verifyAndInitSources()
 	errors = append(errors, err...)
 	warnings = append(warnings, warn...)
 
@@ -334,6 +340,37 @@ func (config *GudgeonConfig) verifyAndInitConsumers() ([]string, []error) {
 	return warnings, []error{}
 }
 
+func (config *GudgeonConfig) verifyAndInitSources() ([]string, []error) {
+	// collect warnings
+	warnings := make([]string, 0)
+
+	for _, source := range config.Sources {
+		if source == nil {
+			continue
+		}
+
+		if "" == source.Name {
+			warnings = append(warnings, "A source with no name was found in the configuration, a source with no name cannot be referenced and will not be used.")
+		}
+
+		source.Name = strings.ToLower(source.Name)
+
+		if _, found := config.sourceMap[source.Name]; found {
+			warnings = append(warnings, "More than one source was found with the name '%s', source names are case insensitive and must be unique.", source.Name)
+			continue
+		}
+
+		if "system" == source.Name {
+			warnings = append(warnings, "The 'system' source is static and cannot be overridden.")
+		}
+
+		config.sourceMap[source.Name] = source
+	}
+
+	return warnings, []error{}
+}
+
+
 func (config *GudgeonConfig) verifyAndInitResolvers() ([]string, []error) {
 	// collect warnings
 	warnings := make([]string, 0)
@@ -347,6 +384,11 @@ func (config *GudgeonConfig) verifyAndInitResolvers() ([]string, []error) {
 			continue
 		}
 		resolver.Name = strings.ToLower(resolver.Name)
+
+		// check to make sure that there are no "occluded" resolvers
+		if _, found := config.sourceMap[resolver.Name]; found {
+			warnings = append(warnings, "A resolver and a source share the name '%s'. Resolvers using '%s' as a spec will target the SOURCE and not the RESOLVER. Consider changing the name of the source to prevent this.", resolver.Name, resolver.Name)
+		}
 
 		if _, found := config.resolverMap[resolver.Name]; found {
 			warnings = append(warnings, "More than one resolver was found with the name '%s', resolver names are case insensitive and must be unique.", resolver.Name)

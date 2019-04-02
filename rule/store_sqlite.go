@@ -63,7 +63,7 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 		}
 	}
 
-	_, err := store.tx.Exec("INSERT OR IGNORE INTO rules_initial (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)", list.ShortName(), rule)
+	_, err := store.tx.Exec("INSERT OR IGNORE INTO rules (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)", list.ShortName(), rule)
 	if err != nil {
 		store.tx.Rollback()
 		log.Errorf("Could not insert into rules store: %s", err)
@@ -84,29 +84,6 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 		store.tx = nil
 	}
 
-	tx, err := store.db.Begin()
-	if err != nil {
-		log.Errorf("Could not start finalization transaction: %s", err)
-	} else {
-		// move rules
-		_, err := tx.Exec("INSERT INTO rules (ListRowId, Rule) SELECT ListRowId, Rule FROM rules_initial")
-		if err != nil {
-			log.Errorf("Could not move rules into indexed table: %s", err)
-		}
-
-		// delete rules
-		_, err = tx.Exec("DELETE FROM rules_initial WHERE true")
-		if err != nil {
-			log.Errorf("Could not remove unindexed rules: %s", err)
-		}
-
-		err = tx.Commit()
-		if err != nil {
-			tx.Rollback()
-			log.Errorf("Could not commit moved rules: %s", err)
-		}
-	}
-
 	// close and re-open db
 	store.db.Close()
 	sessionDb := path.Join(sessionRoot, sqlDbName)
@@ -114,7 +91,6 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 	if err != nil {
 		log.Errorf("Rule storage: %s", err)
 	}
-	db.SetMaxOpenConns(1)
 	store.db = db
 }
 
