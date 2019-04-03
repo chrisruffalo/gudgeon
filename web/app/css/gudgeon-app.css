@@ -19,7 +19,7 @@
 }
 
 /* style for query log table */
-td .queryLog {
+.queryLog {
     padding-left: 13px;
 }
 
