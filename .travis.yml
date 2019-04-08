@@ -1,3 +1,6 @@
+# set travis distribution
+dist: xenial
+
 # no email notifications
 notifications:
   email: false
