@@ -13,13 +13,15 @@ import {
   GridItem,
   Grid
 } from "@patternfly/react-core";
-import { Light as SyntaxHighlighter } from "react-syntax-highlighter";
-import dns from 'react-syntax-highlighter/dist/esm/languages/hljs/dns';
-import { googlecode } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+
+// import styles
 import gudgeonStyles from '../../css/gudgeon-app.css';
 import { css } from '@patternfly/react-styles';
 
 // register lightweight language
+import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/light.js";
+import { googlecode } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import dns from 'react-syntax-highlighter/dist/esm/languages/hljs/dns';
 SyntaxHighlighter.registerLanguage('dns', dns);
 
 export class QueryTester extends React.Component {
