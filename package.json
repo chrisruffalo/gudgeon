@@ -43,7 +43,7 @@
     "style-loader": "^0.23.1",
     "svg-url-loader": "^2.3.2",
     "image-webpack-loader": "^4.6.0",
-    "webpack": "^4.29",
+    "webpack": "^4.28",
     "webpack-cli": "^3.3"
   },
   "scripts": {

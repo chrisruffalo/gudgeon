@@ -46,7 +46,7 @@ before_script:
   # announce versions (so that we can debug from here if something is wrong, really)
   - make announce
   # install dependencies
-  - sudo apt-get install -y ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib g++-multilib npm
+  - sudo apt-get install -y --no-install-recommends ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib g++-multilib npm
   - gem install --no-ri --no-rdoc fpm
   # pull xgo container and build local version
   - travis_retry travis_wait docker pull karalabe/xgo-1.12
