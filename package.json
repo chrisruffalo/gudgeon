@@ -43,8 +43,8 @@
     "style-loader": "^0.23.1",
     "svg-url-loader": "^2.3.2",
     "image-webpack-loader": "^4.6.0",
-    "webpack": "^4.28.4",
-    "webpack-cli": "^3.2.3"
+    "webpack": "^4.29.6",
+    "webpack-cli": "^3.3.0"
   },
   "scripts": {
     "build:dev": "webpack-cli -d --config ./webpack.config.js --watch",

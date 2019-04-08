@@ -53,8 +53,11 @@ before_script:
   # prepare build environment
   - travis_retry travis_wait make prepare
   - travis_retry travis_wait make npm
+  # more debug of installed tools
+  - node_modules/.bin/webpack --version
+  - node_modules/.bin/webpack-cli --version
 
-# the script needs to build the binaries to be successful
+  # the script needs to build the binaries to be successful
 script:
   - travis_retry make test
   # get third-party resources for build
