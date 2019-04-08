@@ -87,7 +87,7 @@ FPMSCRIPTS=$(FPMCOMMON) --before-install $(MKFILE_DIR)/resources/before_install.
 all: test build
 .PHONY: all announce prepare test build clean minimize package rpm deb docker tar npm webpack
 
-announce:
+announce: ## Debugging versions mainly for build and travis-ci
 		@echo "$(BINARY_NAME)"
 		@echo "=============================="
 		@echo "longversion = $(LONGVERSION)"

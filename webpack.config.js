@@ -46,13 +46,6 @@ module.exports = {
         //make webpack ignore moment locale require: https://github.com/moment/moment/issues/2517
         new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/),
 
-         //global jquery is provided to any webpack modules 
-        new webpack.ProvidePlugin({
-            $: "jquery",
-            jQuery: "jquery",
-            "window.jQuery": "jquery"
-        }),
-
         //creates distribution css file rather than inlining styles
         new MiniCssExtractPlugin({
             // Options similar to the same options in webpackOptions.output
@@ -129,10 +122,10 @@ module.exports = {
                     {
                         loader: "babel-loader",
                         options: {
-                            plugins: ['@patternfly/react-styles/babel', '@babel/plugin-proposal-class-properties'],
+                            plugins: ['@patternfly/react-styles/babel', '@babel/plugin-proposal-class-properties', '@babel/plugin-syntax-dynamic-import'],
                             presets: [
                                 '@babel/preset-react',
-                                [ '@babel/preset-env', { "useBuiltIns": "entry", "corejs": "3" } ] 
+                                [ '@babel/preset-env', { "useBuiltIns": "usage", "corejs": "3" } ]
                             ]
                         }
                     }

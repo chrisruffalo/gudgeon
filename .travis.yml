@@ -51,6 +51,11 @@ before_script:
   # install dependencies
   - sudo apt-get install -y --no-install-recommends ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib g++-multilib npm
   - gem install --no-ri --no-rdoc fpm
+  # install node 10
+  - curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
+  - sudo apt-get install -y nodejs
+  # install newer version of npm
+  - sudo npm install -g npm
   # pull xgo container and build local version
   - travis_retry travis_wait docker pull karalabe/xgo-1.12
   # prepare build environment
