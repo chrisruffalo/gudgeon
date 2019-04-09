@@ -9,7 +9,7 @@ URL:        https://github.com/chrisruffalo/gudgeon
 VCS:        {{{ git_vcs }}}
 Source:     {{{ git_pack }}}
 
-BuildRequires: git, make, automake, gcc, gcc-c++, upx, curl, sqlite, sqlite-devel, glibc, glibc-static, glibc-headers, glibc-devel, npm
+BuildRequires: git, which, make, automake, gcc, gcc-c++, curl, sqlite, sqlite-devel, glibc, glibc-static, glibc-headers, glibc-devel, npm
 
 %description
 A blocking DNS proxy/cache with host/subnet level rules and other features for managing home or small office DNS.
@@ -19,9 +19,11 @@ A blocking DNS proxy/cache with host/subnet level rules and other features for m
 %prep
 # rpkg macro for setup
 {{{ git_dir_setup_macro }}}
-# install go if not provided
+# get architecture
+LOCALARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/i686/386/' | sed 's/686/386/' | sed 's/i386/386/')
+
+# install go locally if not provided
 if ! which go; then
-    LOCALARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/i686/386/' | sed 's/686/386/' | sed 's/i386/386/')
     REMARCHIVE=go1.12.linux-$LOCALARCH.tar.gz
     if [[ ! -f /tmp/$REMARCHIVE ]]; then
         curl https://dl.google.com/go/$REMARCHIVE -L -o /tmp/$REMARCHIVE
@@ -32,18 +34,29 @@ if ! which go; then
     chmod +x /tmp/golang/go/bin/go
 fi
 
-# install newer version of npm if not available
-NPMVSORT=$(echo -e "$(npm -v)\n5.0.0" | sort -V | tail -n1)
-if [[ "5.0.0" == "${NPMVSORT}" ]]; then
-    # remove low version packages
-    yum remove -f npm nodejs
-    # install node from nodesource
-    curl -sL https://rpm.nodesource.com/setup_8.x | bash -
-    yum install -y nodejs
+# install newer version of node locally if not over v8
+NPMVSORT=$(echo -e "$(nodejs --version || node --version || echo 'v0.0.0')\rv8.0.0" | sort -V | tail -n1)
+if [[ "v8.0.0" == "${NPMVSORT}" ]]; then
+    # architecture
+    NODEARCH=$(echo "$LOCALARCH" | sed 's/amd64/x64/')
+
+    # download node for given/provided architecture
+    mkdir -p /tmp/nodejs
+    cd /tmp/nodejs
+    curl https://nodejs.org/dist/latest-v10.x/node-v10.15.3-linux-${NODEARCH}.tar.gz | tar xz --strip-components=1
+    PATH="/tmp/nodejs/bin:$PATH"
+    node --version
+    cd -
+
+    # configure npm install prefix
+    echo prefix = /tmp/npm >> ~/.npmrc
+    curl -L https://www.npmjs.org/install.sh | sh
+    PATH="/tmp/npm/bin:$PATH"
+    npm --version
 fi
 
 %build
-export PATH="/tmp/golang/go/bin:$PATH"
+export PATH="/tmp/golang/go/bin:/tmp/npm/bin:/tmp/nodejs/bin:$PATH"
 go version
 export VERSION=@VERSION_TOKEN@
 export NUMBER=@VERSION_TOKEN@
