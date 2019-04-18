@@ -1,9 +1,6 @@
 import React from 'react';
-import Axios from 'axios';
-import { 
+import {
   Card,
-  CardItem,
-  CardHeader,
   CardBody,
   Grid,
   GridItem
@@ -20,7 +17,7 @@ export class GudgeonCharts extends React.Component {
 
   ProcessorPercentFormatter = (value) => {
     return LocaleNumber(value / 1000) + "%"
-  }
+  };
 
   queryMetrics = {
     "queries": {
@@ -31,7 +28,7 @@ export class GudgeonCharts extends React.Component {
         blocked: { name: "Blocked/s", key: "gudgeon-session-blocks-ps" } 
       }
     }
-  }
+  };
 
   memoryMetrics = {
     "memory": {
@@ -43,7 +40,7 @@ export class GudgeonCharts extends React.Component {
         cache: { name: "Cache Entries", key: "gudgeon-cache-entries", axis: "y2" }
       }
     }
-  }
+  };
 
   threadMetrics = {
     "threads": {
@@ -54,7 +51,7 @@ export class GudgeonCharts extends React.Component {
         routines: { name: "Go Routines", key: "gudgeon-goroutines" } 
       }
     }
-  }
+  };
 
   cpuMetrics = {
     "cpu": {
@@ -69,11 +66,9 @@ export class GudgeonCharts extends React.Component {
         cpu: { name: "CPU Use", key: "gudgeon-cpu-hundreds-percent" } 
       }
     }    
-  }
+  };
 
-  state = {
-
-  }  
+  state = {};
 
   componentDidMount() {
 
