@@ -64,7 +64,6 @@ export class QueryTester extends React.Component {
     this.setState({ qtype: value})
   };
 
-
   handleQueryChange = (value, event) => {
     this.setState( { query: value });
     event.preventDefault();

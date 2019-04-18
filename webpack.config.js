@@ -30,12 +30,6 @@ module.exports = {
         ignored: ['node_modules']
     },
 
-    externals: {
-        // require("jquery") is external and available on the global var jQuery
-        "jquery": "jQuery",
-        "jquery": "$"
-    },
-
     plugins: [
         // Avoid publishing files when compilation failed:
         new webpack.NoEmitOnErrorsPlugin(),
