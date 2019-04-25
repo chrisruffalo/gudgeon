@@ -31,7 +31,7 @@ export class Dashboard extends React.Component {
 
   ProcessorPercentFormatter = (value) => {
     return LocaleNumber(value / 1000) + "%"
-  }
+  };
 
   chartMetrics = {
     "queries": {
@@ -71,7 +71,7 @@ export class Dashboard extends React.Component {
         cpu: { name: "CPU Use", key: "gudgeon-cpu-hundreds-percent" } 
       }
     }    
-  }
+  };
 
   state = {
     width: 0,
@@ -114,7 +114,7 @@ export class Dashboard extends React.Component {
 
   updateData() {
     // clear any old timers
-    var { timer } = this.state
+    var { timer } = this.state;
     if ( timer != null ) {
       clearTimeout(timer)
     }
@@ -250,13 +250,13 @@ export class Dashboard extends React.Component {
                 </FormSelect>
               </div>
               <DataList aria-label="Metrics">
-                <DataListItem aria-labelledby="label-query">
-                  <DataListCell width={2}><span id="label-query">Queries</span></DataListCell>
-                  <DataListCell width={1}>{ LocaleNumber(this.getDataMetric(data, 'total-' + currentMetrics + '-queries')) } </DataListCell>
+                <DataListItem className={css(gudgeonStyles.smallListRow)} aria-labelledby="label-query">
+                  <DataListCell width={2} className={css(gudgeonStyles.smallCell)}><span className={css(gudgeonStyles.leftCard)} id="label-query">Queries</span></DataListCell>
+                  <DataListCell width={1} className={css(gudgeonStyles.smallCell)}><div className={css(gudgeonStyles.rightCard)}>{ LocaleNumber(this.getDataMetric(data, 'total-' + currentMetrics + '-queries')) }</div></DataListCell>
                 </DataListItem>
-                <DataListItem aria-labelledby="label-blocked">
-                  <DataListCell width={2}><span id="label-blocked">Blocked</span></DataListCell>
-                  <DataListCell width={1}>{ LocaleNumber(this.getDataMetric(data, 'blocked-' + currentMetrics + '-queries')) }</DataListCell>
+                <DataListItem className={css(gudgeonStyles.smallListRow)} aria-labelledby="label-blocked">
+                  <DataListCell width={2} className={css(gudgeonStyles.smallCell)}><span className={css(gudgeonStyles.leftCard)} id="label-blocked">Blocked</span></DataListCell>
+                  <DataListCell width={1} className={css(gudgeonStyles.smallCell)}><div className={css(gudgeonStyles.rightCard)}>{ LocaleNumber(this.getDataMetric(data, 'blocked-' + currentMetrics + '-queries')) }</div></DataListCell>
                 </DataListItem>
               </DataList>            
             </CardBody>
@@ -267,7 +267,7 @@ export class Dashboard extends React.Component {
         <GridItem lg={6} md={6} sm={12}>
           <Card className={css(gudgeonStyles.maxHeight)}>
             <CardBody>
-              <Table aria-label="Lists" variant={TableVariant.compact} cells={columns} rows={rows}>
+              <Table aria-label="Lists" variant={TableVariant.compact} borders={false} cells={columns} rows={rows}>
                 <TableHeader />
                 <TableBody />
               </Table>            

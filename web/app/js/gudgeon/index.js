@@ -89,11 +89,11 @@ export class Gudgeon extends React.Component {
     const Footer = (
       <div style={{ backgroundColor: '#292e34', padding: '1rem', color: '#ffffff' }}>
         <Split gutter="sm">
-          <SplitItem isMain>
+          <SplitItem isFilled={true} style={{ width: "100%" }} isMain>
             <p className={css(gudgeonStyles.footerText)}>&copy; Chris Ruffalo 2019</p>
             <p className={css(gudgeonStyles.footerText)}><a href="https://github.com/chrisruffalo/gudgeon">@GitHub</a></p>
           </SplitItem>
-          <SplitItem isMain style={{ textAlign: "right" }}>
+          <SplitItem isFilled={true} isMain style={{ textAlign: "right" }}>
             <p className={css(gudgeonStyles.footerText)}>{ window.version().version }{ window.version().release !== "" ? "-" + window.version().release : ""}</p>
             <p className={css(gudgeonStyles.footerText)}><a href={ "https://github.com/chrisruffalo/gudgeon/tree/" + window.version().githash }>git@{ window.version().githash }</a></p>
           </SplitItem>
@@ -101,7 +101,7 @@ export class Gudgeon extends React.Component {
       </div>      
     );
 
-    // if the 
+    // if the default route is blank we don't want to show anything but this
     const Catcher = defaultRoute === "" ? ( <Route component={ () => NoFeaturesEnabled } /> ) : ( <Redirect to={ defaultRoute } /> );
 
     const Dboard = window.config().metrics ? ( <Dashboard /> ) : null;
