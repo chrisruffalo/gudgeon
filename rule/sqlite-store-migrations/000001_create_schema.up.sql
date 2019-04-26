@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS rules (
     ListRowId INTEGER, 
     Rule TEXT, 
     PRIMARY KEY(ListRowId, Rule) 
-) WITHOUT ROWID;
+);
 -- without these indexes it is **much** slower
 CREATE INDEX IF NOT EXISTS idx_rules_Rule on rules (Rule);
 CREATE INDEX IF NOT EXISTS idx_rules_ListRowId on rules (ListRowId);

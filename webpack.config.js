@@ -134,8 +134,8 @@ module.exports = {
                                 [
                                     '@patternfly/react-styles/babel',
                                     {
-                                        outDir: '/',
-                                        useModules: false
+                                        outDir: 'build/webpack/',
+                                        useModules: true
                                     }
                                 ],
                                 '@babel/plugin-proposal-class-properties',

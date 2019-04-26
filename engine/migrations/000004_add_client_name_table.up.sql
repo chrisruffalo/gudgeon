@@ -6,14 +6,14 @@ DROP INDEX idx_client_metrics_Address;
 CREATE TABLE client_names (
     Address TEXT PRIMARY KEY DEFAULT '',
     ClientName TEXT DEFAULT ''
-) WITHOUT ROWID;
+);
 CREATE INDEX idx_client_names_Address ON client_names (Address);
 
 -- create new table for storing client metrics, removing the ClientName field again
 CREATE TABLE client_metrics (
     Address TEXT PRIMARY KEY DEFAULT '',
     Count INT
-) WITHOUT ROWID;
+);
 CREATE INDEX idx_client_metrics_Address ON client_metrics (Address);
 
 -- move values without the client names

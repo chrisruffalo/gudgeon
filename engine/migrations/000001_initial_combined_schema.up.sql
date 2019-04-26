@@ -64,21 +64,21 @@ CREATE INDEX idx_metrics_AtTime ON metrics (AtTime);
 CREATE TABLE client_metrics (
     Address TEXT PRIMARY KEY DEFAULT '',
     Count INT
-) WITHOUT ROWID;
+);
 CREATE INDEX idx_client_metrics_Address ON client_metrics (Address);
 
 -- create new table for storing domain metrics
 CREATE TABLE domain_metrics (
     DomainName TEXT PRIMARY KEY DEFAULT '',
     Count INT
-) WITHOUT ROWID;
+);
 CREATE INDEX idx_domain_metrics_DomainName on domain_metrics (DomainName);
 
 -- create table for storing query type metrics
 CREATE TABLE query_metrics (
     QueryType TEXT PRIMARY KEY DEFAULT '',
     Count INT
-) WITHOUT ROWID;
+);
 CREATE INDEX idx_query_metrics_QueryType on query_metrics (QueryType);
 
 -- create table for storing individual list metrics
@@ -96,6 +96,6 @@ CREATE TABLE rule_metrics (
     Rule TEXT DEFAULT '',
     Hits INT,
     PRIMARY KEY (ListId, Rule)
-) WITHOUT ROWID;
+);
 CREATE INDEX idx_rule_metrics_ListIdRule on rule_metrics (ListId, Rule);
 

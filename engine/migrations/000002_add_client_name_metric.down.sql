@@ -6,7 +6,7 @@ CREATE TABLE client_metrics (
     Address TEXT PRIMARY KEY DEFAULT '',
     ClientName TEXT,
     Count INT
-) WITHOUT ROWID;
+);
 CREATE INDEX idx_client_metrics_Address ON client_metrics (Address);
 
 -- insert values from old table
