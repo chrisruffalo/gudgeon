@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from "react-dom";
 import "material-icons/iconfont/material-icons.css";
-import "@patternfly/patternfly/patternfly.css";
+import "@patternfly/patternfly/patternfly.min.css";
 import { Gudgeon } from './gudgeon';
 import "../css/gudgeon-overrides.css";
 
