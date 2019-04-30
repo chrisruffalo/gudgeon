@@ -10,6 +10,11 @@ import { PrettyDate } from './helpers.js';
 export class QueryLog extends React.Component {
   constructor(props) {
     super(props);
+    this.state.externalSearch = this.props.externalSearch || false;
+    if ( this.props.externalSearch ) {
+      this.state.externalKey = this.props.externalKey;
+      this.state.externalQuery = this.props.externalQuery;
+    }
   };
 
   state = {
@@ -18,7 +23,7 @@ export class QueryLog extends React.Component {
         searchable: true,
         sorting: false,        
         render: rowData => {
-          var clientString = "";
+          let clientString = "";
           if ( rowData.ClientName ) {
             clientString = clientString + rowData.ClientName + " | ";
           }
@@ -41,10 +46,10 @@ export class QueryLog extends React.Component {
         searchable: true,
         sorting: false,
         render: rowData => {
-          var responseText = rowData.ResponseText
-          var responseCode = rowData.Rcode
-          if ( responseText == null || responseText == "" || responseText.length < 0) {
-            if (responseCode != null && "" != responseCode && "NOERROR" != responseCode ) {
+          let responseText = rowData.ResponseText;
+          let responseCode = rowData.Rcode;
+          if ( responseText == null || responseText === "" || responseText.length < 0) {
+            if (responseCode != null && "" !== responseCode && "NOERROR" !== responseCode ) {
               responseText = responseCode
             } else {
               responseText = "( EMPTY )"
@@ -55,7 +60,7 @@ export class QueryLog extends React.Component {
             return (
               <div style={{ color: "red" }}><ErrorCircleOIcon alt="blocked" /> BLOCKED</div>
             );
-          } else if ( rowData.Match == 1 ) {
+          } else if ( rowData.Match === 1 ) {
             return (
               <div style={{ color: "red" }}><ErrorCircleOIcon alt="blocked" /> { rowData.MatchList }{ rowData.MatchRule ? ' (' + rowData.MatchRule + ")" : null }</div>
             );          
@@ -82,43 +87,37 @@ export class QueryLog extends React.Component {
       }
     ],
     data: [],
-    /*
-    actions: [{
-      disabled: false,
-      icon: () => { return (<Icon>refresh</Icon>); },
-      iconProps: {color: "primary"},
-      isFreeAction: true,
-      tooltip: "Refresh",
-      onClick: this.updateData
-    }],
-    */
+    actions: [],
     options: {
         pageSize: 10,
         pageSizeOptions: [ 5, 10, 20, 50, 100 ],
         showTitle: false,
-        debounceInterval: 750
+        debounceInterval: 750,
+        search: false,
+        toolbar: false
     }
   };
 
   dataQuery = query => new Promise((resolve, reject) => {
     // query variables
-    var skip = query.page == 0 ? 0 : (query.page * query.pageSize);
-    var after = (Math.floor(Date.now()/1000) - 60 * 60).toString()
+    let skip = query.page === 0 ? 0 : (query.page * query.pageSize);
+    let after = (Math.floor(Date.now()/1000) - 60 * 60).toString();
 
-    var params = {
+    let params = {
       limit: query.pageSize,
       skip: skip,
       after: after
+    };
+
+    // load search from external source, will be overwritten if search comes behind
+    let { externalSearch, externalKey, externalQuery } = this.state;
+    if ( externalSearch ) {
+      // set param
+      params[externalKey] = externalQuery;
+      // all time
+      after = null;
     }
 
-    if ( query.search != null && query.search.length > 0 && query.search !== "" ) {
-      params['responseText'] = query.search;
-      params['clientName'] = query.search;
-      params['rdomain'] = query.search;
-      params['address'] = query.search;
-    }
-
-    var defaultSortDir = "asc";
     if ( query.orderBy == null || query.orderBy.title === "Created" ) {
       params['sort'] = "created";
       if ( query.orderBy == null ) {
@@ -152,9 +151,9 @@ export class QueryLog extends React.Component {
 
   componentWillUnmount() {
     // stop updating if timer is not null
-    var { autoRefreshTimer } = this.state
+    let { autoRefreshTimer } = this.state;
     if ( autoRefreshTimer != null ) {
-      clearTimeout(autoRefreshTimer)
+      clearTimeout(autoRefreshTimer);
       this.setState({ autoRefreshTimer: null })             
     }
   }

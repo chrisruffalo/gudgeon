@@ -1,20 +1,20 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Switch, Redirect, NavLink as Link } from "react-router-dom";
-import { 
+import {
   Brand,
   Nav,
   NavItem,
   NavList,
   NavVariants,
-  Page, 
-  PageHeader, 
-  PageSection, 
+  Page,
+  PageHeader,
+  PageSection,
   Split,
   SplitItem,
   EmptyState,
   EmptyStateIcon,
   EmptyStateBody,
-  Title
+  Title, Grid, GridItem, Card, CardHeader, CardBody
 } from '@patternfly/react-core';
 import { CubesIcon } from '@patternfly/react-icons';
 import { Dashboard } from './dashboard.js';
@@ -23,6 +23,7 @@ import { QueryLog } from './qlog-table.js';
 import { QueryTester } from './query-tester.js';
 import gudgeonStyles from '../../css/gudgeon-app.css';
 import { css } from '@patternfly/react-styles';
+import {MetricsTopList} from "./metrics-top";
 
 export class Gudgeon extends React.Component {
   // empty state
@@ -33,7 +34,53 @@ export class Gudgeon extends React.Component {
   }
 
   componentWillUnmount() {
+
   }
+
+  createDetailedQlog = ({ location, match }) => {
+    if ( !window.config().query_log || !window.config().query_log_persist ) {
+      return null;
+    }
+
+    // get search params
+    let sparams = new URLSearchParams(location.search);
+
+    // handle external search parameters
+    if ( sparams.get("st") && sparams.get("query") ) {
+      return <QueryLog externalSearch={true} externalKey={sparams.get("st")} externalQuery={sparams.get("query")} />;
+    }
+    // otherwise return vanilla query log
+    return <QueryLog />;
+  };
+
+  expandedMetricsView = ({ match }) => {
+    const titleMap = {
+      "clients": "Top Clients",
+      "rules": "Top Rule Matches",
+      "domains": "Top Queried Domains"
+    };
+    return (
+        <Grid gutter="sm">
+          <GridItem lg={12} md={12} sm={12}>
+            <Card className={css(gudgeonStyles.maxHeight)}>
+              <CardHeader>
+                <Split gutter="sm">
+                  <SplitItem isFilled={true} style={{ width: "100%" }}>
+                    { titleMap[match.params.topType] }
+                  </SplitItem>
+                  <SplitItem isFilled={true} style={{ textAlign: "right" }}>
+                    <Link to={ "/dashboard" } >&lt;dashboard</Link>
+                  </SplitItem>
+                </Split>
+              </CardHeader>
+              <CardBody>
+                <MetricsTopList topType={ match.params.topType } limit={50} />
+              </CardBody>
+            </Card>
+          </GridItem>
+        </Grid>
+    );
+  };
 
   render() {
     var defaultRoute = "";
@@ -89,11 +136,11 @@ export class Gudgeon extends React.Component {
     const Footer = (
       <div style={{ backgroundColor: '#292e34', padding: '1rem', color: '#ffffff' }}>
         <Split gutter="sm">
-          <SplitItem isFilled={true} style={{ width: "100%" }} isMain>
+          <SplitItem isFilled={true} style={{ width: "100%" }}>
             <p className={css(gudgeonStyles.footerText)}>&copy; Chris Ruffalo 2019</p>
             <p className={css(gudgeonStyles.footerText)}><a href="https://github.com/chrisruffalo/gudgeon">@GitHub</a></p>
           </SplitItem>
-          <SplitItem isFilled={true} isMain style={{ textAlign: "right" }}>
+          <SplitItem isFilled={true} style={{ textAlign: "right" }}>
             <p className={css(gudgeonStyles.footerText)}>{ window.version().version }{ window.version().release !== "" ? "-" + window.version().release : ""}</p>
             <p className={css(gudgeonStyles.footerText)}><a href={ "https://github.com/chrisruffalo/gudgeon/tree/" + window.version().githash }>git@{ window.version().githash }</a></p>
           </SplitItem>
@@ -106,7 +153,6 @@ export class Gudgeon extends React.Component {
 
     const Dboard = window.config().metrics ? ( <Dashboard /> ) : null;
     const Charts = window.config().metrics ? ( <GudgeonCharts /> ) : null;
-    const QLog = window.config().query_log && window.config().query_log_persist ? ( <QueryLog />) : null;
     const QTest = ( <QueryTester /> );
 
     return (
@@ -117,7 +163,8 @@ export class Gudgeon extends React.Component {
               <Switch>
                 { window.config().metrics ? <Route path="/dashboard" component={ () => Dboard } /> : null }
                 { window.config().metrics && window.config().metrics_persist ? <Route path="/charts" component={ () => Charts } /> : null }
-                { window.config().query_log && window.config().query_log_persist ? <Route path="/qlog" component={ () => QLog } /> : null }
+                { window.config().metrics && window.config().metrics_persist ? <Route path="/top/:topType" component={ this.expandedMetricsView } /> : null }
+                { window.config().query_log && window.config().query_log_persist ? <Route path="/qlog" component={ this.createDetailedQlog } /> : null }
                 <Route path="/query_test" component={ () => QTest } />
                 { Catcher }
               </Switch>

@@ -1,6 +1,7 @@
 import React from 'react';
+import { NavLink as Link } from "react-router-dom";
 import Axios from 'axios';
-import { 
+import {
   DataList,
   DataListItem,
   DataListCell
@@ -20,24 +21,31 @@ export class MetricsTopList extends React.Component {
   };  
 
   updateData() {
-    var { timer } = this.state;
+    let { timer } = this.state;
     if ( timer != null ) {
       clearTimeout(timer)
     }
 
+    let params = {};
+    if ( this.props.limit && this.props.limit > 0 ) {
+      params['limit'] = this.props.limit;
+    }
+
     Axios
-      .get("/api/metrics/top/" + this.props.topType )
+      .get("/api/metrics/top/" + this.props.topType, {
+        params: params
+      } )
       .then(response => {
         this.setState({ data: response.data });
 
-        var newTimer = setTimeout(() => {
+        let newTimer = setTimeout(() => {
           this.updateData()
         },15000); // update every 15s
 
         // update the data in the state
         this.setState({ timer: newTimer })
       }).catch((error) => {
-        var newTimer = setTimeout(() => {
+        let newTimer = setTimeout(() => {
           this.updateData()
         },60000); // on error try again in 60s
 
@@ -51,26 +59,37 @@ export class MetricsTopList extends React.Component {
   }  
 
   componentWillUnmount() {
-    var { timer } = this.state;
+    let { timer } = this.state;
     if ( timer != null ) {
       clearTimeout(timer)
     }
   }
-  
+
+  mapTypeToQuery = {
+    "domains": "rdomain",
+    "clients": "clientName"
+  };
+
   render() {
     // build data list items from data
-    var { data } = this.state;
+    let { data } = this.state;
+
     const ListItems = data.map((item, index) => {
+      const doLink = this.mapTypeToQuery[this.props.topType] != null;
       return (
           <DataListItem key={ index } className={css(gudgeonStyles.smallListRow)} aria-labelledby={ "label-" + index }>
-            <DataListCell className={css(gudgeonStyles.smallCell)} width={2}><span className={css(gudgeonStyles.leftCard)} id={ "label-" + index }>{ item.Desc }</span></DataListCell>
+            <DataListCell className={css(gudgeonStyles.smallCell)} width={2}>
+              <span className={css(gudgeonStyles.leftCard)} id={ "label-" + index }>
+                { doLink ? <Link to={{ pathname: "/qlog", search: "?st=" + this.mapTypeToQuery[this.props.topType] + "&query=" + item.Desc }}>{ item.Desc }</Link> : item.Desc }
+              </span>
+            </DataListCell>
             <DataListCell className={css(gudgeonStyles.smallCell)} width={1}><div className={css(gudgeonStyles.rightCard)} >{ LocaleNumber(item.Count) }</div></DataListCell>
           </DataListItem>        
       );
     });
 
     return (
-      <DataList aria-label="Lifetime Metrics">
+      <DataList aria-label="Top">
         {ListItems}
       </DataList>
     )

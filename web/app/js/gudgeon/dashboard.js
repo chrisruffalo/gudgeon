@@ -1,4 +1,5 @@
 import React from 'react';
+import { NavLink as Link } from "react-router-dom";
 import Axios from 'axios';
 import { 
   Card,
@@ -10,7 +11,9 @@ import {
   DataListItem,
   DataListCell,
   FormSelect,
-  FormSelectOption
+  FormSelectOption,
+  Split,
+  SplitItem
 } from '@patternfly/react-core';
 import { 
   Table, 
@@ -150,8 +153,8 @@ export class Dashboard extends React.Component {
         return;
       }
       var newRow = [];
-      newRow.push(element['name'])
-      var key = element['short']
+      newRow.push(element['name']);
+      var key = element['short'];
       newRow.push(this.getDataMetric(data, 'rules-list-' + key));
       newRow.push(this.getDataMetric(data, 'rules-session-matched-' + key));
       newRow.push(this.getDataMetric(data, 'rules-lifetime-matched-' + key));
@@ -186,7 +189,7 @@ export class Dashboard extends React.Component {
 
   componentWillUnmount() {
     // clear existing timer
-    var { timer } = this.state
+    var { timer } = this.state;
     if ( timer != null ) {
       clearTimeout(timer)
     }
@@ -198,33 +201,35 @@ export class Dashboard extends React.Component {
   render() {
     const { columns, data, rows, currentMetrics } = this.state;
 
+    const topTypes = [
+      { key: "clients", title: "Top Clients" },
+      { key: "rules", title: "Top Rule Matches" },
+      { key: "domains", title: "Top Queried Domains" }
+    ];
     const TopCards = window.config().metrics_detailed ? (
       <React.Fragment>
-        <GridItem lg={3} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
-            <CardHeader>Top Clients</CardHeader>
-            <CardBody>
-              <MetricsTopList topType="clients"/>
-            </CardBody>
-          </Card>
-        </GridItem>           
-        <GridItem lg={3} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
-            <CardHeader>Top Rule Matches</CardHeader>
-            <CardBody>
-              <MetricsTopList topType="rules"/>
-            </CardBody>
-          </Card>
-        </GridItem>        
-        <GridItem lg={3} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
-            <CardHeader>Top Domains</CardHeader>
-            <CardBody>
-              <MetricsTopList topType="domains"/>
-            </CardBody>
-          </Card>
-        </GridItem>
-      </React.Fragment> 
+        { topTypes.map((value, index) => {
+          return (
+              <GridItem key={index} lg={3} md={6} sm={12}>
+                <Card className={css(gudgeonStyles.maxHeight)}>
+                  <CardHeader>
+                    <Split gutter="sm">
+                      <SplitItem isFilled={true} style={{ width: "100%" }}>
+                        { value.title }
+                      </SplitItem>
+                      <SplitItem isFilled={true} style={{ textAlign: "right" }}>
+                        <Link to={ "/top/" + value.key } >more&gt;</Link>
+                      </SplitItem>
+                    </Split>
+                  </CardHeader>
+                  <CardBody>
+                    <MetricsTopList topType={ value.key } />
+                  </CardBody>
+                </Card>
+              </GridItem>
+          );
+        })}
+      </React.Fragment>
     ) : null;
 
     const OverviewChart = window.config().metrics && window.config().metrics_persist ? (
