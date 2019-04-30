@@ -65,6 +65,8 @@ export class MetricsTopList extends React.Component {
     }
   }
 
+  // maps the chosen type to the appropriate query key in the qlog page
+  // (this is given as the st parameter)
   mapTypeToQuery = {
     "domains": "rdomain",
     "clients": "clientName"
