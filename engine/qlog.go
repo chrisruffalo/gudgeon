@@ -35,7 +35,10 @@ type QueryLogQuery struct {
 	ResponseText   string
 	Blocked        *bool
 	Cached         *bool
+	// aspects of the match
 	Match          *rule.Match
+	MatchList      string
+	MatchRule      string
 	// query on created time
 	After  *time.Time
 	Before *time.Time
@@ -335,6 +338,16 @@ func (qlog *qlog) query(query *QueryLogQuery, accumulator queryAccumulator) {
 	if query.Match != nil {
 		whereClauses = append(whereClauses, "Match = ?")
 		whereValues = append(whereValues, query.Match)
+	}
+
+	if "" != query.MatchList {
+		whereClauses = append(whereClauses, "MatchList like ?")
+		whereValues = append(whereValues, query.MatchList)
+	}
+
+	if "" != query.MatchRule {
+		whereClauses = append(whereClauses, "MatchRule like ?")
+		whereValues = append(whereValues, query.MatchRule)
 	}
 
 	if query.Cached != nil {

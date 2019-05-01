@@ -114,8 +114,8 @@ export class QueryLog extends React.Component {
     if ( externalSearch ) {
       // set param
       params[externalKey] = externalQuery;
-      // all time
-      after = null;
+      // broaden search to "all time"
+      params['after'] = 0;
     }
 
     if ( query.orderBy == null || query.orderBy.title === "Created" ) {

@@ -131,10 +131,10 @@ export class GudgeonChart extends React.Component {
       })
       .then(response => {
         if ( response != null && response.data != null && response.data.length > 0 ) {
-          var { columns } = this.state
+          const { columns } = this.state;
 
           // concat query data
-          var newData = columns;
+          let newData = columns;
 
           // measure domain max
           var newDomainMaxY = 0;
@@ -267,7 +267,9 @@ export class GudgeonChart extends React.Component {
         return value !== "0" ? value : "";
       }
 
-      return value > 0 ? value : "";
+      // don't return a ones place value on non-formatted ticks,
+      // so that 152 should return 160
+      return value > 0 ? Math.ceil(value / 10) * 10 : "";
     };
   }
 
@@ -280,7 +282,7 @@ export class GudgeonChart extends React.Component {
         return;
     }
 
-    var chartSettings = {
+    const chartSettings = {
       bindto: "#" + this.chartId,
       padding: { 
         top: 15, 
@@ -356,9 +358,8 @@ export class GudgeonChart extends React.Component {
     };
 
     // determine axes
-    var axes = {};
-    var key;
-    for ( key in this.props.metrics[selected].series ) {
+    let axes = {};
+    for ( let key in this.props.metrics[selected].series ) {
       var yaxis = this.props.metrics[selected].series[key].axis;
       if ( yaxis !== "y2" ) {
         yaxis = "y";
@@ -371,7 +372,7 @@ export class GudgeonChart extends React.Component {
 
     // set colors from color map
     chartSettings['data']['colors'] = [];
-    for ( var idx = 0; idx < columns.length; idx ++) {
+    for ( let idx = 0; idx < columns.length; idx ++) {
       chartSettings['data']['colors'][columns[idx][0]] = this.colors[idx - 1];
     }
 
@@ -380,7 +381,7 @@ export class GudgeonChart extends React.Component {
       chartSettings['axis']['y']['max'] = this.props.metrics[selected].domain.maxY;
     } else {
       if ( domainMaxY > 0 ) {
-        var calcDomainMax = Math.floor(domainMaxY * 1.25);
+        let calcDomainMax = Math.floor(domainMaxY * 1.25);
         if ( calcDomainMax < 10 ) {
           calcDomainMax = 10;
         }        

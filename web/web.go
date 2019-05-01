@@ -268,6 +268,10 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 		query.ResponseText = responseText
 	}
 
+	if matchRule := c.Query("matchRule"); len(matchRule) > 0 {
+		query.MatchRule = matchRule
+	}
+
 	// look for and convert time (seconds since unix epoch) to local date
 	if after := c.Query("after"); len(after) > 0 {
 		iAfter, err := strconv.ParseInt(after, 10, 64)

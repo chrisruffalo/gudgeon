@@ -69,7 +69,8 @@ export class MetricsTopList extends React.Component {
   // (this is given as the st parameter)
   mapTypeToQuery = {
     "domains": "rdomain",
-    "clients": "clientName"
+    "clients": "clientName",
+    "rules": "matchRule"
   };
 
   render() {
@@ -91,7 +92,7 @@ export class MetricsTopList extends React.Component {
     });
 
     return (
-      <DataList aria-label="Top">
+      <DataList aria-label={"Top " + this.props.topType}>
         {ListItems}
       </DataList>
     )
