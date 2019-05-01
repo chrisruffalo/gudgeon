@@ -3,18 +3,18 @@
 In no particular order these are the future improvements that are coming to Gudgeon:
 
 * General
-  * **In Progress:**Ability to stop/start/restart different consumers (provider, web)
+  * **In Progress:** Ability to stop/start/restart different consumers (provider, web)
   * **In Progress:** Integration tests that use start/stop mechanics for end-to-end testing
   * File watching and reloading minimal configuration changes without service restart or downtime (hot reload)
   * **In Progress:** Package refactoring to put `rule`, `resolver`, `qlog`, and `metrics` in engine package (at a minimum)
   * **Done:** Reverse lookup moved outside of query log and into part of engine
   * Ability to track query latency/processing time
-  * Unindexed single tables for SQL insert speed before batching into long-term storage
+  * **Done:** Unindexed single tables for SQL insert speed before batching into long-term storage
 * Metrics
   * **Done:** Local instance metrics storage
   * Better CPU graph
   * Memory graph with more memory classes (system or golang stats)
-  * Cache size as second graph with memory (??)
+  * **Done:** Cache size as second graph with memory (??)
   * Exporting to Prometheus and InfluxDB (followed by others as desired)
   * Condensing data in the database based on time interval
 * Query Log
@@ -23,7 +23,7 @@ In no particular order these are the future improvements that are coming to Gudg
 * Web UI
   * **In Progress: ** Searchable query log
   * **Done:** Metrics graph widgets
-  * Query Tester (requires engine refactoring)
+  * **Done:** Query Tester (requires engine refactoring)
 * Logging:
   * **Done:** Use actual, configurable, logging framework instead of fmt.Printf
   * Implement file logging for main logger
@@ -41,7 +41,7 @@ In no particular order these are the future improvements that are coming to Gudg
   * **Done:** Built-in "system" source/resolver to use OS's resolution (through Go API)
   * **In Progress:** Configurable "system" resolver for resolving domain names internally
   * Conditional resolution (only use certain resolvers in certain conditions)
-  * Using resolv.conf files as resolution sources
+  * **In Progress:** Using resolv.conf files as resolution sources
   * **Done:** Using Zone-files (\*.db) as a resolution source
   * Name support with DNS-Over-TLS (use domain name instead of just IP as resolver source)
 * Consumers
