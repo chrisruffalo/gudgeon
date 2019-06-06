@@ -21,25 +21,26 @@ type zoneSource struct {
 	wildnames []string
 }
 
-func newZoneSourceFromFile(zoneFile string) (Source, error) {
+func (zoneSource *zoneSource) Load(zoneFile string) {
+	// set up source object
+	zoneSource.wildnames = make([]string, 0)
+	zoneSource.records = make(map[string]map[uint16]map[uint16][]dns.RR)
+
 	// get reader for zone file
 	file, err := os.Open(zoneFile)
 	if err != nil {
-		return nil, err
+		return
 	}
-	defer file.Close()
+
 	filePath := file.Name()
+	zoneSource.filePath = filePath
 
 	// create zone parser
 	zp := dns.NewZoneParser(file, "", filePath)
 	if err := zp.Err(); err != nil {
-		return nil, err
-	}
-
-	source := &zoneSource{
-		filePath:  filePath,
-		wildnames: make([]string, 0),
-		records:   make(map[string]map[uint16]map[uint16][]dns.RR),
+		// close zone file on early out
+		file.Close()
+		return
 	}
 
 	for rr, hasNext := zp.Next(); true; {
@@ -52,11 +53,11 @@ func newZoneSourceFromFile(zoneFile string) (Source, error) {
 
 			// record as a name that has a wildcard prefix
 			if strings.HasPrefix(name, zoneWildPrefix) {
-				source.wildnames = append(source.wildnames, name)
+				zoneSource.wildnames = append(zoneSource.wildnames, name)
 			}
 
 			// add record
-			source.addRecord(rr)
+			zoneSource.addRecord(rr)
 
 			// if it's an A record we can create a PTR record too
 			if aRec, ok := rr.(*dns.A); ok && aRec.A != nil {
@@ -64,7 +65,7 @@ func newZoneSourceFromFile(zoneFile string) (Source, error) {
 					Hdr: dns.RR_Header{Name: util.ReverseLookupDomain(&aRec.A), Rrtype: dns.TypePTR, Class: rr.Header().Class, Ttl: rr.Header().Ttl},
 					Ptr: name,
 				}
-				source.addRecord(ptr)
+				zoneSource.addRecord(ptr)
 			}
 
 			if aaaaRec, ok := rr.(*dns.AAAA); ok && aaaaRec.AAAA != nil {
@@ -72,7 +73,7 @@ func newZoneSourceFromFile(zoneFile string) (Source, error) {
 					Hdr: dns.RR_Header{Name: util.ReverseLookupDomain(&aaaaRec.AAAA), Rrtype: dns.TypePTR, Class: rr.Header().Class, Ttl: rr.Header().Ttl},
 					Ptr: name,
 				}
-				source.addRecord(ptr)
+				zoneSource.addRecord(ptr)
 			}
 		}
 
@@ -83,14 +84,12 @@ func newZoneSourceFromFile(zoneFile string) (Source, error) {
 		rr, hasNext = zp.Next()
 	}
 
+	// close zone file
+	file.Close()
+
 	// get error from last parsed line
-	err = zp.Err()
-
-	if len(source.records) == 0 {
-		return nil, err
-	}
-
-	return source, err
+	//err = zp.Err()
+	// todo: maybe report on this?
 }
 
 func (zoneSource *zoneSource) addRecord(rr dns.RR) {

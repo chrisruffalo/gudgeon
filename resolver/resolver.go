@@ -97,7 +97,8 @@ func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, configu
 
 	// add literal hostfile source first source if hosts is configured
 	if len(configuredResolver.Hosts) > 0 {
-		hostfileSource := newHostFileFromHostArray(configuredResolver.Hosts)
+		hostfileSource := &hostFileSource{}
+		hostfileSource.LoadArray(configuredResolver.Hosts)
 		if hostfileSource != nil {
 			resolver.sources = append(resolver.sources, hostfileSource)
 		}
@@ -108,7 +109,7 @@ func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, configu
 		// first check if there is a configured source given for the spec,
 		// if so, we should use it instead of looking for it
 		if cS, found := configuredSources[configuredSource]; found {
-			log.Infof("Loaded configured: %s", cS.Name())
+			log.Infof("Loaded configured source: %s", cS.Name())
 			resolver.sources = append(resolver.sources, cS)
 		}
 
@@ -116,7 +117,7 @@ func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, configu
 		// otherwise we use the name system and point back to it with a
 		// resolver source
 		if resolver.name == "system" && configuredSource == "system" {
-			resolver.sources = append(resolver.sources, newSystemSource())
+			resolver.sources = append(resolver.sources, &systemSource{})
 		} else {
 			var source Source
 

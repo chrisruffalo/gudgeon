@@ -25,6 +25,10 @@ func newMultiSource(name string, sources []Source) Source {
 	return ms
 }
 
+func (ms *multiSource) Load(specification string) {
+	// no-op
+}
+
 func (ms *multiSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	for _, source := range ms.sources {
 		response, err := source.Answer(rCon, context, request)

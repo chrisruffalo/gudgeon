@@ -23,15 +23,19 @@ type hostFileSource struct {
 	dnsWildcards  map[string][]*net.IP
 }
 
-func newHostFileFromHostArray(data []string) Source {
-	source := new(hostFileSource)
-	source.filePath = "hosts"
+func (hostFileSource *hostFileSource) LoadArray(data []string) {
+	hostFileSource.filePath = "hosts"
 
 	// make new map
-	source.hostEntries = make(map[string][]*net.IP)
-	source.cnameEntries = make(map[string]string)
-	source.reverseLookup = make(map[string][]string)
-	source.dnsWildcards = make(map[string][]*net.IP)
+	hostFileSource.hostEntries = make(map[string][]*net.IP)
+	hostFileSource.cnameEntries = make(map[string]string)
+	hostFileSource.reverseLookup = make(map[string][]string)
+	hostFileSource.dnsWildcards = make(map[string][]*net.IP)
+
+	// if file name is empty, use inline
+	if len(hostFileSource.filePath) == 0 {
+		hostFileSource.filePath = "inline"
+	}
 
 	// parse each line
 	for _, d := range data {
@@ -78,7 +82,7 @@ func newHostFileFromHostArray(data []string) Source {
 		if parsedAddress != nil {
 			// add to reverse lookup
 			ptr := util.ReverseLookupDomain(&parsedAddress)
-			source.reverseLookup[ptr] = domains
+			hostFileSource.reverseLookup[ptr] = domains
 
 			// add to map
 			for _, domain := range domains {
@@ -90,40 +94,38 @@ func newHostFileFromHostArray(data []string) Source {
 
 				// append value to list
 				if !wild {
-					source.hostEntries[domain] = append(source.hostEntries[domain], &parsedAddress)
+					hostFileSource.hostEntries[domain] = append(hostFileSource.hostEntries[domain], &parsedAddress)
 				} else {
-					source.dnsWildcards[domain] = append(source.dnsWildcards[domain], &parsedAddress)
+					hostFileSource.dnsWildcards[domain] = append(hostFileSource.dnsWildcards[domain], &parsedAddress)
 				}
 			}
 		} else {
 			// add target to alias cname lookup
 			for _, alias := range domains {
 				// only one alias per taget
-				if "" == source.cnameEntries[alias] {
-					source.cnameEntries[dns.Fqdn(alias)] = dns.Fqdn(address)
+				if "" == hostFileSource.cnameEntries[alias] {
+					hostFileSource.cnameEntries[dns.Fqdn(alias)] = dns.Fqdn(address)
 				}
 			}
 		}
 	}
-
-	return source
 }
 
-func newHostFileSource(sourceFile string) Source {
+func (hostFileSource *hostFileSource) Load(sourceFile string) {
+	// keep the source file path
+	hostFileSource.filePath = sourceFile
+
 	// open file and parse each line
 	data, err := util.GetFileAsArray(sourceFile)
-	// on error return nil
+
+	// on error do not further initialize
 	if err != nil {
 		log.Errorf("While opening '%s': %s", sourceFile, err)
-		return nil
+		return
 	}
 
-	source := newHostFileFromHostArray(data)
-	if source != nil {
-		source.(*hostFileSource).filePath = sourceFile
-	}
-
-	return source
+	// load array
+	hostFileSource.LoadArray(data)
 }
 
 func (hostFileSource *hostFileSource) respondToAWildcards(name string, request *dns.Msg, response *dns.Msg) {

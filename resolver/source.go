@@ -1,15 +1,14 @@
 package resolver
 
 import (
-	"github.com/chrisruffalo/gudgeon/config"
 	"net"
 	"os"
 	"strings"
 
-	"github.com/ryanuber/go-glob"
-	log "github.com/sirupsen/logrus"
-
 	"github.com/miekg/dns"
+	"github.com/ryanuber/go-glob"
+
+	"github.com/chrisruffalo/gudgeon/config"
 )
 
 const (
@@ -18,6 +17,7 @@ const (
 
 type Source interface {
 	Name() string
+	Load(specification string)
 	Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
 }
 
@@ -64,25 +64,34 @@ func NewConfigurationSource(config *config.GudgeonSource, sourceMap map[string]S
 }
 
 func NewSource(sourceSpecification string) Source {
-	// a source that exists as a file is a hostfile source
+	var source Source
+
+	// a source that exists as a file is a either a db(zone file), resolv.conf, or hostfile source
 	if _, err := os.Stat(sourceSpecification); !os.IsNotExist(err) {
+		// put reloadable/file watching source in the middle
+		watcher := &fileSource{}
+		// determine type of file source
 		if glob.Glob("*.db", sourceSpecification) {
-			source, err := newZoneSourceFromFile(sourceSpecification)
-			if err != nil {
-				log.Errorf("Loading zone file: %s", err)
-			}
-			return source
+			watcher.reloadableSource = &zoneSource{}
+		} else {
+			// the fallback is to treat it as a hostfile
+			watcher.reloadableSource = &hostFileSource{}
 		}
-
-		return newHostFileSource(sourceSpecification)
-	}
-
-	// a source that is an IP or that has other hallmarks of an address is a dns source
-	if ip := net.ParseIP(sourceSpecification); ip != nil || strings.Contains(sourceSpecification, ":") || strings.Contains(sourceSpecification, "/") {
-		return newDNSSource(sourceSpecification)
+		source = watcher
+	} else if ip := net.ParseIP(sourceSpecification); ip != nil || strings.Contains(sourceSpecification, ":") || strings.Contains(sourceSpecification, "/") {
+		// a source that is an IP or that has other hallmarks of an address is a dns source
+		source = &dnsSource{}
 	}
 
 	// fall back to looking for a resolver source which will basically be a no-op resolver in the event
 	// that the named resolver doesn't exist
-	return newResolverSource(sourceSpecification)
+	if source == nil {
+		source = &resolverSource{}
+	}
+
+	// load source
+	source.Load(sourceSpecification)
+
+	// finally return
+	return source
 }

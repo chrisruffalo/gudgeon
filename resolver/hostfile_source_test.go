@@ -11,7 +11,8 @@ import (
 func TestBasicHostFile(t *testing.T) {
 
 	// load sources
-	source := newHostFileSource("testdata/test.hosts")
+	source := &hostFileSource{}
+	source.Load("testdata/test.hosts")
 
 	data := []struct {
 		domain          string

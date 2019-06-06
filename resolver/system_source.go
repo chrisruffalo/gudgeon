@@ -12,8 +12,8 @@ import (
 type systemSource struct {
 }
 
-func newSystemSource() Source {
-	return &systemSource{}
+func (source *systemSource) Load(specification string) {
+	// deliberate no-op
 }
 
 func (source *systemSource) Name() string {

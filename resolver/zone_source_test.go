@@ -9,7 +9,8 @@ import (
 )
 
 func TestLoadZoneFile(t *testing.T) {
-	newZoneSourceFromFile("./testdata/zone-test.db")
+	zoneSource := &zoneSource{}
+	zoneSource.Load("./testdata/zone-test.db")
 }
 
 func TestZoneSource(t *testing.T) {
@@ -43,7 +44,8 @@ func TestZoneSource(t *testing.T) {
 		{testutil.ReverseIpString("de3d:b3ef:2385:a::d"), dns.ClassINET, dns.TypePTR, 0},
 	}
 
-	zone, _ := newZoneSourceFromFile("./testdata/zone-test.db")
+	zone := &zoneSource{}
+	zone.Load("./testdata/zone-test.db")
 
 	for _, d := range data {
 		// create question
@@ -53,7 +55,7 @@ func TestZoneSource(t *testing.T) {
 				Opcode:        dns.OpcodeQuery,
 			},
 			Question: []dns.Question{
-				dns.Question{Name: d.name, Qtype: d.qtype, Qclass: d.qclass},
+				{Name: d.name, Qtype: d.qtype, Qclass: d.qclass},
 			},
 		}
 

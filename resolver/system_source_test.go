@@ -19,7 +19,7 @@ func TestSystemSourceResolution(t *testing.T) {
 	}
 
 	// create source
-	source := newSystemSource()
+	source := &systemSource{}
 
 	for _, d := range data {
 		// create dns message from scratch

@@ -37,64 +37,60 @@ type dnsSource struct {
 	tlsConfig   *tls.Config
 }
 
-func newDNSSource(sourceAddress string) Source {
-	source := new(dnsSource)
-	source.port = 0
-	source.dnsServer = ""
-	source.protocol = ""
+func (dnsSource *dnsSource) Name() string {
+	return dnsSource.remoteAddress
+}
+
+func (dnsSource *dnsSource) Load(specification string) {
+	dnsSource.port = 0
+	dnsSource.dnsServer = ""
+	dnsSource.protocol = ""
 
 	// determine first if there is an attached protocol
-	if strings.Contains(sourceAddress, protoDelimeter) {
-		split := strings.Split(sourceAddress, protoDelimeter)
+	if strings.Contains(specification, protoDelimeter) {
+		split := strings.Split(specification, protoDelimeter)
 		if len(split) > 1 && util.StringIn(strings.ToLower(split[1]), validProtocols) {
-			sourceAddress = split[0]
-			source.protocol = strings.ToLower(split[1])
+			specification = split[0]
+			dnsSource.protocol = strings.ToLower(split[1])
 		}
 	}
 
 	// need to determine if a port comes along with the address and parse it out once
-	if strings.Contains(sourceAddress, portDelimeter) {
-		split := strings.Split(sourceAddress, portDelimeter)
+	if strings.Contains(specification, portDelimeter) {
+		split := strings.Split(specification, portDelimeter)
 		if len(split) > 1 {
-			source.dnsServer = split[0]
+			dnsSource.dnsServer = split[0]
 			var err error
 			parsePort, err := strconv.ParseUint(split[1], 10, 32)
 			// recover from error
 			if err != nil {
-				source.port = 0
+				dnsSource.port = 0
 			} else {
-				source.port = uint(parsePort)
+				dnsSource.port = uint(parsePort)
 			}
 		}
 	} else {
-		source.dnsServer = sourceAddress
+		dnsSource.dnsServer = specification
 	}
 
 	// recover from parse errors or use default port in event port wasn't set
-	if source.port == 0 {
-		if "tcp-tls" == source.protocol {
-			source.port = defaultTLSPort
+	if dnsSource.port == 0 {
+		if "tcp-tls" == dnsSource.protocol {
+			dnsSource.port = defaultTLSPort
 		} else {
-			source.port = defaultPort
+			dnsSource.port = defaultPort
 		}
 	}
 
 	// set up tls config
-	source.tlsConfig = &tls.Config{InsecureSkipVerify: true}
+	dnsSource.tlsConfig = &tls.Config{InsecureSkipVerify: true}
 
 	// check final output
-	if ip := net.ParseIP(source.dnsServer); ip == nil {
-		return nil
+	if ip := net.ParseIP(dnsSource.dnsServer); ip != nil {
+		// save/parse remote address once
+		dnsSource.remoteAddress = fmt.Sprintf("%s%s%d", dnsSource.dnsServer, portDelimeter, dnsSource.port)
 	}
 
-	// save/parse remote address once
-	source.remoteAddress = fmt.Sprintf("%s%s%d", source.dnsServer, portDelimeter, source.port)
-
-	return source
-}
-
-func (dnsSource *dnsSource) Name() string {
-	return dnsSource.remoteAddress
 }
 
 func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress string) (*dns.Msg, error) {
@@ -145,6 +141,10 @@ func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress
 }
 
 func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	if "" == dnsSource.remoteAddress {
+		return nil, fmt.Errorf("No remote address for dns source")
+	}
+
 	now := time.Now()
 	if dnsSource.backoffTime != nil && now.Before(*dnsSource.backoffTime) {
 		// "asleep" during backoff interval

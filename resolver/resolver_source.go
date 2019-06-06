@@ -10,14 +10,8 @@ type resolverSource struct {
 	resolverName string
 }
 
-func newResolverSource(sourceName string) Source {
-	if "" == sourceName {
-		return nil
-	}
-
-	resolver := new(resolverSource)
-	resolver.resolverName = sourceName
-	return resolver
+func (resolverSource *resolverSource) Load(specification string) {
+	resolverSource.resolverName = specification
 }
 
 func (resolverSource *resolverSource) Name() string {

@@ -29,6 +29,10 @@ func newLoadBalancingSource(name string, sources []Source) Source {
 	return lb
 }
 
+func (lb *lbSource) Load(specification string) {
+	// deliberate no-op
+}
+
 func (lb *lbSource) router() {
 	for range lb.askChan {
 		lb.chosenChan <- lb.sources[lb.idx]
