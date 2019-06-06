@@ -52,13 +52,13 @@ func (source *fileSource) watchAndLoad() {
 	go func() {
 		for {
 			select {
-			case event, ok := <-watcher.Events:
+			case _, ok := <-watcher.Events:
 				if !ok {
 					return
 				}
 				//log.Infof("event:", event)
 				newHash := pathHash(source.path)
-				if newHash != source.pathHash {
+				if "" != newHash && newHash != source.pathHash {
 					source.pathHash = newHash
 					log.Infof("Loading new source from: '%s'", source.path)
 					source.Load(source.path)
