@@ -73,6 +73,8 @@ func NewSource(sourceSpecification string) Source {
 		// determine type of file source
 		if glob.Glob("*.db", sourceSpecification) {
 			watcher.reloadableSource = &zoneSource{}
+		} else if glob.Glob("*.conf", sourceSpecification) {
+			watcher.reloadableSource = &resolvSource{}
 		} else {
 			// the fallback is to treat it as a hostfile
 			watcher.reloadableSource = &hostFileSource{}

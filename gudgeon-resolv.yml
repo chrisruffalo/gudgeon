@@ -1,0 +1,18 @@
+---
+# ====================================================================
+# Basic/minimal configuration
+# ====================================================================
+gudgeon:
+  home: ./.gudgeon/
+
+  network:
+    tcp: true
+    udp: true
+    interfaces:
+    - ip: 127.0.0.1
+      port: 5354
+
+  resolvers:
+  - name: default
+    sources:
+    - /etc/resolv.conf

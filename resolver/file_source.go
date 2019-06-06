@@ -62,6 +62,10 @@ func (source *fileSource) watchAndLoad() {
 					source.pathHash = newHash
 					log.Infof("Loading new source from: '%s'", source.path)
 					source.Load(source.path)
+					err = watcher.Add(source.path)
+					if err != nil {
+						log.Errorf("Error watching '%s': %s", source.path, err)
+					}
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -96,6 +100,7 @@ func (source *fileSource) Load(specification string) {
 		// only do this part once
 		if "" == source.pathHash {
 			source.pathHash = pathHash(source.path)
+			// re-launch watcher
 			go source.watchAndLoad()
 		}
 	}
