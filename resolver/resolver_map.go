@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"fmt"
+	"github.com/chrisruffalo/gudgeon/events"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -84,6 +85,16 @@ func NewResolverMap(config *config.GudgeonConfig, configuredResolvers []*config.
 			resolverMap.resolvers[resolver.name] = resolver
 		}
 	}
+
+	// subscribe to source change events and clear cache when it happens
+	// in future we want to have a more segmented/partitioned cache but
+	// for now, blow the whole thing away to see immediate results
+	events.Listen("souce:change", func(message *events.Message) {
+		if resolverMap.cache != nil {
+			resolverMap.cache.Clear()
+			log.Debugf("Cache flushed due to source change")
+		}
+	})
 
 	return resolverMap
 }

@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -12,10 +11,12 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
-// key delimeter
 const (
+	// key delimeter
 	delimeter                 = "|"
+	// absolute max TTL
 	dnsMaxTTL                 = uint32(604800)
+	/// default time to scrape expired items
 	defaultCacheScrapeMinutes = 1
 )
 
@@ -29,6 +30,7 @@ type Cache interface {
 	Query(partition string, request *dns.Msg) (*dns.Msg, bool)
 	Map() map[string]backer.Item
 	Size() uint32
+	Clear()
 }
 
 // keeps a pointer to the backer as well as a map of
@@ -36,8 +38,6 @@ type Cache interface {
 // each key entry. (this optimization may be overkill)
 type gocache struct {
 	backer          *backer.Cache
-	partitionIdx    int
-	partitionIdxMap map[string]int
 	idMux           sync.Mutex
 }
 
@@ -58,8 +58,6 @@ func max(a uint32, b uint32) uint32 {
 func New() Cache {
 	gocache := new(gocache)
 	gocache.backer = backer.New(backer.NoExpiration, defaultCacheScrapeMinutes*time.Minute)
-	gocache.partitionIdx = 0
-	gocache.partitionIdxMap = make(map[string]int, 0)
 	return gocache
 }
 
@@ -75,20 +73,8 @@ func (gocache *gocache) key(partition string, questions []dns.Question) string {
 	// ensure the partition is lowercase
 	partition = strings.ToLower(strings.TrimSpace(partition))
 
-	// it is very likely, even at low query rates, that two threads are
-	// hitting this section from the same group and so we have to tread lightly when
-	// setting values in the map potentially at the same time
-	if _, found := gocache.partitionIdxMap[partition]; !found {
-		gocache.idMux.Lock()
-		if _, found := gocache.partitionIdxMap[partition]; !found {
-			gocache.partitionIdx++
-			gocache.partitionIdxMap[partition] = gocache.partitionIdx
-		}
-		gocache.idMux.Unlock()
-	}
-
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("%d", gocache.partitionIdxMap[partition]))
+	builder.WriteString(partition)
 	if len(questions) > 0 {
 		for _, question := range questions {
 			builder.WriteString(delimeter)
@@ -125,13 +111,11 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 			return false
 		}
 
-		// copy response to envelope
-		envelope := new(envelope)
-		envelope.message = response
-		envelope.time = time.Now()
-
 		// put in backing store key -> envelope
-		gocache.backer.Set(key, envelope, time.Duration(ttl)*time.Second)
+		gocache.backer.Set(key, &envelope{
+			message: response,
+			time: time.Now(),
+		}, time.Duration(ttl)*time.Second)
 
 		return true
 	}
@@ -190,4 +174,9 @@ func (gocache *gocache) Size() uint32 {
 
 func (gocache *gocache) Map() map[string]backer.Item {
 	return gocache.backer.Items()
+}
+
+// delete all items from the cache
+func (gocache *gocache) Clear() {
+	gocache.backer.Flush()
 }

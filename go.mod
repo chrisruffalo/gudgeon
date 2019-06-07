@@ -27,6 +27,7 @@ require (
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 // indirect
 	github.com/twmb/murmur3 v0.0.0-20190212075929-930dc7964b30
 	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43 // indirect
+	github.com/vardius/message-bus v1.1.3
 	github.com/willf/bitset v1.1.10 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect

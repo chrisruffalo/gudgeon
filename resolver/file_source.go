@@ -7,9 +7,10 @@ import (
 	"os"
 	"sync"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/chrisruffalo/gudgeon/events"
 
 )
 
@@ -42,45 +43,16 @@ func pathHash(fileToHash string) string {
 
 // pretty much directly from https://github.com/fsnotify/fsnotify/blob/master/example_test.go
 func (source *fileSource) watchAndLoad() {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer watcher.Close()
-
-	done := make(chan bool)
-	go func() {
-		for {
-			select {
-			case _, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				//log.Infof("event:", event)
-				newHash := pathHash(source.path)
-				if "" != newHash && newHash != source.pathHash {
-					source.pathHash = newHash
-					log.Infof("Loading new source from: '%s'", source.path)
-					source.Load(source.path)
-					err = watcher.Add(source.path)
-					if err != nil {
-						log.Errorf("Error watching '%s': %s", source.path, err)
-					}
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				log.Errorf("Error: %s", err)
-			}
+	events.Listen("file:" + source.path, func(message *events.Message) {
+		newHash := pathHash(source.path)
+		if "" != newHash && newHash != source.pathHash {
+			source.pathHash = newHash
+			log.Infof("Loading new source from: '%s'", source.path)
+			source.Load(source.path)
+			// notify of source change
+			events.Send("souce:change", &events.Message{ "source": source.Name()})
 		}
-	}()
-
-	err = watcher.Add(source.path)
-	if err != nil {
-		log.Errorf("Error watching '%s': %s", source.path, err)
-	}
-	<-done
+	})
 }
 
 func (source *fileSource) Name() string {
@@ -100,9 +72,9 @@ func (source *fileSource) Load(specification string) {
 		// only do this part once
 		if "" == source.pathHash {
 			source.pathHash = pathHash(source.path)
-			// re-launch watcher
-			go source.watchAndLoad()
+			source.watchAndLoad()
 		}
+		events.Send("file:watch", &events.Message{"path": source.path})
 	}
 }
 
