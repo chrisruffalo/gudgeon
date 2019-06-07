@@ -117,7 +117,7 @@ export class Dashboard extends React.Component {
 
   updateData() {
     // clear any old timers
-    var { timer } = this.state;
+    let { timer } = this.state;
     if ( timer != null ) {
       clearTimeout(timer)
     }
@@ -126,19 +126,15 @@ export class Dashboard extends React.Component {
       .get("/api/metrics/current")
       .then(response => {
         // set the state with the response data and then upate the card rows
-        var rows = this.getResponseRows(response.data);
+        let rows = this.getResponseRows(response.data);
         this.setState({ rows: rows, data: response.data});
         
-        var newTimer = setTimeout(() => {
-          this.updateData()
-        },2000); // update every 2s
+        let newTimer = setTimeout(() => { this.updateData() },2000); // update every 2s
 
         // update the data in the state
         this.setState({ timer: newTimer })
       }).catch((error) => {
-        var newTimer = setTimeout(() => {
-          this.updateData()
-        },15000); // on error try again in 15s 
+        let newTimer = setTimeout(() => { this.updateData() },15000); // on error try again in 15s
 
         // update the data in the state
         this.setState({ timer: newTimer })
@@ -147,14 +143,14 @@ export class Dashboard extends React.Component {
 
   getResponseRows(data) {
     // update the rows by building each
-    var rows = [];
+    let rows = [];
     data.lists.forEach((element) => {
       if ( element['name'] == null ) {
         return;
       }
-      var newRow = [];
+      let newRow = [];
       newRow.push(element['name']);
-      var key = element['short'];
+      let key = element['short'];
       newRow.push(this.getDataMetric(data, 'rules-list-' + key));
       newRow.push(this.getDataMetric(data, 'rules-session-matched-' + key));
       newRow.push(this.getDataMetric(data, 'rules-lifetime-matched-' + key));
@@ -171,16 +167,16 @@ export class Dashboard extends React.Component {
     if ( data.metrics["gudgeon-" + key] == null ) {
       return 0
     }
-    return data.metrics["gudgeon-" + key].count
+    return data.metrics["gudgeon-" + key].count;
   }
 
   componentDidMount() {
     // (safely) load state
-    var stateString = localStorage.getItem("gudgeon-metrics-cards-state");
+    let stateString = localStorage.getItem("gudgeon-metrics-cards-state");
     if (stateString === "" || stateString == null) {
       stateString = "{}"
     }
-    var savedState = JSON.parse(stateString);
+    let savedState = JSON.parse(stateString);
     savedState['timer'] = null;
 
     // update data
@@ -189,7 +185,7 @@ export class Dashboard extends React.Component {
 
   componentWillUnmount() {
     // clear existing timer
-    var { timer } = this.state;
+    let { timer } = this.state;
     if ( timer != null ) {
       clearTimeout(timer)
     }

@@ -16,16 +16,20 @@ export class GudgeonChart extends React.Component {
     // start with null chart
     this.chart = null;
 
+    // timer for queries
+    this.timer = null;
+
+    // state doesn't need to change every time the chart is rendered
+    this.columns = [];
+
     // create a new chart ref
     this.chartId = "gudgeon-chart-id" + props.chartName;
   };
 
   state = {
     width: 0,
-    columns: [],
     lastAtTime: null,
     interval: (60 * 30), // start at 30min
-    timer: null,
     domainMaxY: 0, // calculate max Y
     selected: Object.keys(this.props.metrics)[0]
   };
@@ -54,9 +58,8 @@ export class GudgeonChart extends React.Component {
 
   onMetricKeyChange = (value, event) => {
     // clear old timer
-    var { timer } = this.state;
-    if ( timer != null ) {
-      clearTimeout(timer)
+    if ( this.timer != null ) {
+      clearTimeout(this.timer)
     }
 
     // destroy old chart
@@ -65,14 +68,16 @@ export class GudgeonChart extends React.Component {
       this.chart = null;
     }
 
-    this.setState({ lastAtTime: null, columns: [], timer: null, selected: value }, this.updateData );
+    // nuke data
+    this.columns = [];
+
+    this.setState({ lastAtTime: null, selected: value }, this.updateData );
   };
 
   onTimeIntervalChange = (value, event) => {
     // clear old timer
-    var { timer } = this.state;
-    if ( timer != null ) {
-      clearTimeout(timer)
+    if ( this.timer != null ) {
+      clearTimeout(this.timer)
     }
 
     // keep settings, reload chart {
@@ -81,12 +86,15 @@ export class GudgeonChart extends React.Component {
       this.chart = null;
     }
 
+    // nuke data
+    this.columns = [];
+
     // update table
-    this.setState({ lastAtTime: null, columns: [], interval: value, timer: null }, this.updateData );
+    this.setState({ lastAtTime: null, interval: value }, this.updateData );
   };
 
   updateData() {
-    var { lastAtTime, interval, selected } = this.state;
+    let { lastAtTime, interval, selected } = this.state;
 
     // get from state but allow state to be reset to null without additional logic
     // and also make sure that the last at time is after the currently selected interval
@@ -99,26 +107,25 @@ export class GudgeonChart extends React.Component {
     }
 
     // clear any existing timers
-    var { timer } = this.state;
-    if ( timer != null ) {
-      clearTimeout(timer)
+    if ( this.timer != null ) {
+      clearTimeout(this.timer);
     }
 
     // basic queries start at the given time as long as the interval is positive
-    var params = { 
+    let params = {
       start: lastAtTime,
       condense: "true" 
     };
 
     // use this to filter query down to what is requested for the chart
-    var metricsSelected = "";
-    var key;
-    var idx = 0;
+    let metricsSelected = "";
+    let key;
+    let idx = 0;
     for ( key in this.props.metrics[selected].series ) {
       if ( idx > 0 ) {
         metricsSelected = metricsSelected + ","
       }
-      metricsSelected = metricsSelected + this.props.metrics[selected].series[key].key
+      metricsSelected = metricsSelected + this.props.metrics[selected].series[key].key;
       idx++;
     }
     if ( metricsSelected !== "" || metricsSelected.length > 0 ) {
@@ -130,104 +137,102 @@ export class GudgeonChart extends React.Component {
         params: params
       })
       .then(response => {
-        if ( response != null && response.data != null && response.data.length > 0 ) {
-          const { columns } = this.state;
-
-          // concat query data
-          let newData = columns;
-
-          // measure domain max
-          var newDomainMaxY = 0;
-
-          // set x column
-          if (columns.length < 1 || columns[0].length < 1) {
-            columns[0] = ['x'];
-          }
-
-          // split data into columns
-          response.data.forEach((item) => {
-            if ( !item || !item.Values ) {
-              return;
-            }
-
-            // the index starts at one
-            var idx = 1;
-            for ( key in this.props.metrics[selected].series ) {
-              // for each metric we need to grab values
-              var metric = this.props.metrics[selected].series[key]
-
-              // start series if series isn't started
-              if ( newData[idx] == null || newData[idx].length < 0 ) {
-                newData[idx] = [ metric.name ];
-              }
-
-              // add x values first time
-              if ( idx < 2 ) {
-                newData[0].push(new Date(item.AtTime));
-              }
-
-              // push new item into value array for that key and push a 0 if there is no value (makes missing metrics a "0" until they start)
-              const val = item.Values[metric.key] != null && item.Values[metric.key].count != null ? item.Values[metric.key].count : 0
-              newData[idx].push(val);
-
-              // move to next index for the next data series
-              idx++;
-            }
-          });
-
-          // cull old data as needed
-          if ( interval > 0 ) { 
-            // lowest time possible
-            const minTime = (Math.floor(Date.now()/1000) - interval)
-
-            // while there are date elements and the current date element 
-            // (first non 'x' element) is less than the minimum time keep
-            // slicing out that first element in all the lists
-            while ( newData[0].length > 1 && Math.floor((newData[0][1] * 1) / 1000) < minTime ) {
-              var idx = 0;
-              for ( idx in newData ) {
-                // pop off the SECOND element (the FIRST is the column name, maybe there's a better way to do this)
-                newData[idx].splice(1, 1);
-              }
-            }
-          }
-
-          // determine domain max after culling
-          for ( var idx = 1; idx < newData.length; idx++ ) {
-            for ( var jdx = 1; jdx < newData[idx].length; jdx++ ) {
-              var item = newData[idx][jdx];
-              if ( !isNaN(item) && item >= newDomainMaxY ) {
-                newDomainMaxY = item;
-              }
-            }
-          }
-
-          // update at time
-          var lastElement = response.data[response.data.length - 1];
-          var newAtTime = (Math.floor(new Date(lastElement.AtTime) / 1000) + 1).toString(); // time is in ms we need in s
-
-          // change state and callback
-          this.setState({ columns: newData, lastAtTime: newAtTime, domainMaxY: newDomainMaxY }, this.handleChart);
+        if ( response == null || response.data == null || response.data.length < 0 ) {
+          // set quicker timeout and quit processing response
+          this.timer = setTimeout(() => { this.updateData() },1000);
+          return;
         }
 
+        // measure domain max
+        let newDomainMaxY = 0;
+
+        // set x column
+        if (this.columns.length < 1 || this.columns[0].length < 1) {
+          this.columns[0] = ['x'];
+        }
+
+        // split data into columns
+        response.data.forEach((item) => {
+          if ( !item || !item.Values ) {
+            return;
+          }
+
+          // the index starts at one
+          let idx = 1;
+          for ( key in this.props.metrics[selected].series ) {
+            // guard series
+            if (!this.props.metrics[selected].series.hasOwnProperty(key)) {
+              continue
+            }
+
+            // for each metric we need to grab values
+            let metric = this.props.metrics[selected].series[key];
+
+            // start series if series isn't started
+            if ( this.columns[idx] == null || this.columns[idx].length < 0 ) {
+              this.columns[idx] = [metric.name];
+            }
+
+            // add x values first time
+            if ( idx < 2 ) {
+              this.columns[0].push(new Date(item.AtTime));
+            }
+
+            // push new item into value array for that key and push a 0 if there is no value (makes missing metrics a "0" until they start)
+            if (item.Values[metric.key] != null && item.Values[metric.key].count != null) {
+              this.columns[idx].push(item.Values[metric.key].count);
+            } else {
+              this.columns[idx].push(0);
+            }
+
+            // move to next index for the next data series
+            idx++;
+          }
+        });
+
+        // cull old data as needed
+        if ( interval > 0 ) {
+          // lowest time possible
+          const minTime = (Math.floor(Date.now()/1000) - interval);
+
+          // while there are date elements and the current date element
+          // (first non 'x' element) is less than the minimum time keep
+          // slicing out that first element in all the lists
+          while ( this.columns[0].length > 1 && Math.floor((this.columns[0][1] * 1) / 1000) < minTime ) {
+            let idx = 0;
+            for ( idx in this.columns ) {
+              // pop off the SECOND element (the FIRST is the column name, maybe there's a better way to do this)
+              this.columns[idx].splice(1, 1);
+            }
+          }
+        }
+
+        // determine domain max after culling
+        for ( let idx = 1; idx < this.columns.length; idx++ ) {
+          for ( let jdx = 1; jdx < this.columns[idx].length; jdx++ ) {
+            let item = this.columns[idx][jdx];
+            if ( !isNaN(item) && item >= newDomainMaxY ) {
+              newDomainMaxY = item;
+            }
+          }
+        }
+
+        // update at time
+        let lastElement = response.data[response.data.length - 1];
+        let newAtTime = (Math.floor(new Date(lastElement.AtTime) / 1000) + 1).toString(); // time is in ms we need in s
+
+        // change state and callback
+        this.setState({ lastAtTime: newAtTime, domainMaxY: newDomainMaxY }, this.handleChart);
+
         // set timeout and update data again
-        var newTimer = setTimeout(() => {
-          this.updateData()
-        },7000);
-
-        // update the data in the state
-        this.setState({ timer: newTimer })        
+        this.timer = setTimeout(() => { this.updateData() },5000);
       }).catch((error) => {
-        var newTimer = setTimeout(() => {
-          this.updateData()
-        },15000); // on error try again in 15s 
-
-        // update the data in the state
-        this.setState({ timer: newTimer })
+        this.timer = setTimeout(() => { this.updateData() },15000); // on error try again in 15s
       });
   }
 
   componentDidMount() {
+    // start update cycle
     this.updateData();
 
     setTimeout(() => {
@@ -236,9 +241,8 @@ export class GudgeonChart extends React.Component {
   }
 
   componentWillUnmount() {
-    var { timer } = this.state
-    if ( timer != null ) {
-      clearTimeout(timer)
+    if ( this.timer != null ) {
+      clearTimeout(this.timer)
     }
 
     window.removeEventListener('resize', this.handleResize);
@@ -261,6 +265,7 @@ export class GudgeonChart extends React.Component {
         value = Math.floor(value);
       }
 
+      // use the provided formatter
       if ( inputFormatter != null ) {
         value = inputFormatter(value);
 
@@ -274,7 +279,7 @@ export class GudgeonChart extends React.Component {
   }
 
   generateChart() {
-    const { columns, selected, domainMaxY } = this.state;
+    const { selected, domainMaxY } = this.state;
 
     // can't layout a chart/metric that is missing. this happens
     // when a loaded state doesn't exist anymore
@@ -293,7 +298,7 @@ export class GudgeonChart extends React.Component {
       },
       data: {
         x: 'x',
-        columns: columns,
+        columns: this.columns,
         type: 'area'
       },
       axis: {
@@ -345,13 +350,13 @@ export class GudgeonChart extends React.Component {
         format: { 
           // real bad hack for y2 values to not use the same formatter
           value: (value, ratio, id) => {
-            var key;
+            let key;
             for ( key in this.props.metrics[selected].series ) {
               if ( id === this.props.metrics[selected].series[key].name && this.props.metrics[selected].series[key].axis === "y2" ) {
-                return value
+                return value;
               }
             }
-            return this.props.metrics[selected].formatter(value)
+            return this.props.metrics[selected].formatter(value);
           }
         } 
       }     
@@ -360,7 +365,12 @@ export class GudgeonChart extends React.Component {
     // determine axes
     let axes = {};
     for ( let key in this.props.metrics[selected].series ) {
-      var yaxis = this.props.metrics[selected].series[key].axis;
+      // guard property
+      if(!this.props.metrics[selected].series.hasOwnProperty(key)) {
+        continue;
+      }
+
+      let yaxis = this.props.metrics[selected].series[key].axis;
       if ( yaxis !== "y2" ) {
         yaxis = "y";
       } else {
@@ -372,8 +382,8 @@ export class GudgeonChart extends React.Component {
 
     // set colors from color map
     chartSettings['data']['colors'] = [];
-    for ( let idx = 0; idx < columns.length; idx ++) {
-      chartSettings['data']['colors'][columns[idx][0]] = this.colors[idx - 1];
+    for ( let idx = 0; idx < this.columns.length; idx ++) {
+      chartSettings['data']['colors'][this.columns[idx][0]] = this.colors[idx - 1];
     }
 
     // if no domain is specified, use calculated domain
@@ -398,20 +408,22 @@ export class GudgeonChart extends React.Component {
   }
 
   handleChart() {
+    // if the chart hasn't been built yet then build it before loading the data
     if ( this.chart == null ) {
       this.chart = this.generateChart();
     } else {
-      const { selected, columns, domainMaxY } = this.state;
+      const { selected, domainMaxY } = this.state;
 
-      this.chart.load({ columns: columns });
+      // load chart using the object directly
+      this.chart.load({ columns: this.columns });
 
       // manually set domain max if needed
       if ( this.props.metrics[selected]['domain'] == null || this.props.metrics[selected]['domain']['maxY'] == null ) {
-        var calcDomainMax = Math.floor(domainMaxY * 1.25);
+        let calcDomainMax = Math.floor(domainMaxY * 1.25);
         if ( calcDomainMax < 10 ) {
           calcDomainMax = 10;
         }
-        this.chart.axis.max({ y: calcDomainMax })
+        this.chart.axis.max({ y: calcDomainMax });
       }
     }
   }
@@ -419,7 +431,7 @@ export class GudgeonChart extends React.Component {
   render() {
     const metricOptions = [];
     if ( this.props.metrics != null && Object.keys(this.props.metrics).length > 1) {
-      var key = null;
+      let key = null;
       for ( key in this.props.metrics) {
 
         metricOptions.push(
@@ -428,7 +440,7 @@ export class GudgeonChart extends React.Component {
       }
     }
 
-    var metricSelect = null
+    let metricSelect = null;
     if ( metricOptions.length > 1 ) {
       metricSelect = (
         <FormSelect style={{ "gridColumnStart": 1 }} value={this.state.selected} onChange={this.onMetricKeyChange} aria-label="Select Metric">

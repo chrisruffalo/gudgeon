@@ -83,8 +83,8 @@ export class Gudgeon extends React.Component {
   };
 
   render() {
-    var defaultRoute = "";
-    var NavItems = [];
+    let defaultRoute = "";
+    let NavItems = [];
     if ( window.config().metrics ) {
       NavItems.push(<NavItem to="#dashboard" key="dashboard"><Link activeClassName="pf-m-current" to="/dashboard">Dashboard</Link></NavItem>);
       if ( window.config().metrics_persist ) {

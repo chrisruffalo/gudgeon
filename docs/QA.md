@@ -15,3 +15,6 @@ Ease of distribution, really. The binary works by itself and that makes it easie
 ## Q: Why is the code organized this way?
 I think my roots as a Java programmer are showing. Organizing packages this way is new to me at a large scale but I still want to maintain some isolation or at least separation of concerns. As packages start to tangle they get resolved down into a single package to manage the shared domain.
 
+## Q: Why are you using an event bus instead of channels for some events?
+Because it is a lot easier to manage and allows intermodule communication without tight coupling (passing around channels). It also centralizes the logic for message passing which makes it a little easier to manage and change.
+

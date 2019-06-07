@@ -22,6 +22,8 @@ module.exports = {
         "gudgeon": "./app/js/gudgeon-index.js"
     },
 
+    cache: devMode,
+
     output: {
         publicPath: ASSET_PATH,
         path: __dirname + "/web/static",

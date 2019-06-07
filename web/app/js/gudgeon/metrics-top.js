@@ -38,16 +38,12 @@ export class MetricsTopList extends React.Component {
       .then(response => {
         this.setState({ data: response.data });
 
-        let newTimer = setTimeout(() => {
-          this.updateData()
-        },15000); // update every 15s
+        let newTimer = setTimeout(() => { this.updateData() },15000); // update every 15s
 
         // update the data in the state
         this.setState({ timer: newTimer })
       }).catch((error) => {
-        let newTimer = setTimeout(() => {
-          this.updateData()
-        },60000); // on error try again in 60s
+        let newTimer = setTimeout(() => { this.updateData() },60000); // on error try again in 60s
 
         // update the data in the state
         this.setState({ timer: newTimer })

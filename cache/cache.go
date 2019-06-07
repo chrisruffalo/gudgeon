@@ -2,6 +2,7 @@ package cache
 
 import (
 	"strings"
+	"reflect"
 	"sync"
 	"time"
 
@@ -28,7 +29,6 @@ type envelope struct {
 type Cache interface {
 	Store(partition string, request *dns.Msg, response *dns.Msg) bool
 	Query(partition string, request *dns.Msg) (*dns.Msg, bool)
-	Map() map[string]backer.Item
 	Size() uint32
 	Clear()
 }
@@ -37,8 +37,8 @@ type Cache interface {
 // group -> int mappings that saves several bytes for
 // each key entry. (this optimization may be overkill)
 type gocache struct {
-	backer          *backer.Cache
-	idMux           sync.Mutex
+	backers          map[string]*backer.Cache
+	partitionMux     sync.Mutex
 }
 
 func min(a uint32, b uint32) uint32 {
@@ -57,7 +57,7 @@ func max(a uint32, b uint32) uint32 {
 
 func New() Cache {
 	gocache := new(gocache)
-	gocache.backer = backer.New(backer.NoExpiration, defaultCacheScrapeMinutes*time.Minute)
+	gocache.backers = make(map[string]*backer.Cache)
 	return gocache
 }
 
@@ -69,15 +69,10 @@ func minTTL(currentMin uint32, records []dns.RR) uint32 {
 }
 
 // make string key from partition + message
-func (gocache *gocache) key(partition string, questions []dns.Question) string {
-	// ensure the partition is lowercase
-	partition = strings.ToLower(strings.TrimSpace(partition))
-
+func (gocache *gocache) key(questions []dns.Question) string {
 	var builder strings.Builder
-	builder.WriteString(partition)
 	if len(questions) > 0 {
 		for _, question := range questions {
-			builder.WriteString(delimeter)
 			builder.WriteString(question.Name)
 			builder.WriteString(delimeter)
 			builder.WriteString(dns.Class(question.Qclass).String())
@@ -106,13 +101,22 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 	// if ttl is 0 or less then we don't need to bother to store it at all
 	if ttl > 0 {
 		// create key from message
-		key := gocache.key(partition, request.Question)
+		key := gocache.key(request.Question)
 		if "" == key {
 			return false
 		}
 
+		// ensure partition is created
+		if _, found := gocache.backers[partition]; !found {
+			gocache.partitionMux.Lock()
+			if _, found := gocache.backers[partition]; !found {
+				gocache.backers[partition] = backer.New(backer.NoExpiration, defaultCacheScrapeMinutes*time.Minute)
+			}
+			gocache.partitionMux.Unlock()
+		}
+
 		// put in backing store key -> envelope
-		gocache.backer.Set(key, &envelope{
+		gocache.backers[partition].Set(key, &envelope{
 			message: response,
 			time: time.Now(),
 		}, time.Duration(ttl)*time.Second)
@@ -135,13 +139,17 @@ func adjustTtls(timeDelta uint32, records []dns.RR) {
 
 func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, bool) {
 	// get key
-	key := gocache.key(partition, request.Question)
-
+	key := gocache.key(request.Question)
 	if "" == key {
 		return nil, false
 	}
 
-	value, found := gocache.backer.Get(key)
+	// no matching partition
+	if _, found := gocache.backers[partition]; !found {
+		return nil, false
+	}
+
+	value, found := gocache.backers[partition].Get(key)
 	if !found {
 		return nil, false
 	}
@@ -169,14 +177,19 @@ func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, boo
 }
 
 func (gocache *gocache) Size() uint32 {
-	return uint32(gocache.backer.ItemCount())
-}
-
-func (gocache *gocache) Map() map[string]backer.Item {
-	return gocache.backer.Items()
+	count := uint32(0)
+	keys := reflect.ValueOf(gocache.backers).MapKeys()
+	for _, k := range keys {
+		count += uint32(gocache.backers[k.String()].ItemCount())
+	}
+	return count
 }
 
 // delete all items from the cache
 func (gocache *gocache) Clear() {
-	gocache.backer.Flush()
+	// prevents concurrent access issues
+	keys := reflect.ValueOf(gocache.backers).MapKeys()
+	for _, k := range keys {
+		gocache.backers[k.String()].Flush()
+	}
 }
