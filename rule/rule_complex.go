@@ -25,7 +25,7 @@ type regexMatchRule struct {
 	regexp *regexp.Regexp
 }
 
-func CreateComplexRule(rule string) ComplexRule {
+func createComplexRule(rule string) ComplexRule {
 	if strings.HasPrefix(rule, ruleRegex) && strings.HasSuffix(rule, ruleRegex) {
 		// regex rules start and end with "/" to denote them that way
 		return createRegexMatchRule(rule)
@@ -47,15 +47,19 @@ func createWildcardMatchRule(rule string) ComplexRule {
 	return newRule
 }
 
-func createRegexMatchRule(rule string) ComplexRule {
-	newRule := new(regexMatchRule)
+func specifyRegexOnlyRule(rule string) ComplexRule {
+	newRule := &regexMatchRule{}
 	newRule.text = rule
-	cRegex, err := regexp.Compile(rule[1 : len(rule)-1])
-	newRule.regexp = cRegex
+	cRegex, err := regexp.Compile(rule)
 	if err != nil {
 		return nil
 	}
+	newRule.regexp = cRegex
 	return newRule
+}
+
+func createRegexMatchRule(rule string) ComplexRule {
+	return specifyRegexOnlyRule(rule[1 : len(rule)-1])
 }
 
 // =================================================================

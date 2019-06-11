@@ -10,7 +10,7 @@ type domainData struct {
 }
 
 func testRuleMatching(testType string, text string, data []domainData, t *testing.T) {
-	rule := CreateComplexRule(text)
+	rule := createComplexRule(text)
 	for _, d := range data {
 		result := rule.IsMatch(d.domain)
 		if result != d.expected {

@@ -444,6 +444,13 @@ func (config *GudgeonConfig) verifyAndInitLists() ([]string, []error) {
 			}
 			continue
 		}
+
+		// default the regex value for the list to false
+		// (by default lists are not regex only and require special formatting for regex)
+		if list.Regex == nil {
+			list.Regex = boolPointer(false)
+		}
+
 		list.Name = strings.ToLower(list.Name)
 		config.listMap[list.CanonicalName()] = list
 	}

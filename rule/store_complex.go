@@ -24,14 +24,19 @@ func (store *complexStore) Init(sessionRoot string, config *config.GudgeonConfig
 }
 
 func (store *complexStore) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
-
+	store.complexRules[list.CanonicalName()] = make([]ComplexRule, 0)
 }
 
 func (store *complexStore) Load(list *config.GudgeonList, rule string) {
 	// complex rules are locally stored
 	var complexRule ComplexRule
-	if IsComplex(rule) {
-		complexRule = CreateComplexRule(rule)
+	if list.Regex != nil && *list.Regex {
+		complexRule = specifyRegexOnlyRule(rule)
+		if complexRule != nil {
+			store.complexRules[list.CanonicalName()] = append(store.complexRules[list.CanonicalName()], complexRule)
+		}
+	} else if IsComplex(rule) {
+		complexRule = createComplexRule(rule)
 		if complexRule != nil {
 			store.complexRules[list.CanonicalName()] = append(store.complexRules[list.CanonicalName()], complexRule)
 		}

@@ -35,7 +35,11 @@ func (store *hashStore32) Init(sessionRoot string, config *config.GudgeonConfig,
 }
 
 func (store *hashStore32) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
-
+	startingArrayLength := uint(0)
+	if config != nil {
+		startingArrayLength, _ = util.LineCount(config.PathToList(list))
+	}
+	store.hashes[list.CanonicalName()] = make([]uint32, 0, startingArrayLength)
 }
 
 func (store *hashStore32) Load(list *config.GudgeonList, rule string) {

@@ -29,7 +29,11 @@ func (store *memoryStore) Init(sessionRoot string, config *config.GudgeonConfig,
 }
 
 func (store *memoryStore) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
-
+	startingArrayLength := uint(0)
+	if config != nil {
+		startingArrayLength, _ = util.LineCount(config.PathToList(list))
+	}
+	store.rules[list.CanonicalName()] = make([]string, 0, startingArrayLength)
 }
 
 func (store *memoryStore) Load(list *config.GudgeonList, rule string) {

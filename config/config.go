@@ -25,7 +25,17 @@ type GudgeonTLS struct {
 	Enabled bool `yaml:"enabled"`
 }
 
+type GudgeonSystemd struct {
+	// should we accept ports from systemd?
+	Enabled *bool `yaml:"enabled"`
+	// ports that will be interpreted as "dns" ports
+	DnsPorts []uint32 `yaml:"dns"` // default 53
+	// ports that will be interpreted as "http" ports
+	HttpPorts []uint32 `yaml:"http"` // default 80, 8080
+}
+
 type GudgeonDatabase struct {
+	// how often the transient query log table is flushed to metrics and indexed query log tables
 	Flush string `yaml:"flush"`
 }
 
@@ -132,6 +142,8 @@ type GudgeonList struct {
 	Name string `yaml:"name"`
 	// the type of the list, requires "allow" or "block", defaults to "block"
 	Type string `yaml:"type"`
+	// should items in the list be interpreted as **regex only**
+	Regex *bool `yaml:"regex"`
 	// the tags that relate to the list for tag filtering/processing
 	Tags *[]string `yaml:"tags"`
 	// the path to the list, remote paths will be downloaded if possible
@@ -230,6 +242,7 @@ type GudgeonWeb struct {
 
 type GudgeonConfig struct {
 	Home      string             `yaml:"home"`
+	Systemd   *GudgeonSystemd    `yaml:"systemd"`
 	Storage   *GudgeonStorage    `yaml:"storage"`
 	Database  *GudgeonDatabase   `yaml:"database"`
 	Metrics   *GudgeonMetrics    `yaml:"metrics"`
