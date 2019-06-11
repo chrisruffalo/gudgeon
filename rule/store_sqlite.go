@@ -28,7 +28,10 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	// get session storage location
 	sessionDb := path.Join(sessionRoot, sqlDbName)
 	if _, err := os.Stat(sessionRoot); os.IsNotExist(err) {
-		os.MkdirAll(sessionRoot, os.ModePerm)
+		err = os.MkdirAll(sessionRoot, os.ModePerm)
+		if err != nil {
+			log.Errorf("Could not create directories for SQL storage: %s", err)
+		}
 	}
 
 	// get/migrate schema
@@ -53,6 +56,40 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	}
 }
 
+func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
+	// close transaction if it exists
+	if store.tx != nil {
+		err := store.tx.Commit()
+		if err != nil {
+			log.Errorf("Commiting rules to rules DB: %s", err)
+			err = store.tx.Rollback()
+			if err != nil {
+				log.Errorf("Rolling back transaction: %s", err)
+			}
+		}
+		log.Tracef("Closing initial transaction...")
+	}
+
+	var err error
+	store.tx, err = store.db.Begin()
+	if err != nil {
+		log.Errorf("Could not start transaction: %s", err)
+		return
+	}
+
+	_, err = store.tx.Exec("DELETE FROM rules WHERE ListRowId = (SELECT Id FROM lists WHERE ShortName = ? LIMIT 1)", list.ShortName())
+	if err != nil {
+		log.Errorf("Could not insert into rules store: %s", err)
+		err = store.tx.Rollback()
+		if err != nil {
+			log.Errorf("Could not roll back transaction: %s", err)
+		}
+	}
+
+	// start with a fresh transaction on the next operation
+	store.tx = nil
+}
+
 func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 	if store.tx == nil {
 		var err error
@@ -65,8 +102,11 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 
 	_, err := store.tx.Exec("INSERT OR IGNORE INTO rules (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)", list.ShortName(), rule)
 	if err != nil {
-		store.tx.Rollback()
 		log.Errorf("Could not insert into rules store: %s", err)
+		err = store.tx.Rollback()
+		if err != nil {
+			log.Errorf("Could not roll back transaction: %s", err)
+		}
 		store.tx = nil
 	}
 }
@@ -76,22 +116,41 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 	if store.tx != nil {
 		err := store.tx.Commit()
 		if err != nil {
-			store.tx.Rollback()
 			log.Errorf("Commiting rules to rules DB: %s", err)
+			err = store.tx.Rollback()
+			if err != nil {
+				log.Errorf("Rolling back transaction: %s", err)
+			}
 		}
 		log.Tracef("Closing initial transaction...")
 		// clean up after
 		store.tx = nil
 	}
 
-	// close and re-open db
-	store.db.Close()
-	sessionDb := path.Join(sessionRoot, sqlDbName)
-	db, err := sql.Open("sqlite3", sessionDb+"?mode=ro&cache=shared")
+	// create indexes after write
+	var err error
+	store.tx, err = store.db.Begin()
 	if err != nil {
-		log.Errorf("Rule storage: %s", err)
+		log.Errorf("Could not start transaction to write indicies: %s", err)
+	} else {
+		indexes := []string{
+			"CREATE INDEX IF NOT EXISTS idx_rules_Rule on rules (Rule)",
+			"CREATE INDEX IF NOT EXISTS idx_rules_ListRowId on rules (ListRowId)",
+			"CREATE INDEX IF NOT EXISTS idx_rules_IdRule on rules (ListRowId, Rule)",
+		}
+		for _, index := range indexes {
+			_, err = store.db.Exec(index)
+			if err != nil {
+				log.Errorf("Could not create index '%s' with error '%s'", index, err)
+			}
+		}
 	}
-	store.db = db
+	err = store.tx.Commit()
+	if err != nil {
+		log.Errorf("Error committing index transaction: %s", err)
+	}
+	// clear out for further transactions
+	store.tx = nil
 }
 
 func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []string) (bool, string, string) {
@@ -187,6 +246,9 @@ func (store *sqlStore) FindMatch(lists []*config.GudgeonList, domain string) (Ma
 
 func (store *sqlStore) Close() {
 	if store.db != nil {
-		store.db.Close()
+		err := store.db.Close()
+		if err != nil {
+			log.Errorf("Error closing database: %s", err)
+		}
 	}
 }

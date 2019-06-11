@@ -96,12 +96,12 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 	printMemUsage("before load", b)
 
 	lists := []*config.GudgeonList{
-		&config.GudgeonList{Name: "Block1", Type: "block"},
-		&config.GudgeonList{Name: "Block2", Type: "block"},
-		&config.GudgeonList{Name: "Block3", Type: "block"},
-		&config.GudgeonList{Name: "Allow1", Type: "allow"},
-		&config.GudgeonList{Name: "Allow2", Type: "allow"},
-		&config.GudgeonList{Name: "Allow3", Type: "allow"},
+		{Name: "Block1", Type: "block"},
+		{Name: "Block2", Type: "block"},
+		{Name: "Block3", Type: "block"},
+		{Name: "Allow1", Type: "allow"},
+		{Name: "Allow2", Type: "allow"},
+		{Name: "Allow3", Type: "allow"},
 	}
 
 	store.Init(tmpDir, nil, lists)

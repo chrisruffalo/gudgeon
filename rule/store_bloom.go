@@ -18,6 +18,21 @@ type bloomStore struct {
 	defaultRuleCount uint
 }
 
+func (store *bloomStore) createBloom(config *config.GudgeonConfig, list *config.GudgeonList) {
+	if _, found := store.blooms[list.CanonicalName()]; !found {
+		// get lines in file
+		var err error
+		linesInFile := store.defaultRuleCount
+		if config != nil {
+			linesInFile, err = util.LineCount(config.PathToList(list))
+			if err != nil {
+				linesInFile = store.defaultRuleCount
+			}
+		}
+		store.blooms[list.CanonicalName()] = bloom.NewWithEstimates(linesInFile, bloomRate)
+	}
+}
+
 func (store *bloomStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
 	store.blooms = make(map[string]*bloom.BloomFilter)
 	if store.defaultRuleCount <= 0 {
@@ -25,23 +40,16 @@ func (store *bloomStore) Init(sessionRoot string, config *config.GudgeonConfig, 
 	}
 
 	for _, list := range lists {
-		if _, found := store.blooms[list.CanonicalName()]; !found {
-			// get lines in file
-			var err error
-			linesInFile := store.defaultRuleCount
-			if config != nil {
-				linesInFile, err = util.LineCount(config.PathToList(list))
-				if err != nil {
-					linesInFile = store.defaultRuleCount
-				}
-			}
-			store.blooms[list.CanonicalName()] = bloom.NewWithEstimates(linesInFile, bloomRate)
-		}
+		store.createBloom(config, list)
 	}
 
 	if store.backingStore != nil {
 		store.backingStore.Init(sessionRoot, config, lists)
 	}
+}
+
+func (store *bloomStore) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
+	store.createBloom(config, list)
 }
 
 func (store *bloomStore) Load(list *config.GudgeonList, rule string) {

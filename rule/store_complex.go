@@ -23,6 +23,10 @@ func (store *complexStore) Init(sessionRoot string, config *config.GudgeonConfig
 	}
 }
 
+func (store *complexStore) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
+
+}
+
 func (store *complexStore) Load(list *config.GudgeonList, rule string) {
 	// complex rules are locally stored
 	var complexRule ComplexRule

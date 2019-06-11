@@ -28,6 +28,10 @@ func (store *memoryStore) Init(sessionRoot string, config *config.GudgeonConfig,
 	}
 }
 
+func (store *memoryStore) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
+
+}
+
 func (store *memoryStore) Load(list *config.GudgeonList, rule string) {
 	store.rules[list.CanonicalName()] = append(store.rules[list.CanonicalName()], strings.ToLower(rule))
 }

@@ -360,8 +360,8 @@ func (config *GudgeonConfig) verifyAndInitSources() ([]string, []error) {
 			continue
 		}
 
-		if "system" == source.Name {
-			warnings = append(warnings, "The 'system' source is static and cannot be overridden.")
+		if systemString == source.Name {
+			warnings = append(warnings, fmt.Sprintf("The '%s' source is static and cannot be overridden.", systemString))
 		}
 
 		config.sourceMap[source.Name] = source
@@ -369,7 +369,6 @@ func (config *GudgeonConfig) verifyAndInitSources() ([]string, []error) {
 
 	return warnings, []error{}
 }
-
 
 func (config *GudgeonConfig) verifyAndInitResolvers() ([]string, []error) {
 	// collect warnings
@@ -416,7 +415,7 @@ func (config *GudgeonConfig) verifyAndInitResolvers() ([]string, []error) {
 		config.resolverMap[systemString] = systemResolver
 	}
 
-	// (the default resolver just points to the system resolver if no default resovler is otherwise configured
+	// (the default resolver just points to the system resolver if no default resolver is otherwise configured
 	if _, found := config.resolverMap[defaultString]; !found {
 		defaultResolver := &GudgeonResolver{
 			Name:    defaultString,

@@ -112,9 +112,6 @@ func (hostFileSource *hostFileSource) LoadArray(data []string) {
 }
 
 func (hostFileSource *hostFileSource) Load(sourceFile string) {
-	// keep the source file path
-	hostFileSource.filePath = sourceFile
-
 	// open file and parse each line
 	data, err := util.GetFileAsArray(sourceFile)
 
@@ -126,6 +123,9 @@ func (hostFileSource *hostFileSource) Load(sourceFile string) {
 
 	// load array
 	hostFileSource.LoadArray(data)
+
+	// keep the source file path
+	hostFileSource.filePath = sourceFile
 }
 
 func (hostFileSource *hostFileSource) respondToAWildcards(name string, request *dns.Msg, response *dns.Msg) {

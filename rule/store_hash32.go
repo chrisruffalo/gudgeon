@@ -34,6 +34,10 @@ func (store *hashStore32) Init(sessionRoot string, config *config.GudgeonConfig,
 	}
 }
 
+func (store *hashStore32) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
+
+}
+
 func (store *hashStore32) Load(list *config.GudgeonList, rule string) {
 	store.hashes[list.CanonicalName()] = append(store.hashes[list.CanonicalName()], murmur3.StringSum32(strings.ToLower(rule)))
 

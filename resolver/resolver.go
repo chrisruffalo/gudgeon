@@ -128,7 +128,7 @@ func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, configu
 
 			if source == nil {
 				source := NewSource(configuredSource)
-				if source != nil {
+				if source != nil && "" != source.Name() {
 					log.Infof("Loaded source: %s", source.Name())
 					resolver.sources = append(resolver.sources, source)
 					sharedSources[configuredSource] = source

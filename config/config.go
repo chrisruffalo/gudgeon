@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -155,9 +156,17 @@ func (list *GudgeonList) IsRemote() bool {
 }
 
 func (list *GudgeonList) path(cachePath string) string {
-	source := list.Source
+	// if the list is remote use the internal cache path
 	if list.IsRemote() {
 		return path.Join(cachePath, list.ShortName()+".list")
+	}
+	// if not remote try and find along path
+	source := list.Source
+	if absPath, err := filepath.Abs(source); err == nil {
+		source = absPath
+	}
+	if evalPath, err := filepath.EvalSymlinks(source); err == nil {
+		source = evalPath
 	}
 	return source
 }

@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/events"
 )
 
 // a match can be:
@@ -27,6 +28,8 @@ type RuleStore interface {
 
 	Load(list *config.GudgeonList, rule string)
 
+	Clear(config *config.GudgeonConfig, list *config.GudgeonList)
+
 	Finalize(sessionRoot string, lists []*config.GudgeonList)
 
 	FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string)
@@ -36,8 +39,8 @@ type RuleStore interface {
 
 // stores are created from lists of files inside a configuration
 func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []uint64) {
-	// first create the complex rule store wrapper
-	store := new(complexStore)
+	// outer shell reloading store
+	store := &reloadingStore{}
 
 	// get type of backing store from config file
 	backingStoreType := strings.ToLower(config.Storage.RuleStorage)
@@ -75,8 +78,9 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 	}
 	log.Infof("Using '%s' rule store implementation", backingStoreType)
 
-	// set backing store
-	store.backingStore = delegate
+	// for our outer reloading delegate to a complex store that delegates to the type of chosen store
+	// reloading -> complex -> actual chosen store
+	store.delegate = &complexStore{ backingStore: delegate }
 
 	// initialize stores
 	store.Init(storeRoot, config, config.Lists)
@@ -85,31 +89,20 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 	outputCount := make([]uint64, 0, len(config.Lists))
 
 	for _, list := range config.Lists {
-		// open file and scan
-		data, err := os.Open(config.PathToList(list))
-		if err != nil {
-			data.Close()
-			log.Errorf("Could not open list file: %s", err)
-			outputCount = append(outputCount, 0)
-			continue
-		}
+		listCounter := loadList(store, config, list)
 
-		listCounter := uint64(0)
+		// notify that we want to watch for changes in a given file
+		events.Send("file:watch", &events.Message{"path": config.PathToList(list)})
 
-		// scan through file
-		scanner := bufio.NewScanner(data)
-		for scanner.Scan() {
-			text := ParseLine(scanner.Text())
-			if "" != text {
-				// load the text into the store which will load it into the next delegate
-				// if it doesn't match the parameters of that store
-				store.Load(list, text)
-				listCounter++
-			}
-		}
-
-		// close file
-		data.Close()
+		// create what we want to do when the file is changed
+		events.Listen("file:" + config.PathToList(list), func(message *events.Message) {
+			store.Clear(config, list)
+			loadList(store, config, list)
+			log.Infof("Reloaded list: %s", list.CanonicalName())
+			// watch file again
+			events.Send("file:watch", &events.Message{"path": config.PathToList(list)})
+			// todo: update count?
+		})
 
 		// append counter to output count
 		outputCount = append(outputCount, listCounter)
@@ -120,4 +113,35 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 
 	// finalize and return store
 	return store, outputCount
+}
+
+func loadList(store RuleStore, config *config.GudgeonConfig, list *config.GudgeonList) uint64 {
+	// open file and scan
+	data, err := os.Open(config.PathToList(list))
+	if err != nil {
+		log.Errorf("Could not open list file: %s", err)
+		return uint64(0)
+	}
+
+	listCounter := uint64(0)
+
+	// scan through file
+	scanner := bufio.NewScanner(data)
+	for scanner.Scan() {
+		text := ParseLine(scanner.Text())
+		if "" != text {
+			// load the text into the store which will load it into the next delegate
+			// if it doesn't match the parameters of that store
+			store.Load(list, text)
+			listCounter++
+		}
+	}
+
+	// close file
+	err = data.Close()
+	if err != nil {
+		log.Errorf("Could not close file: %s", err)
+	}
+
+	return listCounter
 }

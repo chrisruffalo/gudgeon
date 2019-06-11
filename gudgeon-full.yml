@@ -125,7 +125,7 @@ gudgeon:
   lists:
   - name: global whitelist
     type: allow # explicitly allow entries in this list
-    src: "/etc/gudgeon/lists/global_whitelist.list"
+    src: ".gudgeon/lists/global_whitelist.list"
     tags:
     - default
   - name: stevenblack
