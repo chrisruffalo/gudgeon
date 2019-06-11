@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cavaliercoder/grab"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -23,42 +23,20 @@ func downloadFile(engine Engine, path string, url string) error {
 
 	dirpart := paths.Dir(path)
 	if _, err := os.Stat(dirpart); os.IsNotExist(err) {
-		os.MkdirAll(dirpart, os.ModePerm)
-	}
-
-	// if the file exists already then it might be used during the
-	// download process so we need to move it
-	if _, err := os.Stat(path); err == nil {
-		// download file to temp location
-		inactivePath := path + "_inactive"
-		err = downloadFile(engine, inactivePath, url)
+		err := os.MkdirAll(dirpart, os.ModePerm)
 		if err != nil {
-			return err
+			log.Errorf("Could not create path to download file: %s", err)
 		}
-
-		// move file over existing file when done
-		os.Rename(inactivePath, path)
-
-		// complete action
-		return nil
 	}
 
-	out, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	// set up http client
+	// set up (default) http client
 	client := &http.Client{}
 
-	// if we can't resolve the url normally we might need to use the configured resolvers to find it... eek
+	// if the engine is available then use it to resolve hostnames
 	if engine != nil {
 		// create dialer
 		dialer := &net.Dialer{
-			Timeout:   5 * time.Second,
 			KeepAlive: 5 * time.Second,
-			DualStack: true,
 		}
 
 		// create transport
@@ -83,13 +61,16 @@ func downloadFile(engine Engine, path string, url string) error {
 		client.Transport = tr
 	}
 
-	resp, err := client.Get(url)
+	// use the http client to make a grabber client
+	grabber := grab.Client{
+		HTTPClient: client,
+	}
+	req, err := grab.NewRequest(path, url)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-
-	_, err = io.Copy(out, resp.Body)
+	resp := grabber.Do(req)
+	err = resp.Err()
 	if err != nil {
 		return err
 	}
@@ -104,7 +85,7 @@ func Download(engine Engine, config *config.GudgeonConfig, list *config.GudgeonL
 	// get rul of list
 	url := list.Source
 
-	// get written lines
+	// notify of download and save to path
 	log.Infof("Downloading '%s'...", url)
 	err := downloadFile(engine, path, url)
 	if err != nil {
