@@ -23,6 +23,7 @@ var divider = "==============================="
 
 // Gudgeon Core Gudgeon object for executing a Gudgeon process
 type Gudgeon struct {
+	confPath string
 	config   *config.GudgeonConfig
 	engine   engine.Engine
 	provider provider.Provider
@@ -30,39 +31,40 @@ type Gudgeon struct {
 }
 
 // NewGudgeon Create a new Gudgeon instance from a given Gudgeon Config
-func NewGudgeon(config *config.GudgeonConfig) *Gudgeon {
+func NewGudgeon(confPath string, config *config.GudgeonConfig) *Gudgeon {
 	return &Gudgeon{
+		confPath: confPath,
 		config: config,
 	}
 }
 
 func (gudgeon *Gudgeon) Start() error {
-	// get config
-	config := gudgeon.config
-
 	// error
 	var err error
 
 	// create engine which handles resolution, logging, etc
-	engine, err := engine.NewEngine(config)
+	gudgeon.engine, err = engine.NewReloadingEngine(gudgeon.confPath, gudgeon.config)
 	if err != nil {
 		return err
 	}
-	if engine == nil {
+	if gudgeon.engine == nil {
 		return fmt.Errorf("Could not create required engine component")
 	}
-	gudgeon.engine = engine
 
 	// create a new provider and start hosting
-	provider := provider.NewProvider(engine)
-	provider.Host(config, engine)
-	gudgeon.provider = provider
+	gudgeon.provider = provider.NewProvider(gudgeon.engine)
+	err = gudgeon.provider.Host(gudgeon.config, gudgeon.engine)
+	if err != nil {
+		return fmt.Errorf("Could not create provider: %s", err)
+	}
 
 	// open web ui if web enabled
-	if config.Web.Enabled {
-		web := web.New()
-		web.Serve(config, engine)
-		gudgeon.web = web
+	if gudgeon.config.Web.Enabled {
+		gudgeon.web = web.New()
+		err = gudgeon.web.Serve(gudgeon.config, gudgeon.engine)
+		if err != nil {
+			return fmt.Errorf("Could not host web: %s", err)
+		}
 	}
 
 	// try and print out error if we caught one during startup
@@ -77,7 +79,10 @@ func (gudgeon *Gudgeon) Shutdown() {
 	// stop providers
 	if gudgeon.provider != nil {
 		log.Infof("Shutting down DNS endpoints...")
-		gudgeon.provider.Shutdown()
+		err := gudgeon.provider.Shutdown()
+		if err != nil {
+			log.Errorf("Could not shutdown endpoints: %s", err)
+		}
 	}
 
 	// stop web
@@ -147,7 +152,7 @@ func main() {
 	}
 
 	// create new Gudgeon instance
-	instance := NewGudgeon(config)
+	instance := NewGudgeon(filename, config)
 
 	// start new instance
 	err = instance.Start()

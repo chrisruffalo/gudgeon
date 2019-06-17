@@ -7,6 +7,7 @@ import (
 	"net"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
@@ -560,10 +561,11 @@ func (engine *engine) Handle(address *net.IP, protocol string, request *dns.Msg)
 
 	// get results
 	response, rCon, result := engine.HandleWithConsumer(consumer, rCon, request)
+	finishedTime := time.Now()
 
 	// log them if recorder is active
 	if engine.recorder != nil {
-		engine.recorder.queue(address, request, response, rCon, result)
+		engine.recorder.queue(address, request, response, rCon, result, &finishedTime)
 	}
 
 	// return only the result
@@ -594,6 +596,9 @@ func (engine *engine) Shutdown() {
 
 	// close db
 	if nil != engine.db {
-		engine.db.Close()
+		err := engine.db.Close()
+		if err != nil {
+			log.Errorf("Closing database: %s", err)
+		}
 	}
 }

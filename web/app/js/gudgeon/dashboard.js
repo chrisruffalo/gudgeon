@@ -42,7 +42,8 @@ export class Dashboard extends React.Component {
       formatter: LocaleNumber,
       series: {
         queries: { name: "Queries/s", key: "gudgeon-session-queries-ps" }, 
-        blocked: { name: "Blocked/s", key: "gudgeon-session-blocks-ps" } 
+        blocked: { name: "Blocked/s", key: "gudgeon-session-blocks-ps" } ,
+        latency: { name: "Service Time (ms)", key: "gudgeon-query-time", axis: "y2", use_average: true }
       }
     },
     "memory": {

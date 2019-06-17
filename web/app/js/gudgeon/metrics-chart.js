@@ -178,9 +178,14 @@ export class GudgeonChart extends React.Component {
               this.columns[0].push(new Date(item.AtTime));
             }
 
+            // determine if we should use the average instead of the count (default false)
+            let use_average = metric.use_average;
+
             // push new item into value array for that key and push a 0 if there is no value (makes missing metrics a "0" until they start)
-            if (item.Values[metric.key] != null && item.Values[metric.key].count != null) {
+            if (!use_average && item.Values[metric.key] != null && item.Values[metric.key].count != null) {
               this.columns[idx].push(item.Values[metric.key].count);
+            } else if(use_average && item.Values[metric.key] != null && item.Values[metric.key].average != null) {
+              this.columns[idx].push(item.Values[metric.key].average);
             } else {
               this.columns[idx].push(0);
             }

@@ -89,9 +89,18 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 	engine.session = "." + base64.RawURLEncoding.EncodeToString([]byte(uuid.String()))
 
 	// make required paths
-	os.MkdirAll(conf.Home, os.ModePerm)
-	os.MkdirAll(conf.SessionRoot(), os.ModePerm)
-	os.MkdirAll(engine.Root(), os.ModePerm)
+	err = os.MkdirAll(conf.Home, os.ModePerm)
+	if err != nil {
+		log.Errorf("Could not create home directory path: %s", err)
+	}
+	err = os.MkdirAll(conf.SessionRoot(), os.ModePerm)
+	if err != nil {
+		log.Errorf("Could not create session directory path: %s", err)
+	}
+	err = os.MkdirAll(engine.Root(), os.ModePerm)
+	if err != nil {
+		log.Errorf("Could not create engine root directory path: %s", err)
+	}
 
 	// configure db if required
 	if *conf.Metrics.Enabled || *conf.QueryLog.Enabled {

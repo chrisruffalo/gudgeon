@@ -38,7 +38,7 @@ const (
 	QueryTime              = "query-time"
 	// cache entries
 	CurrentCacheEntries = "cache-entries"
-	// rutnime metrics
+	// runtime metrics
 	GoRoutines         = "goroutines"
 	Threads            = "process-threads"
 	CurrentlyAllocated = "allocated-bytes"    // heap allocation in go runtime stats
@@ -64,7 +64,9 @@ type MetricsEntry struct {
 	IntervalSeconds int
 }
 
-type Metric struct {
+type  Metric struct {
+	Avg int64 `json:"average,omitempty"`
+	Records int64 `json:"records,omitempty"`
 	Count int64 `json:"count"`
 }
 
@@ -73,18 +75,31 @@ func (metric *Metric) Set(newValue int64) *Metric {
 	return metric
 }
 
-func (metric *Metric) Inc(byValue int64) *Metric {
-	metric.Count = metric.Count + byValue
+func (metric *Metric) Inc(value int64) *Metric {
+	metric.Count = metric.Count + value
+	return metric
+}
+
+func (metric *Metric) RecordSample(value int64) *Metric {
+	metric.Inc(value)
+	metric.Records = metric.Records + 1
+	metric.Avg = metric.Count / metric.Records
 	return metric
 }
 
 func (metric *Metric) Clear() *Metric {
 	metric.Set(0)
+	metric.Records = 0
+	metric.Avg = 0
 	return metric
 }
 
 func (metric *Metric) Value() int64 {
 	return metric.Count
+}
+
+func (metric *Metric) Average() int64 {
+	return metric.Avg
 }
 
 type metrics struct {
@@ -172,7 +187,7 @@ func (metrics *metrics) GetAll() map[string]*Metric {
 	metrics.metricsMutex.RLock()
 	mapCopy := make(map[string]*Metric, 0)
 	for k, v := range metrics.metricsMap {
-		mapCopy[k] = &Metric{Count: v.Value()}
+		mapCopy[k] = &Metric{Count: v.Value(), Avg: v.Average(), Records: v.Records}
 	}
 	metrics.metricsMutex.RUnlock()
 	return mapCopy
@@ -246,6 +261,9 @@ func (metrics *metrics) record(info *InfoRecord) {
 	if info.Result != nil && info.Result.Cached {
 		metrics.Get(CachedQueries).Inc(1)
 	}
+
+	// add latency
+	metrics.Get(QueryTime).RecordSample(info.ServiceMilliseconds)
 
 	// add blocked queries
 	if info.Result != nil && (info.Result.Blocked || info.Result.Match == rule.MatchBlock) {

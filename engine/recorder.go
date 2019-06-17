@@ -88,9 +88,11 @@ type InfoRecord struct {
 	Cached bool
 
 	// when this log record was created
-	// todo: add when it was received and when it was completed
-	//       through the context so we can compute a delta
 	Created time.Time
+	Finished time.Time
+
+	// how long it took to service the request inside the engine
+	ServiceMilliseconds int64
 }
 
 // created from raw engine
@@ -135,7 +137,7 @@ func NewRecorder(engine *engine) (*recorder, error) {
 // queue new entries, this is the method connected
 // to the engine that will transfer as an async
 // entry point to the worker
-func (recorder *recorder) queue(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult) {
+func (recorder *recorder) queue(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult, finishedTime *time.Time) {
 	// create message for sending to various endpoints
 	msg := &InfoRecord{
 		Address:        address.String(),
@@ -143,8 +145,24 @@ func (recorder *recorder) queue(address *net.IP, request *dns.Msg, response *dns
 		Response:       response,
 		Result:         result,
 		RequestContext: rCon,
-		Created:        time.Now(),
 	}
+
+	// use the start time to get started/created info
+	if rCon != nil {
+		msg.Created = rCon.Started
+	} else {
+		msg.Created = time.Now()
+	}
+
+	// use the current time or the finished time if available to get the time it was finished
+	if finishedTime != nil {
+		msg.Finished = *finishedTime
+	} else {
+		msg.Finished = time.Now()
+	}
+
+	// calculate how many milliseconds from float seconds so that we have a single-place duration
+	msg.ServiceMilliseconds = int64(msg.Finished.Sub(msg.Created).Seconds() * 1000)
 
 	// put on channel if channel is available
 	if recorder.infoQueue != nil {

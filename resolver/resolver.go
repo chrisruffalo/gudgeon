@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"strings"
+	"time"
 
 	"github.com/miekg/dns"
 	"github.com/ryanuber/go-glob"
@@ -11,17 +12,22 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
+// additional information passed along with the request
 type RequestContext struct {
-	Protocol string   // the protocol that the request came in with
-	Groups   []string // the groups that belong to the original requester
+	Started  time.Time // when the request starts
+	Protocol string    // the protocol that the request came in with
+	Groups   []string  // the groups that belong to the original requester
 }
 
 func DefaultRequestContext() *RequestContext {
-	reqCon := &RequestContext{}
-	reqCon.Protocol = "udp" // default to udp
+	reqCon := &RequestContext{
+		Started: time.Now(), // start time
+		Protocol: "udp", // default to udp
+	}
 	return reqCon
 }
 
+// information relevant to the process of resolution
 type ResolutionContext struct {
 	// resolution tools / recursive issues
 	ResolverMap ResolverMap // pointer to the resolvermap that started resolution, can be nil

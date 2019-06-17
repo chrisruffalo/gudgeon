@@ -29,9 +29,9 @@ type GudgeonSystemd struct {
 	// should we accept ports from systemd?
 	Enabled *bool `yaml:"enabled"`
 	// ports that will be interpreted as "dns" ports
-	DnsPorts []uint32 `yaml:"dns"` // default 53
+	DnsPorts *[]uint32 `yaml:"dns"` // default 53
 	// ports that will be interpreted as "http" ports
-	HttpPorts []uint32 `yaml:"http"` // default 80, 8080
+	HttpPorts *[]uint32 `yaml:"http"` // default 80, 8080
 }
 
 type GudgeonDatabase struct {
