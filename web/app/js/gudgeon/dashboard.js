@@ -24,8 +24,6 @@ import {
 import { GudgeonChart } from './metrics-chart.js';
 import { MetricsTopList } from './metrics-top.js';
 import { HumanBytes, LocaleNumber } from './helpers.js';
-import gudgeonStyles from '../../css/gudgeon-app.css';
-import { css } from '@patternfly/react-styles';
 
 export class Dashboard extends React.Component {
   constructor(props) {
@@ -208,7 +206,7 @@ export class Dashboard extends React.Component {
         { topTypes.map((value, index) => {
           return (
               <GridItem key={index} lg={3} md={6} sm={12}>
-                <Card className={css(gudgeonStyles.maxHeight)}>
+                <Card className={"maxHeight"}>
                   <CardHeader>
                     <Split gutter="sm">
                       <SplitItem isFilled={true} style={{ width: "100%" }}>
@@ -231,7 +229,7 @@ export class Dashboard extends React.Component {
 
     const OverviewChart = window.config().metrics && window.config().metrics_persist ? (
       <GridItem lg={6} md={6} sm={12}>
-        <Card className={css(gudgeonStyles.maxHeight)}>
+        <Card className={"maxHeight"}>
           <CardBody>
             <GudgeonChart metrics={ this.chartMetrics } />
           </CardBody>
@@ -242,7 +240,7 @@ export class Dashboard extends React.Component {
     return (
       <Grid gutter="sm">
         <GridItem lg={3} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
+          <Card className={"maxHeight"}>
             <CardBody>
               <div style={{ "paddingBottom": "15px" }}>
                 <FormSelect value={this.state.currentMetrics} onChange={this.onQueryMetricsOptionChange} aria-label="FormSelect Input">
@@ -252,13 +250,13 @@ export class Dashboard extends React.Component {
                 </FormSelect>
               </div>
               <DataList aria-label="Metrics">
-                <DataListItem className={css(gudgeonStyles.smallListRow)} aria-labelledby="label-query">
-                  <DataListCell width={2} className={css(gudgeonStyles.smallCell)}><span className={css(gudgeonStyles.leftCard)} id="label-query">Queries</span></DataListCell>
-                  <DataListCell width={1} className={css(gudgeonStyles.smallCell)}><div className={css(gudgeonStyles.rightCard)}>{ LocaleNumber(this.getDataMetric(data, 'total-' + currentMetrics + '-queries')) }</div></DataListCell>
+                <DataListItem className={"smallListRow"} aria-labelledby="label-query">
+                  <DataListCell width={2} className={"smallCell"}><span className={"leftCard"} id="label-query">Queries</span></DataListCell>
+                  <DataListCell width={1} className={"smallCell"}><div className={"rightCard"}>{ LocaleNumber(this.getDataMetric(data, 'total-' + currentMetrics + '-queries')) }</div></DataListCell>
                 </DataListItem>
-                <DataListItem className={css(gudgeonStyles.smallListRow)} aria-labelledby="label-blocked">
-                  <DataListCell width={2} className={css(gudgeonStyles.smallCell)}><span className={css(gudgeonStyles.leftCard)} id="label-blocked">Blocked</span></DataListCell>
-                  <DataListCell width={1} className={css(gudgeonStyles.smallCell)}><div className={css(gudgeonStyles.rightCard)}>{ LocaleNumber(this.getDataMetric(data, 'blocked-' + currentMetrics + '-queries')) }</div></DataListCell>
+                <DataListItem className={"smallListRow"} aria-labelledby="label-blocked">
+                  <DataListCell width={2} className={"smallCell"}><span className={"leftCard"} id="label-blocked">Blocked</span></DataListCell>
+                  <DataListCell width={1} className={"smallCell"}><div className={"rightCard"}>{ LocaleNumber(this.getDataMetric(data, 'blocked-' + currentMetrics + '-queries')) }</div></DataListCell>
                 </DataListItem>
               </DataList>            
             </CardBody>
@@ -267,7 +265,7 @@ export class Dashboard extends React.Component {
         { TopCards }
         { OverviewChart }
         <GridItem lg={6} md={6} sm={12}>
-          <Card className={css(gudgeonStyles.maxHeight)}>
+          <Card className={"maxHeight"}>
             <CardBody>
               <Table aria-label="Lists" variant={TableVariant.compact} borders={false} cells={columns} rows={rows}>
                 <TableHeader />

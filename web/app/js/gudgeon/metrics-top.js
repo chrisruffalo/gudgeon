@@ -7,8 +7,6 @@ import {
   DataListCell
 } from '@patternfly/react-core';
 import { LocaleNumber } from './helpers.js';
-import gudgeonStyles from '../../css/gudgeon-app.css';
-import { css } from '@patternfly/react-styles';
 
 export class MetricsTopList extends React.Component {
   constructor(props) {
@@ -76,13 +74,13 @@ export class MetricsTopList extends React.Component {
     const ListItems = data.map((item, index) => {
       const doLink = this.mapTypeToQuery[this.props.topType] != null;
       return (
-          <DataListItem key={ index } className={css(gudgeonStyles.smallListRow)} aria-labelledby={ "label-" + index }>
-            <DataListCell className={css(gudgeonStyles.smallCell)} width={2}>
-              <span className={css(gudgeonStyles.leftCard)} id={ "label-" + index }>
+          <DataListItem key={ index } className={"smallListRow"} aria-labelledby={ "label-" + index }>
+            <DataListCell className={"smallCell"} width={2}>
+              <span className={"leftCard"} id={ "label-" + index }>
                 { doLink ? <Link to={{ pathname: "/qlog", search: "?st=" + this.mapTypeToQuery[this.props.topType] + "&query=" + item.Desc }}>{ item.Desc }</Link> : item.Desc }
               </span>
             </DataListCell>
-            <DataListCell className={css(gudgeonStyles.smallCell)} width={1}><div className={css(gudgeonStyles.rightCard)} >{ LocaleNumber(item.Count) }</div></DataListCell>
+            <DataListCell className={"smallCell"} width={1}><div className={"rightCard"} >{ LocaleNumber(item.Count) }</div></DataListCell>
           </DataListItem>        
       );
     });

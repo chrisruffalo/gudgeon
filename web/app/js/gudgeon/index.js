@@ -21,8 +21,6 @@ import { Dashboard } from './dashboard.js';
 import { GudgeonCharts } from './charts.js';
 import { QueryLog } from './qlog-table.js';
 import { QueryTester } from './query-tester.js';
-import gudgeonStyles from '../../css/gudgeon-app.css';
-import { css } from '@patternfly/react-styles';
 import {MetricsTopList} from "./metrics-top";
 
 export class Gudgeon extends React.Component {
@@ -62,7 +60,7 @@ export class Gudgeon extends React.Component {
     return (
         <Grid gutter="sm">
           <GridItem lg={12} md={12} sm={12}>
-            <Card className={css(gudgeonStyles.maxHeight)}>
+            <Card className={"maxHeight"}>
               <CardHeader>
                 <Split gutter="sm">
                   <SplitItem isFilled={true} style={{ width: "100%" }}>
@@ -137,12 +135,12 @@ export class Gudgeon extends React.Component {
       <div style={{ backgroundColor: '#292e34', padding: '1rem', color: '#ffffff' }}>
         <Split gutter="sm">
           <SplitItem isFilled={true} style={{ width: "100%" }}>
-            <p className={css(gudgeonStyles.footerText)}>&copy; Chris Ruffalo 2019</p>
-            <p className={css(gudgeonStyles.footerText)}><a href="https://github.com/chrisruffalo/gudgeon">@GitHub</a></p>
+            <p className={"footerText"}>&copy; Chris Ruffalo 2019</p>
+            <p className={"footerText"}><a href="https://github.com/chrisruffalo/gudgeon">@GitHub</a></p>
           </SplitItem>
           <SplitItem isFilled={true} style={{ textAlign: "right" }}>
-            <p className={css(gudgeonStyles.footerText)}>{ window.version().version }{ window.version().release !== "" ? "-" + window.version().release : ""}</p>
-            <p className={css(gudgeonStyles.footerText)}><a href={ "https://github.com/chrisruffalo/gudgeon/tree/" + window.version().githash }>git@{ window.version().githash }</a></p>
+            <p className={"footerText"}>{ window.version().version }{ window.version().release !== "" ? "-" + window.version().release : ""}</p>
+            <p className={"footerText"}><a href={ "https://github.com/chrisruffalo/gudgeon/tree/" + window.version().githash }>git@{ window.version().githash }</a></p>
           </SplitItem>
         </Split>      
       </div>      
@@ -156,9 +154,9 @@ export class Gudgeon extends React.Component {
     const QTest = ( <QueryTester /> );
 
     return (
-      <div className={css(gudgeonStyles.maxHeight)}>
+      <div className={"maxHeight"}>
         <Router>
-          <Page header={Header} className={css(gudgeonStyles.maxHeight)}>
+          <Page header={Header} className={"maxHeight"}>
             <PageSection>
               <Switch>
                 { window.config().metrics ? <Route path="/dashboard" component={ () => Dboard } /> : null }

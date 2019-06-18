@@ -123,25 +123,16 @@ module.exports = {
                         loader: "babel-loader",
                         options: {
                             plugins: [
-                                //[
-                                    //'@patternfly/react-styles/babel',
-                                    //{
-                                    //    outDir: 'build/webpack/',
-                                    //    useModules: true
-                                    //}
-                                //],
                                 '@babel/plugin-proposal-class-properties',
                                 '@babel/plugin-syntax-dynamic-import',
+                                '@babel/plugin-transform-typescript',
+                                'babel-plugin-typescript-to-proptypes',
+                                '@babel/plugin-proposal-export-default-from',
+                                '@babel/plugin-proposal-object-rest-spread',
                             ],
                             presets: [
                                 '@babel/preset-react',
-                                [ 
-                                    '@babel/preset-env', 
-                                    { 
-                                        "useBuiltIns": "entry", 
-                                        "corejs": "3" 
-                                    } 
-                                ]
+                                '@babel/preset-env'
                             ]
                         }
                     }

@@ -7,8 +7,6 @@ import {
 } from '@patternfly/react-core';
 import { GudgeonChart } from './metrics-chart.js';
 import { HumanBytes, LocaleNumber } from './helpers.js';
-import gudgeonStyles from '../../css/gudgeon-app.css';
-import { css } from '@patternfly/react-styles';
 
 export class GudgeonCharts extends React.Component {
   constructor(props) {
@@ -84,28 +82,28 @@ export class GudgeonCharts extends React.Component {
       <React.Fragment>
         <Grid gutter="sm">
            <GridItem lg={6} md={6} sm={12}>
-            <Card className={css(gudgeonStyles.maxHeight)}>
+            <Card className={"maxHeight"}>
               <CardBody>
                 <GudgeonChart metrics={ this.queryMetrics } chartName="query" />
               </CardBody>
             </Card>
           </GridItem>
            <GridItem lg={6} md={6} sm={12}>
-            <Card className={css(gudgeonStyles.maxHeight)}>
+            <Card className={"maxHeight"}>
               <CardBody>
                 <GudgeonChart metrics={ this.memoryMetrics } chartName="memory" />
               </CardBody>
             </Card>
           </GridItem>
            <GridItem lg={6} md={6} sm={12}>
-            <Card className={css(gudgeonStyles.maxHeight)}>
+            <Card className={"maxHeight"}>
               <CardBody>
                 <GudgeonChart metrics={ this.threadMetrics } chartName="thread" />
               </CardBody>
             </Card>
           </GridItem>
            <GridItem lg={6} md={6} sm={12}>
-            <Card className={css(gudgeonStyles.maxHeight)}>
+            <Card className={"maxHeight"}>
               <CardBody>
                 <GudgeonChart metrics={ this.cpuMetrics } chartName="cpu" />
               </CardBody>
