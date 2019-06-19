@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/chrisruffalo/gudgeon/events"
 	"net"
@@ -18,6 +19,7 @@ type reloadingEngine struct {
 	confPath string
 	current  Engine
 	mux      sync.RWMutex
+	handles  []*events.Handle
 }
 
 func NewReloadingEngine(confPath string, conf *config.GudgeonConfig) (Engine, error) {
@@ -31,12 +33,16 @@ func NewReloadingEngine(confPath string, conf *config.GudgeonConfig) (Engine, er
 	reloading := &reloadingEngine{
 		confPath: confPath,
 		current: current,
+		handles: make([]*events.Handle, 0),
 	}
 
 	// establish file watch
-	events.Send("file:watch", &events.Message{ "path": confPath })
+	events.Send("file:watch:start", &events.Message{ "path": confPath })
 	// subscribe to topic
-	events.Listen("file:" + confPath, func(message *events.Message) {
+	handle := events.Listen("file:" + confPath, func(message *events.Message) {
+		// clear all file watches
+		events.Send("file:watch:clear", nil)
+
 		// reload configuration
 		config, warnings, err := config.Load(confPath)
 		if err != nil {
@@ -55,8 +61,9 @@ func NewReloadingEngine(confPath string, conf *config.GudgeonConfig) (Engine, er
 		}
 
 		// subscribe for new change events / ensure still subscribed
-		events.Send("file:watch", &events.Message{ "path": confPath })
+		events.Send("file:watch:start", &events.Message{ "path": confPath })
 	})
+	reloading.handles = append(reloading.handles, handle)
 
 	// return reloading engine
 	return reloading, nil
@@ -64,29 +71,44 @@ func NewReloadingEngine(confPath string, conf *config.GudgeonConfig) (Engine, er
 
 // wait to swap engine until all rlocked processes have completed
 // and then lock during the swap and release to resume normal operations
-func (engine *reloadingEngine) swap(config *config.GudgeonConfig) {
-	// lock
-	engine.mux.Lock()
+func (rEngine *reloadingEngine) swap(config *config.GudgeonConfig) {
+	// empty/nil components
+	var db *sql.DB
+	var recorder *recorder
+	var metrics Metrics
+	var qlog QueryLog
 
-	// shutdown old engine
-	if engine.current != nil {
-		engine.current.Shutdown()
+	// if the old engine has the proper components reuse them
+	if oldEngine, ok := rEngine.current.(*engine); ok {
+		db = oldEngine.db
+		recorder = oldEngine.recorder
+		metrics = oldEngine.metrics
+		qlog = oldEngine.qlog
 	}
 
 	// build new engine
-	newEngine, err := NewEngine(config)
+	newEngine, err := newEngineWithComponents(config, db, recorder, metrics, qlog)
+
+	// lock and unlock after return
+	rEngine.mux.Lock()
+	defer rEngine.mux.Unlock()
 
 	// if engine fails then have no engine
 	if err != nil {
 		log.Errorf("Could not reload engine: %s", err)
-		engine.current = nil
+		rEngine.current = nil
 		return
 	}
 
 	// use new engine
-	engine.current = newEngine
+	oldEngine := rEngine.current
+	rEngine.current = newEngine
 
-	engine.mux.Unlock()
+	// remove references in old engine
+	if oldEngine != nil {
+		oldEngine.Close()
+	}
+
 }
 
 func (engine *reloadingEngine) IsDomainRuleMatched(consumer *net.IP, domain string) (rule.Match, *config.GudgeonList, string) {
@@ -188,11 +210,25 @@ func (engine *reloadingEngine) Metrics() Metrics {
 	return nil
 }
 
+func (engine *reloadingEngine) Close() {
+	if engine.current != nil {
+		engine.mux.RLock()
+		engine.current.Close()
+		engine.mux.RUnlock()
+	}
+}
+
 func (engine *reloadingEngine) Shutdown() {
 	if engine.current != nil {
 		engine.mux.RLock()
 		engine.current.Shutdown()
 		engine.mux.RUnlock()
+	}
+	// since we are shutting down, close up handles
+	for _, handle := range engine.handles {
+		if handle != nil {
+			handle.Close()
+		}
 	}
 }
 

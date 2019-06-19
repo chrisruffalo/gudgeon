@@ -185,3 +185,7 @@ func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionCont
 	// otherwise just return
 	return response, nil
 }
+
+func (dnsSource *dnsSource) Close() {
+
+}

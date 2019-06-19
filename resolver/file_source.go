@@ -18,13 +18,12 @@ type fileSource struct {
 	reloadableSource Source
 	// mutex to block source during reload
 	mux sync.RWMutex
+	// save subscription handle
+	handle *events.Handle
 }
 
-
-
-// pretty much directly from https://github.com/fsnotify/fsnotify/blob/master/example_test.go
 func (source *fileSource) watchAndLoad() {
-	events.Listen("file:" + source.path, func(message *events.Message) {
+	source.handle = events.Listen("file:" + source.path, func(message *events.Message) {
 		log.Infof("Loading new source from: '%s'", source.path)
 		source.Load(source.path)
 		// notify of source change
@@ -51,7 +50,7 @@ func (source *fileSource) Load(specification string) {
 			source.watched = true
 		}
 		source.mux.Unlock()
-		events.Send("file:watch", &events.Message{"path": source.path})
+		events.Send("file:watch:start", &events.Message{"path": source.path})
 	}
 }
 
@@ -63,4 +62,11 @@ func (source *fileSource) Answer(rCon *RequestContext, context *ResolutionContex
 		return source.reloadableSource.Answer(rCon, context, request)
 	}
 	return nil, nil
+}
+
+func (source *fileSource) Close() {
+	// close subscription
+	if source.handle != nil {
+		source.handle.Close()
+	}
 }

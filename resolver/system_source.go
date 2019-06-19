@@ -109,3 +109,7 @@ func (source *systemSource) Answer(rCon *RequestContext, context *ResolutionCont
 
 	return response, nil
 }
+
+func (source *systemSource) Close() {
+
+}

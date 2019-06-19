@@ -34,3 +34,7 @@ func (resolverSource *resolverSource) Answer(rCon *RequestContext, context *Reso
 	response, _, err := context.ResolverMap.answerWithContext(rCon, resolverSource.resolverName, context, request)
 	return response, err
 }
+
+func (resolverSource *resolverSource) Close() {
+
+}

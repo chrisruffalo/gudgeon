@@ -319,3 +319,7 @@ func (hostFileSource *hostFileSource) Answer(rCon *RequestContext, context *Reso
 
 	return response, nil
 }
+
+func (hostFileSource *hostFileSource) Close() {
+
+}

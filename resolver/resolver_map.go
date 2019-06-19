@@ -18,6 +18,7 @@ import (
 type resolverMap struct {
 	cache     cache.Cache
 	resolvers map[string]Resolver
+	sourceHandler *events.Handle
 }
 
 type ResolverMap interface {
@@ -25,6 +26,7 @@ type ResolverMap interface {
 	AnswerMultiResolvers(rCon *RequestContext, resolverNames []string, request *dns.Msg) (*dns.Msg, *ResolutionResult, error)
 	answerWithContext(rCon *RequestContext, resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, *ResolutionResult, error)
 	Cache() cache.Cache
+	Close()
 }
 
 // returned as part of resolution to get data what actually resolved the query
@@ -89,7 +91,7 @@ func NewResolverMap(config *config.GudgeonConfig, configuredResolvers []*config.
 	// subscribe to source change events and clear cache when it happens
 	// in future we want to have a more segmented/partitioned cache but
 	// for now, blow the whole thing away to see immediate results
-	events.Listen("souce:change", func(message *events.Message) {
+	resolverMap.sourceHandler = events.Listen("souce:change", func(message *events.Message) {
 		if resolverMap.cache != nil {
 			resolverMap.cache.Clear()
 			log.Debugf("Cache flushed due to source change")
@@ -160,4 +162,13 @@ func (resolverMap *resolverMap) AnswerMultiResolvers(rCon *RequestContext, resol
 
 func (resolverMap *resolverMap) Cache() cache.Cache {
 	return resolverMap.cache
+}
+
+func (resolverMap *resolverMap) Close() {
+	for _, resolver := range resolverMap.resolvers {
+		resolver.Close()
+	}
+	if resolverMap.sourceHandler != nil {
+		resolverMap.sourceHandler.Close()
+	}
 }

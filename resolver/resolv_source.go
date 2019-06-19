@@ -76,6 +76,7 @@ func (resolvSource *resolvSource) Answer(rCon *RequestContext, context *Resoluti
 	return nil, nil
 }
 
+func (resolvSource *resolvSource) Close() {
 
-
+}
 

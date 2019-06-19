@@ -199,3 +199,7 @@ func (zoneSource *zoneSource) Answer(rCon *RequestContext, context *ResolutionCo
 
 	return response, nil
 }
+
+func (zoneSource *zoneSource) Close() {
+
+}

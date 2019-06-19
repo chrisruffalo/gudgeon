@@ -123,7 +123,8 @@ func (store *bloomStore) FindMatch(lists []*config.GudgeonList, domain string) (
 }
 
 func (store *bloomStore) Close() {
-	// default no-op
+	// remove reference to blooms
+	store.blooms = make(map[string]*bloom.BloomFilter)
 
 	if store.backingStore != nil {
 		store.backingStore.Close()

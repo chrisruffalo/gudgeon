@@ -132,6 +132,8 @@ func (store *hashStore) FindMatch(lists []*config.GudgeonList, domain string) (M
 }
 
 func (store *hashStore) Close() {
+	// overwrite map with empty map
+	store.hashes = make(map[string][]uint64)
 
 	if store.delegate != nil {
 		store.delegate.Close()

@@ -31,7 +31,7 @@ func pathHash(fileToHash string) string {
 func startFileWatch() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("While creating watcher: %s", err)
 	}
 	defer watcher.Close()
 
@@ -66,7 +66,7 @@ func startFileWatch() {
 
 	// subscribe for watch requests, this acts as a service which allows
 	// uncoupled but interested methods to watch files by using the message bus
-	err = bus.Subscribe("file:watch", func(message *Message){
+	err = bus.Subscribe("file:watch:start", func(message *Message) {
 		if value, ok := (*message)["path"]; ok {
 			if path, ok := value.(string); ok {
 				// remove previous hash
@@ -88,6 +88,33 @@ func startFileWatch() {
 	if err != nil {
 		log.Errorf("Failed to listen for new file watch events: %s", err)
 	}
+
+	// stop listening to specific files
+	err = bus.Subscribe("file:watch:end", func(message *Message) {
+		if value, ok := (*message)["path"]; ok {
+			if path, ok := value.(string); ok {
+				// remove previous hash
+				watchedFilesHashes[path] = ""
+				// ensure removed before new watch
+				_ = watcher.Remove(path)
+			}
+		}
+	})
+	if err != nil {
+		log.Errorf("Failed to listen for end watch events: %s", err)
+	}
+
+	// end all watches
+	err = bus.Subscribe("file:watch:clear", func(message *Message) {
+		for key := range watchedFilesHashes {
+			watchedFilesHashes[key] = ""
+			_ = watcher.Remove(key)
+		}
+	})
+	if err != nil {
+		log.Errorf("Failed to listen for clear watch events: %s", err)
+	}
+
 	<-done
 }
 

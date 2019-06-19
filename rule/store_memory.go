@@ -106,5 +106,6 @@ func (store *memoryStore) FindMatch(lists []*config.GudgeonList, domain string) 
 }
 
 func (store *memoryStore) Close() {
-	// default no-op
+	// remove reference to rules
+	store.rules = make(map[string][]string)
 }

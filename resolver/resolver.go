@@ -72,6 +72,7 @@ type resolver struct {
 
 type Resolver interface {
 	Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
+	Close()
 }
 
 func newResolver(configuredResolver *config.GudgeonResolver) *resolver {
@@ -315,4 +316,12 @@ func (resolver *resolver) Answer(rCon *RequestContext, context *ResolutionContex
 	}
 
 	return response, nil
+}
+
+func (resolver *resolver) Close() {
+	for _, source := range resolver.sources {
+		if source != nil {
+			source.Close()
+		}
+	}
 }

@@ -64,3 +64,7 @@ func (lb *lbSource) Answer(rCon *RequestContext, context *ResolutionContext, req
 func (lb *lbSource) Name() string {
 	return "lb:" + lb.name
 }
+
+func (lb *lbSource) Close() {
+	close(lb.askChan)
+}

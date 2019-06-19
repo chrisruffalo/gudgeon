@@ -47,7 +47,10 @@ func createEngineDB(conf *config.GudgeonConfig) (*sql.DB, error) {
 	// get path to long-standing data ({home}/'data') and make sure it exists
 	dataDir := conf.DataRoot()
 	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
-		os.MkdirAll(dataDir, os.ModePerm)
+		err = os.MkdirAll(dataDir, os.ModePerm)
+		if err != nil {
+			log.Errorf("Could not create engine data directory: %s", err)
+		}
 	}
 
 	// determine path
@@ -55,7 +58,10 @@ func createEngineDB(conf *config.GudgeonConfig) (*sql.DB, error) {
 
 	// create directory
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
-		os.MkdirAll(dbDir, os.ModePerm)
+		err = os.MkdirAll(dbDir, os.ModePerm)
+		if err != nil {
+			log.Errorf("Could not create engine database directory: %s", err)
+		}
 	}
 
 	// get path to db file
@@ -75,12 +81,33 @@ func createEngineDB(conf *config.GudgeonConfig) (*sql.DB, error) {
 }
 
 func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
+	return newEngineWithComponents(conf, nil, nil, nil, nil)
+}
+
+func newEngineWithComponents(conf *config.GudgeonConfig, db *sql.DB, recorder *recorder, metrics Metrics, queryLog QueryLog) (Engine, error) {
+	// create return object
+	engine := &engine{
+		config: conf,
+		db: db,
+		recorder: recorder,
+		metrics: metrics,
+		qlog: queryLog,
+	}
+
+	err := engine.bootstrap()
+	if err != nil {
+		return nil, err
+	}
+
+	return engine, nil
+}
+
+func (engine *engine) bootstrap() error {
 	// error collection
 	var err error
 
-	// create return object
-	engine := new(engine)
-	engine.config = conf
+	// use engine config
+	conf := engine.config
 
 	// create session key
 	uuid := uuid.New()
@@ -105,34 +132,50 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 	// configure db if required
 	if *conf.Metrics.Enabled || *conf.QueryLog.Enabled {
 
-		//  if persistence functions are enabled, create db
-		if (*conf.Metrics.Enabled && *conf.Metrics.Persist) || (*conf.QueryLog.Enabled && *conf.QueryLog.Persist) {
-			var err error
-			engine.db, err = createEngineDB(conf)
-			if err != nil {
-				return nil, err
+		//  if persistence functions are enabled, create db if it doesn't exist
+		if engine.db == nil {
+			if (*conf.Metrics.Enabled && *conf.Metrics.Persist) || (*conf.QueryLog.Enabled && *conf.QueryLog.Persist) {
+				var err error
+				engine.db, err = createEngineDB(conf)
+				if err != nil {
+					return err
+				}
+			} else {
+				engine.db = nil
 			}
 		}
 
 		// build metrics instance (with db if not null)
-		if *conf.Metrics.Enabled {
+		if *conf.Metrics.Enabled && engine.metrics == nil {
 			engine.metrics = NewMetrics(conf, engine.db)
+		} else if !*conf.Metrics.Enabled {
+			engine.metrics = nil
+		}
+		if engine.metrics != nil {
 			engine.metrics.UseCacheSizeFunction(engine.CacheSize)
 		}
 
 		// build qlog instance (with db if not null)
-		if *conf.QueryLog.Enabled {
+		if *conf.QueryLog.Enabled && engine.qlog == nil {
 			engine.qlog, err = NewQueryLog(conf, engine.db)
 			if err != nil {
-				return nil, err
+				return err
 			}
+		} else if !*conf.QueryLog.Enabled {
+			engine.qlog = nil
 		}
+	} else {
+		engine.db = nil
+		engine.qlog = nil
+		engine.metrics = nil
 	}
 
-	// create recorder
-	engine.recorder, err = NewRecorder(engine)
-	if err != nil {
-		return nil, err
+	// create recorder if none provided and one is required
+	if engine.db != nil && (engine.qlog != nil || engine.metrics != nil) && engine.recorder == nil {
+		engine.recorder, err = NewRecorder(engine)
+		if err != nil {
+			return err
+		}
 	}
 
 	// configure resolvers
@@ -244,7 +287,7 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 		// load/download list if required
 		err := Download(engine, conf, list)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -275,8 +318,10 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 
 	// force GC after loading the engine because
 	// of all the extra allocation that gets performed
-	// during the creation of the arrays and whatnot
+	// during the creation of the rule storage and
+	// all of the other bits/parts of this init
 	runtime.GC()
 
-	return engine, nil
+	// done bootstrapping without errors
+	return nil
 }

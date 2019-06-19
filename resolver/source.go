@@ -19,10 +19,10 @@ type Source interface {
 	Name() string
 	Load(specification string)
 	Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error)
+	Close()
 }
 
 func NewConfigurationSource(config *config.GudgeonSource, sourceMap map[string]Source) Source {
-
 	// create an array and guess at final size
 	sources := make([]Source, 0, len(config.Specs))
 

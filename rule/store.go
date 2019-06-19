@@ -40,7 +40,9 @@ type RuleStore interface {
 // stores are created from lists of files inside a configuration
 func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []uint64) {
 	// outer shell reloading store
-	store := &reloadingStore{}
+	store := &reloadingStore{
+		handlers: make([]*events.Handle, 0),
+	}
 
 	// get type of backing store from config file
 	backingStoreType := strings.ToLower(config.Storage.RuleStorage)
@@ -79,7 +81,7 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 	log.Infof("Using '%s' rule store implementation", backingStoreType)
 
 	// for our outer reloading delegate to a complex store that delegates to the type of chosen store
-	// reloading -> complex -> actual chosen store
+	// reloading -> complex -> actual chosen store (which can delegate even further)
 	store.delegate = &complexStore{ backingStore: delegate }
 
 	// initialize stores
@@ -91,18 +93,23 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 	for _, list := range config.Lists {
 		listCounter := loadList(store, config, list)
 
-		// notify that we want to watch for changes in a given file
-		events.Send("file:watch", &events.Message{"path": config.PathToList(list)})
+		// locally scoped variable for list watching
+		watchList := list
 
-		// create what we want to do when the file is changed
-		events.Listen("file:" + config.PathToList(list), func(message *events.Message) {
-			store.Clear(config, list)
-			loadList(store, config, list)
-			log.Infof("Reloaded list: %s", list.CanonicalName())
+		// notify that we want to watch for changes in a given file
+		events.Send("file:watch:start", &events.Message{"path": config.PathToList(watchList)})
+		// save handle so it can later be used to close watchers
+		handle := events.Listen("file:" + config.PathToList(watchList), func(message *events.Message) {
+			store.Clear(config, watchList)
+			loadList(store, config, watchList)
+			log.Infof("Reloaded list: %s", watchList.CanonicalName())
 			// watch file again
-			events.Send("file:watch", &events.Message{"path": config.PathToList(list)})
+			events.Send("file:watch:start", &events.Message{"path": config.PathToList(watchList)})
 			// todo: update count?
 		})
+		if handle != nil {
+			store.handlers = append(store.handlers, handle)
+		}
 
 		// append counter to output count
 		outputCount = append(outputCount, listCounter)

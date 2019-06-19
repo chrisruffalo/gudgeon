@@ -12,9 +12,6 @@ type multiSource struct {
 	name       string
 	sources    []Source
 	idx        int
-
-	askChan    chan bool
-	chosenChan chan Source
 }
 
 func newMultiSource(name string, sources []Source) Source {
@@ -44,4 +41,8 @@ func (ms *multiSource) Answer(rCon *RequestContext, context *ResolutionContext, 
 
 func (ms *multiSource) Name() string {
 	return "ms:" + ms.name
+}
+
+func (ms *multiSource) Close() {
+
 }

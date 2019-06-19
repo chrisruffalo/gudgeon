@@ -127,7 +127,10 @@ type Engine interface {
 	QueryLog() QueryLog
 	Metrics() Metrics
 
-	// shutdown
+	// close engine and all resources
+	Close()
+
+	// shutdown engine and all threads
 	Shutdown()
 }
 
@@ -587,6 +590,19 @@ func (engine *engine) QueryLog() QueryLog {
 	return engine.qlog
 }
 
+// clear lists and remove references
+func (engine *engine) Close() {
+	// close sources
+	engine.resolvers.Close()
+	// close rule store
+	engine.store.Close()
+	// clear references
+	engine.db = nil
+	engine.qlog = nil
+	engine.metrics = nil
+	engine.qlog = nil
+}
+
 func (engine *engine) Shutdown() {
 	// shutting down the recorder shuts down
 	// other elements in turn
@@ -601,4 +617,7 @@ func (engine *engine) Shutdown() {
 			log.Errorf("Closing database: %s", err)
 		}
 	}
+
+	// finish by closing engine
+	engine.Close()
 }

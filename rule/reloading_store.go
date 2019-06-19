@@ -2,10 +2,12 @@ package rule
 
 import (
 	"github.com/chrisruffalo/gudgeon/config"
+	"github.com/chrisruffalo/gudgeon/events"
 	"sync"
 )
 
 type reloadingStore struct {
+	handlers []*events.Handle
 	delegate RuleStore
 	mux sync.RWMutex
 }
@@ -54,6 +56,12 @@ func (reloadingStore *reloadingStore) FindMatch(lists []*config.GudgeonList, dom
 func (reloadingStore *reloadingStore) Close() {
 	if reloadingStore.delegate != nil {
 		reloadingStore.mux.Lock()
+		// close handles
+		for _, handle := range reloadingStore.handlers {
+			if handle != nil {
+				handle.Close()
+			}
+		}
 		reloadingStore.delegate.Close()
 		reloadingStore.mux.Unlock()
 	}
