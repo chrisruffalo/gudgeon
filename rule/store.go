@@ -101,11 +101,15 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 		// save handle so it can later be used to close watchers
 		handle := events.Listen("file:" + config.PathToList(watchList), func(message *events.Message) {
 			store.Clear(config, watchList)
-			loadList(store, config, watchList)
-			log.Infof("Reloaded list: %s", watchList.CanonicalName())
+			newRuleCount := loadList(store, config, watchList)
+			// send message that a list value changed
+			events.Send("store:list:changed", &events.Message{
+				"listName": watchList.CanonicalName(),
+				"listShortName": watchList.ShortName(),
+				"count": newRuleCount,
+			})
 			// watch file again
 			events.Send("file:watch:start", &events.Message{"path": config.PathToList(watchList)})
-			// todo: update count?
 		})
 		if handle != nil {
 			store.handlers = append(store.handlers, handle)

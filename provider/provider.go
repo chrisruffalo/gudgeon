@@ -112,7 +112,10 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	// write response to response writer
-	writer.WriteMsg(response)
+	err := writer.WriteMsg(response)
+	if err != nil {
+		log.Errorf("Writing response: %s", err)
+	}
 
 	// we were having some errors during write that we need to figure out
 	// and this is a good(??) way to try and find them out.
@@ -121,7 +124,10 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	// explicitly close the writer since it's done
-	writer.Close()
+	err  = writer.Close()
+	if err != nil {
+		log.Errorf("Closing response: %s", err)
+	}
 }
 
 func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine) error {

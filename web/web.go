@@ -28,8 +28,6 @@ type web struct {
 	server   *http.Server
 
 	engine   engine.Engine
-	metrics  engine.Metrics
-	queryLog engine.QueryLog
 }
 
 type Web interface {
@@ -41,9 +39,23 @@ func New() Web {
 	return &web{}
 }
 
+func (web *web) metrics() engine.Metrics {
+	if web.engine == nil {
+		return nil
+	}
+	return web.engine.Metrics()
+}
+
+func (web *web) queryLog() engine.QueryLog {
+	if web.engine == nil {
+		return nil
+	}
+	return web.engine.QueryLog()
+}
+
 // get metrics counter named in query
 func (web *web) GetMetrics(c *gin.Context) {
-	if web.metrics == nil {
+	if web.metrics() == nil {
 		c.String(http.StatusNotFound, "Metrics not enabled)")
 		return
 	}
@@ -56,7 +68,7 @@ func (web *web) GetMetrics(c *gin.Context) {
 		lists = append(lists, listEntry)
 	}
 
-	metrics := web.metrics.GetAll()
+	metrics := web.metrics().GetAll()
 
 	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
 		keepMetrics := strings.Split(filterStrings, ",")
@@ -86,7 +98,7 @@ func condenseMetric(target *engine.MetricsEntry, from *engine.MetricsEntry, coun
 }
 
 func (web *web) QueryMetrics(c *gin.Context) {
-	if web.metrics == nil {
+	if web.metrics() == nil {
 		c.String(http.StatusNotFound, "Metrics not enabled)")
 		return
 	}
@@ -156,7 +168,8 @@ func (web *web) QueryMetrics(c *gin.Context) {
 	}
 	condenseCounter := 1
 
-	go web.metrics.QueryStream(entryChan, *queryStart, *queryEnd)
+	// start query stream
+	go func() { web.metrics().QueryStream(entryChan, *queryStart, *queryEnd) }()
 
 	// start empty array
 	c.String(http.StatusOK, "[")
@@ -214,7 +227,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 }
 
 func (web *web) GetQueryLogInfo(c *gin.Context) {
-	if web.queryLog == nil {
+	if web.queryLog() == nil {
 		c.String(http.StatusNotFound, "Query log not enabled")
 		return
 	}
@@ -303,7 +316,7 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 	infoChan := make(chan *engine.InfoRecord)
 	countChan := make(chan uint64)
 
-	go web.queryLog.QueryStream(query, infoChan, countChan)
+	go web.queryLog().QueryStream(query, infoChan, countChan)
 
 	c.String(http.StatusOK, "\"total\": %d", <-countChan)
 	c.String(http.StatusOK, ", \"items\": [")
@@ -357,7 +370,7 @@ func (web *web) GetTestComponents(c *gin.Context) {
 }
 
 func (web *web) GetTop(c *gin.Context) {
-	if web.metrics == nil || !(*web.conf.Metrics.Detailed) {
+	if web.metrics() == nil || !(*web.conf.Metrics.Detailed) {
 		c.String(http.StatusNotFound, "Detailed Metrics not enabled)")
 		return
 	}
@@ -379,15 +392,15 @@ func (web *web) GetTop(c *gin.Context) {
 	if topType != "" {
 		switch strings.ToLower(topType) {
 		case "domains":
-			results = web.metrics.TopDomains(limit)
+			results = web.metrics().TopDomains(limit)
 		case "lists":
-			results = web.metrics.TopLists(limit)
+			results = web.metrics().TopLists(limit)
 		case "clients":
-			results = web.metrics.TopClients(limit)
+			results = web.metrics().TopClients(limit)
 		case "rules":
-			results = web.metrics.TopRules(limit)
+			results = web.metrics().TopRules(limit)
 		case "types":
-			results = web.metrics.TopQueryTypes(limit)
+			results = web.metrics().TopQueryTypes(limit)
 		}
 	}
 
@@ -453,8 +466,6 @@ func (web *web) GetTestResult(c *gin.Context) {
 func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine) error {
 	// set metrics endpoint
 	web.engine = engine
-	web.metrics = engine.Metrics()
-	web.queryLog = engine.QueryLog()
 	web.conf = conf
 
 	// create new router

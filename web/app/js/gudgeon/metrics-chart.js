@@ -44,12 +44,10 @@ export class GudgeonChart extends React.Component {
   ];
 
   options = [
-    { value: (60 * 5), label: '5m', disabled: false},
     { value: (60 * 10), label: '10m', disabled: false},
     { value: (60 * 30), label: '30m', disabled: false},
     { value: (60 * 60), label: '1h', disabled: false },
     { value: (60 * 60 * 2), label: '2h', disabled: false },
-    { value: (60 * 60 * 4), label: '4h', disabled: false },
     { value: (60 * 60 * 6), label: '6h', disabled: false },
     { value: (60 * 60 * 12), label: '12h', disabled: false },
     { value: (60 * 60 * 24), label: '24h', disabled: false },
@@ -214,6 +212,24 @@ export class GudgeonChart extends React.Component {
 
         // determine domain max after culling
         for ( let idx = 1; idx < this.columns.length; idx++ ) {
+          let series_name = this.columns[idx][0];
+          let series = null;
+          // get series from name
+          for ( key in this.props.metrics[selected].series ) {
+            if (!this.props.metrics[selected].series.hasOwnProperty(key)) {
+              continue;
+            }
+
+            if ( series_name === this.props.metrics[selected].series[key]["name"] ) {
+              series = this.props.metrics[selected].series[key]
+            }
+          }
+
+          // if the series is available and is on y2 then don't use it for the potential domain max
+          if ( series != null && (series.hasOwnProperty("axis") && series["axis"] === "y2") ) {
+            continue
+          }
+
           for ( let jdx = 1; jdx < this.columns[idx].length; jdx++ ) {
             let item = this.columns[idx][jdx];
             if ( !isNaN(item) && item >= newDomainMaxY ) {
@@ -344,7 +360,7 @@ export class GudgeonChart extends React.Component {
             tick: {
               outer: false,
               format: this.wrapAxisFormatter(null),
-              count: 3,
+              count: 2,
               culling: {
                 max: 3
               }
@@ -379,7 +395,8 @@ export class GudgeonChart extends React.Component {
       if ( yaxis !== "y2" ) {
         yaxis = "y";
       } else {
-        chartSettings['axis']['y2']['show'] = true; 
+        chartSettings['axis']['y2']['show'] = true;
+        chartSettings['axis']['y2']['min'] = 0;
       }
       axes[this.props.metrics[selected].series[key].name] = yaxis;
     }

@@ -131,7 +131,7 @@ func main() {
 
 	// load config
 	filename := string(opts.AppOptions.ConfigPath)
-	config, warnings, err := config.Load(filename)
+	conf, warnings, err := config.Load(filename)
 	if err != nil {
 		log.Errorf("%s", err)
 		os.Exit(1)
@@ -152,7 +152,7 @@ func main() {
 	}
 
 	// create new Gudgeon instance
-	instance := NewGudgeon(filename, config)
+	instance := NewGudgeon(filename, conf)
 
 	// start new instance
 	err = instance.Start()
@@ -167,8 +167,8 @@ func main() {
 	s := <-sig
 
 	// clean out session directory
-	if "" != config.SessionRoot() {
-		util.ClearDirectory(config.SessionRoot())
+	if "" != conf.SessionRoot() {
+		util.ClearDirectory(conf.SessionRoot())
 	}
 
 	log.Infof("Signal (%s) received, stopping", s)

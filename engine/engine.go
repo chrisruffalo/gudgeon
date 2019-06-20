@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"github.com/chrisruffalo/gudgeon/events"
 	"net"
 	"path"
 	"strings"
@@ -98,6 +99,9 @@ type engine struct {
 
 	// map of group names to processed/configured engine groups
 	groups map[string]*group
+
+	// list of handles
+	handles []*events.Handle
 }
 
 func (engine *engine) Root() string {
@@ -592,6 +596,12 @@ func (engine *engine) QueryLog() QueryLog {
 
 // clear lists and remove references
 func (engine *engine) Close() {
+	// stop listening for events
+	for _, handle := range engine.handles {
+		if handle != nil {
+			handle.Close()
+		}
+	}
 	// close sources
 	engine.resolvers.Close()
 	// close rule store

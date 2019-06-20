@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"github.com/chrisruffalo/gudgeon/events"
 	"os"
 	"path"
-	"runtime"
 	"strings"
 
 	"github.com/GeertJohan/go.rice"
@@ -92,6 +92,7 @@ func newEngineWithComponents(conf *config.GudgeonConfig, db *sql.DB, recorder *r
 		recorder: recorder,
 		metrics: metrics,
 		qlog: queryLog,
+		handles: make([]*events.Handle, 0),
 	}
 
 	err := engine.bootstrap()
@@ -131,7 +132,6 @@ func (engine *engine) bootstrap() error {
 
 	// configure db if required
 	if *conf.Metrics.Enabled || *conf.QueryLog.Enabled {
-
 		//  if persistence functions are enabled, create db if it doesn't exist
 		if engine.db == nil {
 			if (*conf.Metrics.Enabled && *conf.Metrics.Persist) || (*conf.QueryLog.Enabled && *conf.QueryLog.Persist) {
@@ -172,7 +172,7 @@ func (engine *engine) bootstrap() error {
 
 	// create recorder if none provided and one is required
 	if engine.db != nil && (engine.qlog != nil || engine.metrics != nil) && engine.recorder == nil {
-		engine.recorder, err = NewRecorder(engine)
+		engine.recorder, err = NewRecorder(conf, engine, engine.db, engine.metrics, engine.qlog)
 		if err != nil {
 			return err
 		}
@@ -193,13 +193,12 @@ func (engine *engine) bootstrap() error {
 
 	// process groups
 	for idx, configGroup := range workingGroups {
-		// create active group for gorup name
-		engineGroup := new(group)
-		engineGroup.engine = engine
-		engineGroup.configGroup = configGroup
-
-		// determine which lists belong to this group
-		engineGroup.lists = assignedLists(configGroup.Lists, configGroup.SafeTags(), lists)
+		// create active group for group name
+		engineGroup := &group{
+			engine: engine,
+			configGroup: configGroup,
+			lists: assignedLists(configGroup.Lists, configGroup.SafeTags(), lists),
+		}
 
 		// add created engine group to list of groups
 		groups[idx] = engineGroup
@@ -311,16 +310,64 @@ func (engine *engine) bootstrap() error {
 		totalRulesCounter.Inc(int64(totalCount))
 	}
 
+	// subscribe to rule list changes to update metrics/counts
+	listChangeHandle := events.Listen("store:list:changed", func(message *events.Message) {
+		// bail if engine metrics are nil
+		if message == nil{
+			return
+		}
+
+		// sends in listName, listShortName, and count
+		var listName string
+		if name, found := (*message)["listName"]; found {
+			if listNameString, ok := name.(string); ok {
+				listName = listNameString
+			}
+		}
+
+		var listShortName string
+		if shortName, found := (*message)["listShortName"]; found {
+			if shortNameString, ok := shortName.(string); ok {
+				listShortName = shortNameString
+			}
+		}
+
+		if "" == listName {
+			listName = listShortName
+		}
+
+		count := int64(0)
+		if countValue, found := (*message)["count"]; found {
+			if countUint64, ok := countValue.(uint64); ok {
+				count = int64(countUint64)
+			} else if countInt64, ok := countValue.(int64); ok {
+				count = countInt64
+			}
+		}
+
+		// just log change and leave early if no metrics are available
+		if engine.Metrics() == nil {
+			log.Infof("Reloaded list: %s (%d rules)", listName, count)
+			return
+		}
+
+		if "" != listShortName {
+			metric := engine.Metrics().Get("rules-list-" + listShortName)
+			oldCount := metric.Value()
+			engine.Metrics().Get(TotalRules).Inc(-1 * oldCount).Inc(int64(count))
+			metric.Clear().Inc(count)
+		}
+
+		// log info
+		log.Infof("Reloaded list: '%s' (%d rules, total rules: %d)", listName, count, engine.Metrics().Get(TotalRules).Value())
+	})
+	// ensure handler is closed later
+	engine.handles = append(engine.handles, listChangeHandle)
+
 	// set consumers as active on engine
 	engine.groups = groupMap
 	engine.consumers = consumers
 	engine.consumerMap = consumerMap
-
-	// force GC after loading the engine because
-	// of all the extra allocation that gets performed
-	// during the creation of the rule storage and
-	// all of the other bits/parts of this init
-	runtime.GC()
 
 	// done bootstrapping without errors
 	return nil

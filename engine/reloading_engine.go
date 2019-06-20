@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/chrisruffalo/gudgeon/events"
 	"net"
@@ -44,7 +43,7 @@ func NewReloadingEngine(confPath string, conf *config.GudgeonConfig) (Engine, er
 		events.Send("file:watch:clear", nil)
 
 		// reload configuration
-		config, warnings, err := config.Load(confPath)
+		conf, warnings, err := config.Load(confPath)
 		if err != nil {
 			log.Errorf("%s", err)
 		} else {
@@ -55,7 +54,7 @@ func NewReloadingEngine(confPath string, conf *config.GudgeonConfig) (Engine, er
 				}
 			}
 
-			reloading.swap(config)
+			reloading.swap(conf)
 
 			log.Infof("Configuration updated from: '%s'", confPath)
 		}
@@ -72,26 +71,15 @@ func NewReloadingEngine(confPath string, conf *config.GudgeonConfig) (Engine, er
 // wait to swap engine until all rlocked processes have completed
 // and then lock during the swap and release to resume normal operations
 func (rEngine *reloadingEngine) swap(config *config.GudgeonConfig) {
-	// empty/nil components
-	var db *sql.DB
-	var recorder *recorder
-	var metrics Metrics
-	var qlog QueryLog
-
-	// if the old engine has the proper components reuse them
-	if oldEngine, ok := rEngine.current.(*engine); ok {
-		db = oldEngine.db
-		recorder = oldEngine.recorder
-		metrics = oldEngine.metrics
-		qlog = oldEngine.qlog
-	}
-
-	// build new engine
-	newEngine, err := newEngineWithComponents(config, db, recorder, metrics, qlog)
-
-	// lock and unlock after return
+	// lock engine
 	rEngine.mux.Lock()
 	defer rEngine.mux.Unlock()
+
+	// shutdown old engine
+	rEngine.current.Shutdown()
+
+	// build new engine
+	newEngine, err := NewEngine(config)
 
 	// if engine fails then have no engine
 	if err != nil {
@@ -100,15 +88,8 @@ func (rEngine *reloadingEngine) swap(config *config.GudgeonConfig) {
 		return
 	}
 
-	// use new engine
-	oldEngine := rEngine.current
+	// use new engine after build (if no errors happened)
 	rEngine.current = newEngine
-
-	// remove references in old engine
-	if oldEngine != nil {
-		oldEngine.Close()
-	}
-
 }
 
 func (engine *reloadingEngine) IsDomainRuleMatched(consumer *net.IP, domain string) (rule.Match, *config.GudgeonList, string) {

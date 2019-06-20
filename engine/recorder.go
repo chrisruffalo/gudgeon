@@ -31,7 +31,7 @@ const (
 // aspects
 type recorder struct {
 	// direct reference back to engine
-	engine *engine
+	engine Engine
 	conf   *config.GudgeonConfig
 
 	// db access
@@ -96,13 +96,13 @@ type InfoRecord struct {
 }
 
 // created from raw engine
-func NewRecorder(engine *engine) (*recorder, error) {
+func NewRecorder(conf *config.GudgeonConfig, engine Engine, db *sql.DB, metrics Metrics, qlog QueryLog) (*recorder, error) {
 	recorder := &recorder{
+		conf:      conf,
 		engine:    engine,
-		db:        engine.db,
-		conf:      engine.config,
-		qlog:      engine.qlog,
-		metrics:   engine.metrics,
+		db:        db,
+		qlog:      qlog,
+		metrics:   metrics,
 		infoQueue: make(chan *InfoRecord, recordQueueSize),
 		doneChan:  make(chan bool),
 	}
@@ -220,7 +220,7 @@ func (recorder *recorder) reverseLookup(info *InfoRecord) string {
 	return name
 }
 
-// takes the inner (request, resposne, context, result) information
+// takes the inner (request, response, context, result) information
 // and moves it to relevant top-level InfoRecord information
 func (recorder *recorder) condition(info *InfoRecord) {
 	// condition the info item
@@ -268,7 +268,7 @@ func (recorder *recorder) condition(info *InfoRecord) {
 
 // the worker is intended as the goroutine that
 // acts as the switchboard for async actions so
-// that only one action is perormed at a time
+// that only one action is performed at a time
 func (recorder *recorder) worker() {
 	// make timer that is only activated in some ways
 	var (
