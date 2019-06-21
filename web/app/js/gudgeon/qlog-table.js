@@ -5,7 +5,7 @@ import {
 } from '@patternfly/react-core';
 import { ErrorCircleOIcon, VolumeIcon } from '@patternfly/react-icons';
 import MaterialTable from 'material-table';
-import { PrettyDate } from './helpers.js';
+import { LocaleInteger, PrettyDate } from './helpers.js';
 
 export class QueryLog extends React.Component {
   constructor(props) {
@@ -75,6 +75,16 @@ export class QueryLog extends React.Component {
           }
         }
       },
+      {
+        title: 'Time (ms)',
+        searchable: false,
+        sorting: false,
+        render: rowData => {
+          return (
+              <div>{ LocaleInteger(rowData.ServiceMilliseconds) }</div>
+          );
+        }
+      },
       { title: 'Created',
         searchable: false,
         sorting: true,
@@ -90,7 +100,7 @@ export class QueryLog extends React.Component {
     actions: [],
     options: {
         pageSize: 10,
-        pageSizeOptions: [ 5, 10, 20, 50, 100 ],
+        pageSizeOptions: [ 10, 20, 50, 100 ],
         showTitle: false,
         debounceInterval: 750,
         search: false,

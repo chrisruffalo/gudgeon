@@ -18,9 +18,10 @@ import (
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
 var validSorts = []string{"address", "connectiontype", "requestdomain", "requesttype", "blocked", "blockedlist", "blockedrule", "created"}
+const bufferFlushStmt = "INSERT INTO qlog (Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Rcode, Cached, Blocked, Match, MatchList, MatchRule, ServiceTime, Created, EndTime) SELECT Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Rcode, Cached, Blocked, Match, MatchList, MatchRule, ServiceTime, Created, EndTime FROM buffer WHERE true"
 
 // allows a dependency injection-way of defining a reverse lookup function, takes a string address (should be an IP) and returns a string that contains the domain name result
-type ReverseLookupFunction = func(addres string) string
+type ReverseLookupFunction = func(address string) string
 
 // the type that is used to make queries against the
 // query log (should be used by the web interface to
@@ -92,7 +93,10 @@ func NewQueryLog(conf *config.GudgeonConfig, db *sql.DB) (QueryLog, error) {
 		// create destination and writer
 		dirpart := path.Dir(qlConf.File)
 		if _, err := os.Stat(dirpart); os.IsNotExist(err) {
-			os.MkdirAll(dirpart, os.ModePerm)
+			err = os.MkdirAll(dirpart, os.ModePerm)
+			if err != nil {
+				log.Errorf("While creating path for query log output file: %s", err)
+			}
 		}
 
 		// attempt to open file
@@ -131,7 +135,7 @@ func (qlog *qlog) prune(tx *sql.Tx) {
 }
 
 func (qlog *qlog) flush(tx *sql.Tx) {
-	_, err := tx.Exec("INSERT INTO qlog (Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Rcode, Cached, Blocked, Match, MatchList, MatchRule, Created) SELECT Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Rcode, Cached, Blocked, Match, MatchList, MatchRule, Created FROM buffer WHERE true")
+	_, err := tx.Exec(bufferFlushStmt)
 	if err != nil {
 		log.Errorf("Could not flush query log data: %s", err)
 		return
@@ -176,7 +180,7 @@ func (qlog *qlog) log(info *InfoRecord) {
 	builder.WriteString("|")
 	builder.WriteString(info.RequestType)
 	builder.WriteString("]->")
-	if qlog.fileLogger != nil {
+	if fields != nil {
 		fields["address"] = info.Address
 		fields["protocol"] = rCon.Protocol
 		fields["consumer"] = info.Consumer
@@ -202,20 +206,20 @@ func (qlog *qlog) log(info *InfoRecord) {
 			builder.WriteString("BLOCKED")
 		} else if result.Match == rule.MatchBlock {
 			builder.WriteString("RULE BLOCKED")
-			if qlog.fileLogger != nil {
+			if fields != nil {
 				fields["match"] = result.Match
 				fields["matchType"] = "BLOCKED"
 			}
 			if result.MatchList != nil {
 				builder.WriteString("[")
 				builder.WriteString(result.MatchList.CanonicalName())
-				if qlog.fileLogger != nil {
+				if fields != nil {
 					fields["matchList"] = result.MatchList.CanonicalName()
 				}
 				if result.MatchRule != "" {
 					builder.WriteString("|")
 					builder.WriteString(result.MatchRule)
-					if qlog.fileLogger != nil {
+					if fields != nil {
 						fields["matchRule"] = result.MatchRule
 					}
 				}
@@ -223,7 +227,7 @@ func (qlog *qlog) log(info *InfoRecord) {
 			}
 		} else {
 			if result.Match == rule.MatchAllow {
-				if qlog.fileLogger != nil {
+				if fields != nil {
 					fields["match"] = result.Match
 					fields["matchType"] = "ALLOWED"
 				}
@@ -232,7 +236,7 @@ func (qlog *qlog) log(info *InfoRecord) {
 				builder.WriteString("c:[")
 				builder.WriteString(result.Resolver)
 				builder.WriteString("]")
-				if qlog.fileLogger != nil {
+				if fields != nil {
 					fields["resolver"] = result.Resolver
 					fields["cached"] = "true"
 				}
@@ -244,7 +248,7 @@ func (qlog *qlog) log(info *InfoRecord) {
 				builder.WriteString("s:[")
 				builder.WriteString(result.Source)
 				builder.WriteString("]")
-				if qlog.fileLogger != nil {
+				if fields != nil {
 					fields["resolver"] = result.Resolver
 					fields["source"] = result.Source
 				}
@@ -256,7 +260,7 @@ func (qlog *qlog) log(info *InfoRecord) {
 				answerValues := util.GetAnswerValues(response)
 				if len(answerValues) > 0 {
 					builder.WriteString(answerValues[0])
-					if qlog.fileLogger != nil {
+					if fields != nil {
 						fields["answer"] = answerValues[0]
 					}
 					if len(answerValues) > 1 {
@@ -264,13 +268,13 @@ func (qlog *qlog) log(info *InfoRecord) {
 					}
 				} else {
 					builder.WriteString("(EMPTY RESPONSE)")
-					if qlog.fileLogger != nil {
+					if fields != nil {
 						fields["answer"] = "<< EMPTY >>"
 					}
 				}
 			} else {
 				builder.WriteString("(NO INFO RESPONSE)")
-				if qlog.fileLogger != nil {
+				if fields != nil {
 					fields["answer"] = "<< NONE >>"
 				}
 			}
@@ -296,7 +300,7 @@ func (qlog *qlog) query(query *QueryLogQuery, accumulator queryAccumulator) {
 	}
 
 	// select entries from qlog
-	selectStmt := "SELECT Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Rcode, Blocked, Match, MatchList, MatchRule, Cached, Created FROM qlog"
+	selectStmt := "SELECT Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Rcode, Blocked, Match, MatchList, MatchRule, Cached, ServiceTime, Created, EndTime FROM qlog"
 	countStmt := "SELECT COUNT(*) FROM qlog"
 
 	// so we can dynamically build the where clause
@@ -436,7 +440,7 @@ func (qlog *qlog) query(query *QueryLogQuery, accumulator queryAccumulator) {
 	var info *InfoRecord
 	for rows.Next() {
 		info = &InfoRecord{}
-		err = rows.Scan(&info.Address, &info.ClientName, &info.Consumer, &info.RequestDomain, &info.RequestType, &info.ResponseText, &info.Rcode, &info.Blocked, &info.Match, &info.MatchList, &info.MatchRule, &info.Cached, &info.Created)
+		err = rows.Scan(&info.Address, &info.ClientName, &info.Consumer, &info.RequestDomain, &info.RequestType, &info.ResponseText, &info.Rcode, &info.Blocked, &info.Match, &info.MatchList, &info.MatchRule, &info.Cached, &info.ServiceMilliseconds, &info.Created, &info.Finished)
 		if err != nil {
 			log.Errorf("Scanning qlog results: %s", err)
 			continue

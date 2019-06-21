@@ -175,4 +175,6 @@ func main() {
 	// stop gudgeon, hopefully gracefully
 	instance.Shutdown()
 
+	// debugging: print any still-running goroutines
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 }

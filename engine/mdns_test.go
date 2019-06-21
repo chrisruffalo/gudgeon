@@ -4,6 +4,7 @@ package engine
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"testing"
 	"time"
 
@@ -15,11 +16,12 @@ func TestMdns(t *testing.T) {
 	defer cancel()
 
 	msgChan := make(chan *dns.Msg)
-	go MulticastMdnsListen(msgChan)
+	go MulticastMdnsListen(msgChan, make(chan bool))
 	counter := 0
 	go func() {
 		MulticastMdnsQuery()
-		for _ = range msgChan {
+		for msg := range msgChan {
+			logrus.Infof("Got DNS message: %v", msg.String())
 			counter++
 		}
 	}()

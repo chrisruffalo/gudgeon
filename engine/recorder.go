@@ -23,7 +23,7 @@ const (
 	recordQueueSize = 100000
 
 	// single instance of insert statement used for inserting into the "buffer"
-	bufferInsertStatement = "INSERT INTO buffer (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Rcode, Blocked, Match, MatchList, MatchListShort, MatchRule, Cached, Created) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	bufferInsertStatement = "INSERT INTO buffer (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Rcode, Blocked, Match, MatchList, MatchListShort, MatchRule, Cached, ServiceTime, Created, EndTime) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
 // coordinates all recording functions/features
@@ -50,8 +50,9 @@ type recorder struct {
 	metrics Metrics
 
 	// channels
-	infoQueue chan *InfoRecord
-	doneChan  chan bool
+	infoQueue     chan *InfoRecord
+	doneChan      chan bool
+	mdnsCloseChan chan bool
 }
 
 // info passed over channel and stored in database
@@ -109,13 +110,14 @@ func NewRecorder(conf *config.GudgeonConfig, engine Engine, db *sql.DB, metrics 
 
 	// create reverse lookup cache with given ttl and given reap interval
 	if *recorder.conf.QueryLog.ReverseLookup {
+		recorder.mdnsCloseChan = make(chan bool)
 		recorder.cache = cache.New(5*time.Minute, 10*time.Minute)
 		if *recorder.conf.QueryLog.MdnsLookup {
 			recorder.mdnsCache = cache.New(cache.NoExpiration, cache.NoExpiration)
 
 			// create background channel for listening
 			msgChan := make(chan *dns.Msg)
-			go MulticastMdnsListen(msgChan)
+			go MulticastMdnsListen(msgChan, recorder.mdnsCloseChan)
 			go CacheMulticastMessages(recorder.mdnsCache, msgChan)
 		}
 	}
@@ -425,7 +427,25 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 	}
 
 	// insert into buffer table
-	_, err = recorder.tx.Exec(bufferInsertStatement, info.Address, info.ClientName, info.Consumer, info.RequestDomain, info.RequestType, info.ResponseText, info.Rcode, info.Blocked, info.Match, info.MatchList, info.MatchListShort, info.MatchRule, info.Cached, info.Created)
+	_, err = recorder.tx.Exec(
+		bufferInsertStatement,
+		info.Address,
+		info.ClientName,
+		info.Consumer,
+		info.RequestDomain,
+		info.RequestType,
+		info.ResponseText,
+		info.Rcode,
+		info.Blocked,
+		info.Match,
+		info.MatchList,
+		info.MatchListShort,
+		info.MatchRule,
+		info.Cached,
+		info.ServiceMilliseconds,
+		info.Created,
+		info.Finished,
+	)
 	if err != nil {
 		log.Errorf("Insert into buffer: %s", err)
 	}
@@ -485,6 +505,13 @@ func (recorder *recorder) shutdown() {
 	infoQueue := recorder.infoQueue
 	recorder.infoQueue = nil
 
+	// signal stop mdns if enabled
+	if recorder.mdnsCloseChan != nil {
+		recorder.mdnsCloseChan <- true
+		<- recorder.mdnsCloseChan
+		close(recorder.mdnsCloseChan)
+	}
+
 	// signal done
 	recorder.doneChan <- true
 	<-recorder.doneChan
@@ -516,4 +543,7 @@ func (recorder *recorder) shutdown() {
 		}
 		stmt.Close()
 	}
+
+	// log shutdown
+	log.Debugf("Shutdown recorder")
 }

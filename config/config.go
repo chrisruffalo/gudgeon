@@ -344,6 +344,10 @@ func Load(filename string) (*GudgeonConfig, []string, error) {
 		config = root.Config
 	}
 
+	if config == nil {
+		return nil, []string{}, fmt.Errorf("Loaded a nil configuration")
+	}
+
 	// get warnings and errors
 	addWarnings, errors := config.verifyAndInit()
 	warnings = append(warnings, addWarnings...)

@@ -5,66 +5,11 @@ import {
   Grid,
   GridItem
 } from '@patternfly/react-core';
-import { GudgeonChart } from './metrics-chart.js';
-import { HumanBytes, LocaleNumber } from './helpers.js';
+import { Metrics, GudgeonChart } from './metrics-chart.js';
 
 export class GudgeonCharts extends React.Component {
   constructor(props) {
     super(props);
-  };
-
-  ProcessorPercentFormatter = (value) => {
-    return LocaleNumber(value / 1000) + "%"
-  };
-
-  queryMetrics = {
-    "queries": {
-      label: "Queries",
-      formatter: LocaleNumber,
-      series: {
-        queries: { name: "Queries/s", key: "gudgeon-session-queries-ps" }, 
-        blocked: { name: "Blocked/s", key: "gudgeon-session-blocks-ps" } ,
-        latency: { name: "Service Time (ms)", key: "gudgeon-query-time", axis: "y2", use_average: true }
-      }
-    }
-  };
-
-  memoryMetrics = {
-    "memory": {
-      label: "Memory",
-      formatter: HumanBytes,
-      series: {
-        heap: { name: "Allocated Heap", key: "gudgeon-allocated-bytes" }, 
-        rss: { name: "Resident Memory", key: "gudgeon-process-used-bytes" },
-        cache: { name: "Cache Entries", key: "gudgeon-cache-entries", axis: "y2" }
-      }
-    }
-  };
-
-  threadMetrics = {
-    "threads": {
-      label: "Threads",
-      formatter: LocaleNumber,
-      series: { 
-        threads: { name: "Threads", key: "gudgeon-process-threads" },
-        routines: { name: "Go Routines", key: "gudgeon-goroutines" } 
-      }
-    }
-  };
-
-  cpuMetrics = {
-    "cpu": {
-      label: "CPU",
-      formatter: this.ProcessorPercentFormatter,
-      domain: {
-        maxY: 100000, // processor use is in 1000ths of a percent
-        minY: 0
-      },
-      ticks: [50000, 100000],
-      series: { 
-        cpu: { name: "CPU Use", key: "gudgeon-cpu-hundreds-percent" } 
-      }
-    }    
   };
 
   state = {};
@@ -84,28 +29,28 @@ export class GudgeonCharts extends React.Component {
            <GridItem lg={6} md={6} sm={12}>
             <Card className={"maxHeight"}>
               <CardBody>
-                <GudgeonChart metrics={ this.queryMetrics } chartName="query" />
+                <GudgeonChart metrics={ [Metrics.Queries] } chartName="query" />
               </CardBody>
             </Card>
           </GridItem>
            <GridItem lg={6} md={6} sm={12}>
             <Card className={"maxHeight"}>
               <CardBody>
-                <GudgeonChart metrics={ this.memoryMetrics } chartName="memory" />
+                <GudgeonChart metrics={ [Metrics.Memory] } chartName="memory" />
               </CardBody>
             </Card>
           </GridItem>
            <GridItem lg={6} md={6} sm={12}>
             <Card className={"maxHeight"}>
               <CardBody>
-                <GudgeonChart metrics={ this.threadMetrics } chartName="thread" />
+                <GudgeonChart metrics={ [Metrics.Threads] } chartName="thread" />
               </CardBody>
             </Card>
           </GridItem>
            <GridItem lg={6} md={6} sm={12}>
             <Card className={"maxHeight"}>
               <CardBody>
-                <GudgeonChart metrics={ this.cpuMetrics } chartName="cpu" />
+                <GudgeonChart metrics={ [Metrics.CPU] } chartName="cpu" />
               </CardBody>
             </Card>
           </GridItem>                              

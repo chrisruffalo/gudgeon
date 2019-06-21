@@ -45,7 +45,7 @@ func NewReloadingEngine(confPath string, conf *config.GudgeonConfig) (Engine, er
 		// reload configuration
 		conf, warnings, err := config.Load(confPath)
 		if err != nil {
-			log.Errorf("%s", err)
+			log.Errorf("Could not reload engine: %s", err)
 		} else {
 			// print log warnings and continue
 			if len(warnings) > 0 {
@@ -76,20 +76,24 @@ func (rEngine *reloadingEngine) swap(config *config.GudgeonConfig) {
 	defer rEngine.mux.Unlock()
 
 	// shutdown old engine
-	rEngine.current.Shutdown()
+	if rEngine.current != nil {
+		log.Debugf("Shutting down old engine...")
+		rEngine.current.Shutdown()
+	}
 
 	// build new engine
 	newEngine, err := NewEngine(config)
 
 	// if engine fails then have no engine
 	if err != nil {
-		log.Errorf("Could not reload engine: %s", err)
-		rEngine.current = nil
+		log.Errorf("Could not reload engine, keeping current engine (cause: %s)", err)
 		return
 	}
 
 	// use new engine after build (if no errors happened)
 	rEngine.current = newEngine
+
+	log.Debugf("Using new engine...")
 }
 
 func (engine *reloadingEngine) IsDomainRuleMatched(consumer *net.IP, domain string) (rule.Match, *config.GudgeonList, string) {

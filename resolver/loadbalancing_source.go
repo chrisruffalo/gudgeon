@@ -15,6 +15,7 @@ type lbSource struct {
 
 	askChan    chan bool
 	chosenChan chan Source
+	closeChan  chan bool
 }
 
 func newLoadBalancingSource(name string, sources []Source) Source {
@@ -24,6 +25,7 @@ func newLoadBalancingSource(name string, sources []Source) Source {
 		idx: 0,
 		askChan: make(chan bool),
 		chosenChan: make(chan Source),
+		closeChan: make(chan bool),
 	}
 	go lb.router()
 	return lb
@@ -34,9 +36,15 @@ func (lb *lbSource) Load(specification string) {
 }
 
 func (lb *lbSource) router() {
-	for range lb.askChan {
-		lb.chosenChan <- lb.sources[lb.idx]
-		lb.idx = (lb.idx + 1) % len(lb.sources)
+	for {
+		select {
+		case <- lb.askChan:
+			lb.chosenChan <- lb.sources[lb.idx]
+			lb.idx = (lb.idx + 1) % len(lb.sources)
+		case <- lb.closeChan:
+			lb.closeChan <- true
+			return
+		}
 	}
 }
 
@@ -66,5 +74,8 @@ func (lb *lbSource) Name() string {
 }
 
 func (lb *lbSource) Close() {
+	lb.closeChan <- true
+	<-lb.closeChan
 	close(lb.askChan)
+	close(lb.chosenChan)
 }

@@ -81,7 +81,7 @@ func (metric *Metric) Inc(value int64) *Metric {
 }
 
 func (metric *Metric) RecordSample(value int64) *Metric {
-	metric.Inc(value)
+	metric.Count = metric.Count + value
 	metric.Records = metric.Records + 1
 	metric.Avg = metric.Count / metric.Records
 	return metric

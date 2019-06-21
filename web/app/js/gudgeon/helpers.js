@@ -15,13 +15,24 @@ export function PrettyDate(date) {
     return "";
   }
 
-  return new Date(Date.parse(date)).toLocaleString(undefined, goDateOptions);
+  return (new Date(Date.parse(date))).toLocaleString(undefined, goDateOptions);
 }
 
 export function HumanBytes(bytes) {
   return prettyBytes(bytes * 1);
 }
 
+export function LocaleInteger(number) {
+  if ((number * 1) < 1) {
+    return 0;
+  }
+  return LocaleNumber(number)
+}
+
 export function LocaleNumber(number) {
   return (number * 1).toLocaleString();
 }
+
+export function ProcessorPercentFormatter(value) {
+  return LocaleNumber(value / 100) + "%";
+};

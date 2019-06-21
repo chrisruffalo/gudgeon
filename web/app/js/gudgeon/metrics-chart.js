@@ -8,8 +8,52 @@ import {
   FormSelect,
   FormSelectOption
 } from '@patternfly/react-core';
+import {HumanBytes, LocaleNumber, ProcessorPercentFormatter} from "./helpers";
 
-export class GudgeonChart extends React.Component {
+const CHART_REFRESH_TIMEOUT = 2500;
+
+class Metrics {}
+Metrics.Queries = {
+  label: "Queries",
+  formatter: LocaleNumber,
+  series: {
+    queries: { name: "Queries/s", key: "gudgeon-session-queries-ps" },
+    blocked: { name: "Blocked/s", key: "gudgeon-session-blocks-ps" } ,
+    latency: { name: "Service Time (ms)", key: "gudgeon-query-time", axis: "y2", use_average: true }
+  }
+};
+Metrics.Memory = {
+  label: "Memory",
+  formatter: HumanBytes,
+  series: {
+    heap: { name: "Allocated Heap", key: "gudgeon-allocated-bytes" },
+    rss: { name: "Resident Memory", key: "gudgeon-process-used-bytes" },
+    cache: { name: "Cache Entries", key: "gudgeon-cache-entries", axis: "y2" }
+  }
+};
+Metrics.Threads = {
+  label: "Threads",
+  formatter: LocaleNumber,
+  series: {
+    threads: { name: "Threads", key: "gudgeon-process-threads" },
+    routines: { name: "Go Routines", key: "gudgeon-goroutines" }
+  }
+};
+Metrics.CPU = {
+  label: "CPU",
+  formatter: ProcessorPercentFormatter,
+  domain: {
+    maxY: 10000, // processor use is in 1000ths of a percent
+    minY: 0
+  },
+  ticks: [5000, 10000],
+  series: {
+    cpu: { name: "CPU Use", key: "gudgeon-cpu-hundreds-percent" }
+  }
+};
+
+
+class GudgeonChart extends React.Component {
   constructor(props) {
     super(props);
 
@@ -137,7 +181,7 @@ export class GudgeonChart extends React.Component {
       .then(response => {
         if ( response == null || response.data == null || response.data.length < 0 ) {
           // set quicker timeout and quit processing response
-          this.timer = setTimeout(() => { this.updateData() },1000);
+          this.timer = setTimeout(() => { this.updateData() },CHART_REFRESH_TIMEOUT / 2);
           return;
         }
 
@@ -214,7 +258,7 @@ export class GudgeonChart extends React.Component {
         for ( let idx = 1; idx < this.columns.length; idx++ ) {
           let series_name = this.columns[idx][0];
           let series = null;
-          // get series from name
+          // get series from name ... there has to be a better way to find what axis the series is on
           for ( key in this.props.metrics[selected].series ) {
             if (!this.props.metrics[selected].series.hasOwnProperty(key)) {
               continue;
@@ -246,9 +290,9 @@ export class GudgeonChart extends React.Component {
         this.setState({ lastAtTime: newAtTime, domainMaxY: newDomainMaxY }, this.handleChart);
 
         // set timeout and update data again
-        this.timer = setTimeout(() => { this.updateData() },5000);
+        this.timer = setTimeout(() => { this.updateData() },CHART_REFRESH_TIMEOUT);
       }).catch((error) => {
-        this.timer = setTimeout(() => { this.updateData() },15000); // on error try again in 15s
+        this.timer = setTimeout(() => { this.updateData() },CHART_REFRESH_TIMEOUT * 4); // on error try again after waiting 4x interval
       });
   }
 
@@ -488,3 +532,5 @@ export class GudgeonChart extends React.Component {
     );
   }
 }
+
+export { Metrics, GudgeonChart }

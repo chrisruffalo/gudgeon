@@ -1,8 +1,8 @@
 package events
 
 import (
+	"github.com/asaskevich/EventBus"
 	log "github.com/sirupsen/logrus"
-	"github.com/vardius/message-bus"
 )
 
 type Message map[string]interface{}
@@ -14,17 +14,20 @@ type Handle struct {
 	listener Listener
 }
 
-var bus = messagebus.New(100)
+var bus = EventBus.New()
 
 func Send(topic string, message *Message) {
 	bus.Publish(topic, message)
+	log.Tracef("Sent '%s' message %v", topic, message)
 }
 
 func Listen(topic string, listener Listener) *Handle {
-	err := bus.Subscribe(topic, listener)
+	err := bus.SubscribeAsync(topic, listener, false)
 	if err != nil {
-		log.Errorf("Error subscribing to topic <%s>: %s", topic, err)
+		log.Errorf("Error subscribing to topic '%s': %s", topic, err)
 		return nil
+	} else {
+		log.Tracef("Listening to topic '%s'", topic)
 	}
 	return &Handle{
 		topic: topic,

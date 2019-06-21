@@ -19,8 +19,8 @@ var hostnameReadPriority = []string{"txt:fn", "txt:f", "txt:md", "name", "name6"
 func MulticastMdnsQuery() {
 	m := &dns.Msg{}
 	m.Question = []dns.Question{
-		dns.Question{Name: questionString, Qtype: dns.TypeSRV, Qclass: dns.ClassINET},
-		dns.Question{Name: questionString, Qtype: dns.TypeTXT, Qclass: dns.ClassINET},
+		{Name: questionString, Qtype: dns.TypeSRV, Qclass: dns.ClassINET},
+		{Name: questionString, Qtype: dns.TypeTXT, Qclass: dns.ClassINET},
 	}
 	m.RecursionDesired = false
 
@@ -36,7 +36,7 @@ func MulticastMdnsQuery() {
 	log.Debug("Sent mDNS Multicast Query")
 }
 
-func MulticastMdnsListen(msgChan chan *dns.Msg) {
+func MulticastMdnsListen(msgChan chan *dns.Msg, closeChan chan bool) {
 	addr, err := net.ResolveUDPAddr("udp", mdnsAddressString)
 	if err != nil {
 		log.Errorf("Address resolve failed: %s\n", err)
@@ -47,19 +47,51 @@ func MulticastMdnsListen(msgChan chan *dns.Msg) {
 		log.Errorf("Listen multicast failed")
 		return
 	}
+	// probably not needed but defer so it closes no matter what
 	defer co.Close()
 
-	// make query after open
+	// make query after open to start messages coming in
 	MulticastMdnsQuery()
 
-	for {
-		msg, err := co.ReadMsg()
-		if err != nil {
-			log.Debugf("Reading mDNS message: %s", err)
-			continue
+	// keep running after error?
+	keeprunning := true
+
+	// pipe messages to internal stop/start switch
+	internalChan := make(chan *dns.Msg)
+	go func() {
+		for {
+			msg, err := co.ReadMsg()
+			if err != nil {
+				if keeprunning {
+					log.Errorf("Reading mDNS message: %s", err)
+					continue
+				} else {
+					break
+				}
+			}
+			internalChan <- msg
 		}
-		if msgChan != nil && msg != nil {
-			msgChan <- msg
+		close(internalChan)
+		log.Debugf("Shutdown mDNS connection")
+	}()
+
+	// loop that decides to read/forward messages or close listener
+	for {
+		select {
+		case <- closeChan:
+			keeprunning = false
+			err := co.Close()
+			if err != nil {
+				log.Errorf("Could not close mDNS listener")
+			}
+			close(msgChan)
+			closeChan <- true
+			log.Debugf("Closed mDNS listener")
+			return
+		case msg := <- internalChan:
+			if msgChan != nil && msg != nil {
+				msgChan <- msg
+			}
 		}
 	}
 }
