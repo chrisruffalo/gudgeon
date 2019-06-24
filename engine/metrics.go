@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/json-iterator/go"
 	"github.com/miekg/dns"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/process"
@@ -153,16 +152,6 @@ type Metrics interface {
 	prune(tx *sql.Tx)
 }
 
-// write all metrics out to encoder
-var json = jsoniter.Config{
-	EscapeHTML:                    false,
-	MarshalFloatWith6Digits:       true,
-	ObjectFieldMustBeSimpleString: true,
-	SortMapKeys:                   false,
-	ValidateJsonRawMessage:        true,
-	DisallowUnknownFields:         false,
-}.Froze()
-
 func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 	metrics := &metrics{
 		config:     config,
@@ -287,7 +276,7 @@ func (metrics *metrics) insert(tx *sql.Tx, currentTime time.Time) {
 	all := metrics.GetAll()
 
 	// make into json string
-	bytes, err := json.Marshal(all)
+	bytes, err := util.Json.Marshal(all)
 	if err != nil {
 		log.Errorf("Error marshalling metrics json: %s", err)
 		return
@@ -333,11 +322,16 @@ func (metrics *metrics) query(qA metricsAccumulator, start time.Time, end time.T
 		return nil
 	}
 
-	rows, err := metrics.db.Query("SELECT FromTime, AtTime, MetricsJson, IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime ASC", start, end)
+	stmt, err := metrics.db.Prepare("SELECT FromTime, AtTime, MetricsJson, IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime ASC")
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer stmt.Close()
+
+	rows, err := stmt.Query(start, end)
+	if err != nil {
+		return err
+	}
 
 	var (
 		metricsJSONString string
@@ -353,12 +347,19 @@ func (metrics *metrics) query(qA metricsAccumulator, start time.Time, end time.T
 			continue
 		}
 		// unmarshal string into values
-		json.Unmarshal([]byte(metricsJSONString), &me.Values)
+		err = util.Json.Unmarshal([]byte(metricsJSONString), &me.Values)
+		if err != nil {
+			log.Errorf("Error unmarshalling json: %s", err)
+		}
 
 		// call accumulator function
 		qA(me)
 	}
 
+	err = rows.Close()
+	if err != nil {
+		log.Errorf("Could not close result: %s", err)
+	}
 	return nil
 }
 
@@ -389,7 +390,14 @@ func (metrics *metrics) QueryStream(returnChan chan *MetricsEntry, start time.Ti
 }
 
 func (metrics *metrics) load() {
-	rows, err := metrics.db.Query("SELECT MetricsJson FROM metrics ORDER BY AtTime DESC LIMIT 1")
+	stmt, err := metrics.db.Prepare("SELECT MetricsJson FROM metrics ORDER BY AtTime DESC LIMIT 1")
+	if err != nil {
+		log.Errorf("Could not prepare metrics load statement: %s", err)
+		return
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query()
 	if err != nil {
 		log.Errorf("Could not load initial metrics information: %s", err)
 		return
@@ -416,7 +424,7 @@ func (metrics *metrics) load() {
 
 	// unmarshal object
 	var data map[string]*Metric
-	json.Unmarshal([]byte(metricsJSONString), &data)
+	util.Json.Unmarshal([]byte(metricsJSONString), &data)
 
 	// load any metric that has "lifetime" in the key
 	// from the database so that we can manage rules

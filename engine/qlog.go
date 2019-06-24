@@ -418,21 +418,39 @@ func (qlog *qlog) query(query *QueryLogQuery, accumulator queryAccumulator) {
 
 	// get query length by itself without offsets and limits
 	// but based on the same query
+	stmt, err := qlog.db.Prepare(countStmt)
+	if err != nil {
+		log.Errorf("Could not prepare statement: %s", err)
+		return
+	}
+
 	err = qlog.db.QueryRow(countStmt, whereValues...).Scan(&resultLen)
 	if err != nil {
 		log.Errorf("Could not get log item count: %s", err)
 	}
 	accumulator(resultLen, nil)
+	err = stmt.Close()
+	if err != nil {
+		log.Errorf("Could not close prepared statement: %s", err)
+		return
+	}
 
 	// make query
+	stmt, err = qlog.db.Prepare(selectStmt)
+	if err != nil {
+		log.Errorf("Could not prepare statement: %s", err)
+		return
+	}
 	rows, err = qlog.db.Query(selectStmt, whereValues...)
 	if err != nil {
 		log.Errorf("Query log query failed: %s", err)
 		return
 	}
-	defer rows.Close()
+
 	// if rows is nil return empty array
 	if rows == nil {
+		stmt.Close()
+		rows.Close()
 		return
 	}
 
@@ -447,6 +465,9 @@ func (qlog *qlog) query(query *QueryLogQuery, accumulator queryAccumulator) {
 		}
 		accumulator(resultLen, info)
 	}
+
+	stmt.Close()
+	rows.Close()
 }
 
 func (qlog *qlog) Query(query *QueryLogQuery) ([]*InfoRecord, uint64) {

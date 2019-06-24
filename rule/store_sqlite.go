@@ -76,13 +76,22 @@ func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonL
 		return
 	}
 
-	_, err = store.tx.Exec("DELETE FROM rules WHERE ListRowId = (SELECT Id FROM lists WHERE ShortName = ? LIMIT 1)", list.ShortName())
+	stmt, err := store.tx.Prepare("DELETE FROM rules WHERE ListRowId = (SELECT Id FROM lists WHERE ShortName = ? LIMIT 1)")
+	if err != nil {
+		log.Errorf("Error preparing rule insert statement: %s", err)
+		return
+	}
+	_, err = stmt.Exec(list.ShortName())
 	if err != nil {
 		log.Errorf("Could not insert into rules store: %s", err)
 		err = store.tx.Rollback()
 		if err != nil {
 			log.Errorf("Could not roll back transaction: %s", err)
 		}
+	}
+	err = stmt.Close()
+	if err != nil {
+		log.Errorf("Could not close rule insert statement: %s", err)
 	}
 
 	// start with a fresh transaction on the next operation

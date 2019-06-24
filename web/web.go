@@ -100,6 +100,13 @@ func condenseMetric(target *engine.MetricsEntry, from *engine.MetricsEntry, coun
 	}
 }
 
+func (web *web) QueryStream(entryChan chan *engine.MetricsEntry, queryStart *time.Time, queryEnd *time.Time) {
+	err := web.metrics().QueryStream(entryChan, *queryStart, *queryEnd)
+	if err != nil {
+		log.Errorf("Could not query metrics: %s", err)
+	}
+}
+
 func (web *web) QueryMetrics(c *gin.Context) {
 	if web.metrics() == nil {
 		c.String(http.StatusNotFound, "Metrics not enabled")
@@ -175,15 +182,11 @@ func (web *web) QueryMetrics(c *gin.Context) {
 	encoder := util.Json.NewEncoder(c.Writer)
 
 	// start query stream
-	go func() { web.metrics().QueryStream(entryChan, *queryStart, *queryEnd) }()
+	go web.QueryStream(entryChan, queryStart, queryEnd)
 
 	// start empty array
 	c.String(http.StatusOK, "[")
 	for me := range entryChan {
-		if me == nil {
-			continue
-		}
-
 		// filter out metrics that are not in the "keep list"
 		if len(keepMetrics) > 0 {
 			for k := range me.Values {
