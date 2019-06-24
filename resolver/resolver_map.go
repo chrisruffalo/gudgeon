@@ -171,4 +171,7 @@ func (resolverMap *resolverMap) Close() {
 	if resolverMap.sourceHandler != nil {
 		resolverMap.sourceHandler.Close()
 	}
+	if resolverMap.cache != nil {
+		resolverMap.cache.Clear()
+	}
 }

@@ -27,26 +27,45 @@ func Open(path string, options string) (*sql.DB, error) {
 		// this could be because of change in database file formats
 		// or a corrupted database
 		if _, rmErr := os.Stat(path); !os.IsNotExist(rmErr) {
-			os.Remove(path)
+			err = os.Remove(path)
+			if err != nil {
+				log.Debugf("There was an error attempting to remove the errored database: %s", err)
+			}
 		} else {
 			return nil, rmErr
 		}
 
-		db, err = sql.Open("sqlite3", path+"?"+options)
+		db, err = sql.Open("sqlite3", path)//+"?"+options)
 		if err != nil {
 			return nil, err
 		}
+
+		// execute pragma
+		ddl := `
+        PRAGMA automatic_index = ON;
+        PRAGMA cache_size = 32768;
+        PRAGMA cache_spill = OFF;
+        PRAGMA foreign_keys = ON;
+        PRAGMA journal_size_limit = 67110000;
+        PRAGMA locking_mode = NORMAL;
+        PRAGMA page_size = 4096;
+        PRAGMA recursive_triggers = ON;
+        PRAGMA secure_delete = ON;
+        PRAGMA synchronous = NORMAL;
+        PRAGMA temp_store = MEMORY;
+        PRAGMA journal_mode = WAL;
+        PRAGMA wal_autocheckpoint = 16384;
+		`
+		_, err = db.Exec(ddl)
+		if err != nil {
+			log.Errorf("Could not execute DB setup pragma: %s", err)
+		}
 	}
-	// disabling this made a lot of things work better
-	// but it might bring in some side effects we need
-	// to watch out for
-	//db.SetMaxOpenConns(1)
 
 	return db, nil
 }
 
 func OpenAndMigrate(path string, options string, box *rice.Box) (*sql.DB, error) {
-
 	db, err := Open(path, options)
 	if err != nil {
 		return nil, err
@@ -77,5 +96,6 @@ func OpenAndMigrate(path string, options string, box *rice.Box) (*sql.DB, error)
 		return nil, err
 	}
 
+	// return the migrated database
 	return db, nil
 }

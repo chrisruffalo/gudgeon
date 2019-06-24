@@ -28,15 +28,18 @@ func pathHash(fileToHash string) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func startFileWatch() {
+// only do this once
+func StartFileWatch() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Errorf("While creating watcher: %s", err)
 	}
-	// todo: find another way to close
-	//defer watcher.Close()
+
+	// channel to signify end of watch
+	endWatch := make(chan bool)
 
 	go func() {
+		log.Debugf("Started file change loop")
 		for {
 			select {
 			case event, ok := <-watcher.Events:
@@ -44,7 +47,7 @@ func startFileWatch() {
 					return
 				}
 				if _, err := os.Stat(event.Name); err != nil {
-					log.Infof("Error accessing file, eating event: %s", err)
+					log.Debugf("Error accessing file, eating event: %s", err)
 					continue
 				}
 				log.Tracef("file event: %s", event.Name)
@@ -65,6 +68,10 @@ func startFileWatch() {
 					return
 				}
 				log.Errorf("Error: %s", err)
+			case <- endWatch:
+				endWatch <- true
+				log.Debugf("File change watcher event loop closed")
+				return
 			}
 		}
 	}()
@@ -85,7 +92,7 @@ func startFileWatch() {
 				if err != nil {
 					log.Errorf("Failed to watch path: %s", err)
 				} else {
-					log.Debugf("Watching file: %s", path)
+					log.Tracef("Watching file: %s", path)
 				}
 			}
 		}
@@ -103,17 +110,29 @@ func startFileWatch() {
 		}
 	})
 
-	// end all watches
+	// clear all watches
 	Listen("file:watch:clear", func(message *Message) {
 		for key := range watchedFilesHashes {
 			watchedFilesHashes[key] = ""
 			_ = watcher.Remove(key)
 		}
 	})
+
+	// close/end all watches
+	Listen("file:watch:close", func(message *Message) {
+		endWatch <- true
+		<- endWatch
+		close(endWatch)
+		watchedFilesHashes = nil
+		err := watcher.Close()
+		if err != nil {
+			log.Errorf("Could not close watcher: %s", err)
+		} else {
+			log.Debugf("File change watching service ended")
+		}
+	})
 }
 
-// start the file watch
-// todo: fix this, this is really really really bad practice
-func init() {
-	startFileWatch()
+func StopFileWatch() {
+	Send("file:watch:close", &Message{})
 }

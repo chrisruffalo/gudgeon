@@ -17,7 +17,6 @@ require (
 	github.com/json-iterator/go v1.1.6
 	github.com/miekg/dns v1.1.13
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/pkg/profile v1.2.1
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
 	github.com/shirou/gopsutil v0.0.0-20180427012116-c95755e4bcd7
 	github.com/sirupsen/logrus v1.4.2

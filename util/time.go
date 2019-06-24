@@ -14,9 +14,15 @@ const (
 	Week  = 24 * 7
 )
 
+// used for duration parsing for h, d, w instead of
+// compiling all of them on the fly
+var regexpTokens = []*regexp.Regexp{
+	regexp.MustCompile("([0-9]+?)h"),
+	regexp.MustCompile("([0-9]+?)d"),
+	regexp.MustCompile("([0-9]+?)w"),
+}
+
 func ParseDuration(input string) (time.Duration, error) {
-	// these are what are going to be converted
-	tokens := []string{"h", "d", "w"}
 	durations := []int{
 		Hours,
 		Day,
@@ -26,9 +32,8 @@ func ParseDuration(input string) (time.Duration, error) {
 	// hours count
 	hours := 0
 
-	for idx, token := range tokens {
-		regexp := regexp.MustCompile("([0-9]+?)" + token)
-		tokenMatches := regexp.FindStringSubmatch(input)
+	for idx, tokenRegexp := range regexpTokens {
+		tokenMatches := tokenRegexp.FindStringSubmatch(input)
 		if len(tokenMatches) > 0 {
 			value, err := strconv.Atoi(tokenMatches[1])
 			if err == nil {

@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/chrisruffalo/gudgeon/resolver"
 	"github.com/miekg/dns"
@@ -79,9 +80,11 @@ func (web *web) GetMetrics(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	// send output
+	c.Status(http.StatusOK)
+	_ = util.Json.NewEncoder(c.Writer).Encode(&gin.H{
 		"metrics": metrics,
-		"lists":   lists,
+		"lists": lists,
 	})
 }
 
@@ -99,7 +102,7 @@ func condenseMetric(target *engine.MetricsEntry, from *engine.MetricsEntry, coun
 
 func (web *web) QueryMetrics(c *gin.Context) {
 	if web.metrics() == nil {
-		c.String(http.StatusNotFound, "Metrics not enabled)")
+		c.String(http.StatusNotFound, "Metrics not enabled")
 		return
 	}
 
@@ -168,6 +171,9 @@ func (web *web) QueryMetrics(c *gin.Context) {
 	}
 	condenseCounter := 1
 
+	// encoder
+	encoder := util.Json.NewEncoder(c.Writer)
+
 	// start query stream
 	go func() { web.metrics().QueryStream(entryChan, *queryStart, *queryEnd) }()
 
@@ -204,7 +210,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 				c.String(http.StatusOK, ",")
 			}
 			firstEntry = false
-			c.JSON(http.StatusOK, me)
+			_ = encoder.Encode(me)
 
 			// if condensing start over
 			if condenseMetrics {
@@ -219,7 +225,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 		if !firstEntry {
 			c.String(http.StatusOK, ",")
 		}
-		c.JSON(http.StatusOK, heldEntry)
+		_ = encoder.Encode(heldEntry)
 	}
 
 	// finish array
@@ -327,7 +333,7 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 			c.String(http.StatusOK, ", ")
 		}
 		firstRecord = false
-		c.JSON(http.StatusOK, info)
+		_ = util.Json.NewEncoder(c.Writer).Encode(info)
 	}
 
 	c.String(http.StatusOK, "]}")
@@ -362,7 +368,8 @@ func (web *web) GetTestComponents(c *gin.Context) {
 	// accept singular consumers at the api endpoint and
 	// this is consistent with that and the naming of the
 	// option in the drop down list
-	c.JSON(http.StatusOK, gin.H{
+	c.Status(http.StatusOK)
+	_ = util.Json.NewEncoder(c.Writer).Encode(&gin.H{
 		"consumer": consumers,
 		"groups":    groups,
 		"resolvers": resolvers,
@@ -404,7 +411,8 @@ func (web *web) GetTop(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, results)
+	c.Status(http.StatusOK)
+	_ = util.Json.NewEncoder(c.Writer).Encode(results)
 }
 
 func (web *web) GetTestResult(c *gin.Context) {
@@ -456,7 +464,9 @@ func (web *web) GetTestResult(c *gin.Context) {
 		responseText = response.String()
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	// set code and stream results
+	c.Status(http.StatusOK)
+    _ = json.NewEncoder(c.Writer).Encode(&gin.H{
 		"response": response,
 		"result": result,
 		"text": responseText,

@@ -112,6 +112,9 @@ type metrics struct {
 	metricsInfoChan chan *metricsInfo
 	db              *sql.DB
 
+	// metrics keep duration
+	duration *time.Duration
+
 	cacheSizeFunc CacheSizeFunction
 
 	// time management for interval insert
@@ -174,6 +177,14 @@ func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 		metrics.load()
 	}
 
+	// parse duration once
+	if "" != config.Metrics.Duration {
+		duration, err := util.ParseDuration(config.Metrics.Duration)
+		if err != nil {
+			metrics.duration = &duration
+		}
+	}
+
 	// update metrics initially
 	metrics.update()
 
@@ -184,13 +195,8 @@ func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 }
 
 func (metrics *metrics) GetAll() map[string]*Metric {
-	metrics.metricsMutex.RLock()
-	mapCopy := make(map[string]*Metric, 0)
-	for k, v := range metrics.metricsMap {
-		mapCopy[k] = &Metric{Count: v.Value(), Avg: v.Average(), Records: v.Records}
-	}
-	metrics.metricsMutex.RUnlock()
-	return mapCopy
+	// wish i could just wrap this in an immutable map
+	return metrics.metricsMap
 }
 
 func (metrics *metrics) Get(name string) *Metric {
@@ -208,27 +214,27 @@ func (metrics *metrics) Get(name string) *Metric {
 	return metric
 }
 
+// capture memory metrics
+var proc, _ = process.NewProcess(int32(os.Getpid()))
+var memoryStats = &runtime.MemStats{}
 func (metrics *metrics) update() {
-	// get pid
-	pid := os.Getpid()
 
 	// capture queries per interval into queries per second
-	duration, err := util.ParseDuration(metrics.config.Metrics.Interval)
-	if err == nil {
-		metrics.Get(QueriesPerSecond).Set(int64(math.Round(float64(metrics.Get(TotalIntervalQueries).Value()) / float64(duration.Seconds()))))
-		metrics.Get(BlocksPerSecond).Set(int64(math.Round(float64(metrics.Get(BlockedIntervalQueries).Value()) / float64(duration.Seconds()))))
+
+	if metrics.duration != nil {
+		metrics.Get(QueriesPerSecond).Set(int64(math.Round(float64(metrics.Get(TotalIntervalQueries).Value()) / float64(metrics.duration.Seconds()))))
+		metrics.Get(BlocksPerSecond).Set(int64(math.Round(float64(metrics.Get(BlockedIntervalQueries).Value()) / float64(metrics.duration.Seconds()))))
 	}
 
 	// get process
-	process, err := process.NewProcess(int32(pid))
-	if err == nil && process != nil {
-		if percent, err := process.CPUPercent(); err == nil {
+	if proc != nil {
+		if percent, err := proc.CPUPercent(); err == nil {
 			metrics.Get(CPUHundredsPercent).Set(int64(percent * 100))
 		}
-		if pmem, err := process.MemoryInfo(); err == nil {
+		if pmem, err := proc.MemoryInfo(); err == nil {
 			metrics.Get(UsedMemory).Set(int64(pmem.RSS))
 		}
-		if threads, err := process.NumThreads(); err == nil {
+		if threads, err := proc.NumThreads(); err == nil {
 			metrics.Get(Threads).Set(int64(threads))
 		}
 		if vmem, err := mem.VirtualMemory(); err == nil {
@@ -240,8 +246,6 @@ func (metrics *metrics) update() {
 	// capture goroutines
 	metrics.Get(GoRoutines).Set(int64(runtime.NumGoroutine()))
 
-	// capture memory metrics
-	memoryStats := &runtime.MemStats{}
 	runtime.ReadMemStats(memoryStats)
 	metrics.Get(CurrentlyAllocated).Set(int64(memoryStats.Alloc))
 

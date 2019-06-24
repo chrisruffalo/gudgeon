@@ -24,7 +24,7 @@ gudgeon:
     # - bloom+sqlite
     # - hash32+sqlite
     # - hash+sqlite
-    rules: "hash32+sqlite"
+    rules: "bloom+sqlite"
 
   # global values
   global:

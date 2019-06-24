@@ -63,7 +63,7 @@ func MulticastMdnsListen(msgChan chan *dns.Msg, closeChan chan bool) {
 			msg, err := co.ReadMsg()
 			if err != nil {
 				if keeprunning {
-					log.Errorf("Reading mDNS message: %s", err)
+					log.Debugf("Reading mDNS message: %s", err)
 					continue
 				} else {
 					break

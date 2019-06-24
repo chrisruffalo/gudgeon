@@ -2,16 +2,18 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
+	"net/http/pprof"
 	"syscall"
 
 	"github.com/google/gops/agent"
-	"github.com/pkg/profile"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
+	"github.com/chrisruffalo/gudgeon/events"
 	"github.com/chrisruffalo/gudgeon/provider"
 	"github.com/chrisruffalo/gudgeon/util"
 	"github.com/chrisruffalo/gudgeon/version"
@@ -41,6 +43,9 @@ func NewGudgeon(confPath string, config *config.GudgeonConfig) *Gudgeon {
 func (gudgeon *Gudgeon) Start() error {
 	// error
 	var err error
+
+	// start the file watcher
+	events.StartFileWatch()
 
 	// create engine which handles resolution, logging, etc
 	gudgeon.engine, err = engine.NewReloadingEngine(gudgeon.confPath, gudgeon.config)
@@ -76,6 +81,9 @@ func (gudgeon *Gudgeon) Start() error {
 }
 
 func (gudgeon *Gudgeon) Shutdown() {
+	// stop the file watcher
+	events.StopFileWatch()
+
 	// stop providers
 	if gudgeon.provider != nil {
 		log.Infof("Shutting down DNS endpoints...")
@@ -119,14 +127,20 @@ func main() {
 
 	// start profiling if enabled
 	if opts.DebugOptions.Profile {
-		log.Info("Starting profiling...")
-		// start profile
-		defer profile.Start().Stop()
-		// start agent
+		// start gops agent
 		err := agent.Listen(agent.Options{})
 		if err != nil {
 			log.Errorf("Could not starting GOPS profilling agent: %s", err)
 		}
+
+		// start profile http endpoint on given port
+		profPort := "9900"
+		go func() {
+			err = http.ListenAndServe("127.0.0.1:" + profPort, http.HandlerFunc(pprof.Index))
+			if err != nil {
+				log.Errorf("Could not expose HTTP profile endpoint on %s: %s", profPort, err)
+			}
+		}()
 	}
 
 	// load config

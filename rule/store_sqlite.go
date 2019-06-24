@@ -2,7 +2,6 @@ package rule
 
 import (
 	"database/sql"
-	//"fmt"
 	"os"
 	"path"
 	"strings"
@@ -151,6 +150,18 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 	}
 	// clear out for further transactions
 	store.tx = nil
+
+	// close and reopen the db
+	err = store.db.Close()
+	if err != nil {
+		log.Errorf("Could not close insertion-mode DB: %s", err)
+	}
+	sessionDb := path.Join(sessionRoot, sqlDbName)
+	store.db, err = db.Open(sessionDb, "")
+	if err != nil {
+		log.Errorf("Could not open database after finalize: %s", err)
+	}
+
 }
 
 func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []string) (bool, string, string) {

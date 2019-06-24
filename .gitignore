@@ -1,6 +1,10 @@
 # go files
 go.sum
 
+# profiles
+**/profile*
+**/*.pprof
+
 # generated css.js files
 **/*.css.js
 

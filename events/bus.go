@@ -27,7 +27,7 @@ func Listen(topic string, listener Listener) *Handle {
 		log.Errorf("Error subscribing to topic '%s': %s", topic, err)
 		return nil
 	} else {
-		log.Tracef("Listening to topic '%s'", topic)
+		log.Debugf("Listening to topic '%s'", topic)
 	}
 	return &Handle{
 		topic: topic,
