@@ -57,8 +57,8 @@ type metricsInfo struct {
 }
 
 type MetricsEntry struct {
-	FromTime        time.Time
-	AtTime          time.Time
+	FromTime        *time.Time
+	AtTime          *time.Time
 	Values          map[string]*Metric
 	IntervalSeconds int
 }
@@ -131,8 +131,9 @@ type Metrics interface {
 	UseCacheSizeFunction(function CacheSizeFunction)
 
 	// Query metrics from db
-	Query(start time.Time, end time.Time) ([]*MetricsEntry, error)
-	QueryStream(returnChan chan *MetricsEntry, start time.Time, end time.Time) error
+	Query(start *time.Time, end *time.Time) ([]*MetricsEntry, error)
+	QueryStream(returnChan chan *MetricsEntry, start *time.Time, end *time.Time) error
+	QueryStreamChan(start *time.Time, end *time.Time) chan *MetricsEntry
 
 	// top information
 	TopClients(limit int) []*TopInfo
@@ -146,7 +147,7 @@ type Metrics interface {
 
 	// package db management methods
 	update()
-	insert(tx *sql.Tx, currentTime time.Time)
+	insert(tx *sql.Tx, currentTime *time.Time)
 	record(info *InfoRecord)
 	flush(tx *sql.Tx)
 	prune(tx *sql.Tx)
@@ -271,7 +272,7 @@ func (metrics *metrics) record(info *InfoRecord) {
 	}
 }
 
-func (metrics *metrics) insert(tx *sql.Tx, currentTime time.Time) {
+func (metrics *metrics) insert(tx *sql.Tx, currentTime *time.Time) {
 	// get all metrics
 	all := metrics.GetAll()
 
@@ -301,7 +302,7 @@ func (metrics *metrics) insert(tx *sql.Tx, currentTime time.Time) {
 	metrics.Get(BlockedIntervalQueries).Clear()
 	//metrics.Get(QueriesPerSecond).Clear()
 	//metrics.Get(BlocksPerSecond).Clear()
-	metrics.lastInsert = currentTime
+	metrics.lastInsert = *currentTime
 }
 
 func (metrics *metrics) prune(tx *sql.Tx) {
@@ -316,7 +317,7 @@ func (metrics *metrics) prune(tx *sql.Tx) {
 type metricsAccumulator = func(entry *MetricsEntry)
 
 // implementation of the underlying query function
-func (metrics *metrics) query(qA metricsAccumulator, start time.Time, end time.Time) error {
+func (metrics *metrics) query(qA metricsAccumulator, start *time.Time, end *time.Time) error {
 	// don't do anything with nil accumulator
 	if qA == nil {
 		return nil
@@ -333,9 +334,7 @@ func (metrics *metrics) query(qA metricsAccumulator, start time.Time, end time.T
 		return err
 	}
 
-	var (
-		metricsJSONString string
-	)
+	var metricsJSONString string
 
 	var me *MetricsEntry
 	for rows.Next() {
@@ -364,7 +363,7 @@ func (metrics *metrics) query(qA metricsAccumulator, start time.Time, end time.T
 }
 
 // traditional query that returns an arry of metrics entries, good for testing, small queries
-func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, error) {
+func (metrics *metrics) Query(start *time.Time, end *time.Time) ([]*MetricsEntry, error) {
 	entries := make([]*MetricsEntry, 0, 100)
 	acc := func(me *MetricsEntry) {
 		if me == nil {
@@ -377,7 +376,7 @@ func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, 
 }
 
 // less traditional query type that allows the web endpoint to stream the json back out as rows are scanned
-func (metrics *metrics) QueryStream(returnChan chan *MetricsEntry, start time.Time, end time.Time) error {
+func (metrics *metrics) QueryStream(returnChan chan *MetricsEntry, start *time.Time, end *time.Time) error {
 	acc := func(me *MetricsEntry) {
 		if me == nil {
 			return
@@ -387,6 +386,13 @@ func (metrics *metrics) QueryStream(returnChan chan *MetricsEntry, start time.Ti
 	err := metrics.query(acc, start, end)
 	close(returnChan)
 	return err
+}
+
+// returns a channel that streams query metrics entries
+func (metrics *metrics) QueryStreamChan(start *time.Time, end *time.Time)  (chan *MetricsEntry) {
+	mChan := make(chan *MetricsEntry)
+	go metrics.QueryStream(mChan, start, end)
+	return mChan
 }
 
 func (metrics *metrics) load() {
@@ -424,7 +430,7 @@ func (metrics *metrics) load() {
 
 	// unmarshal object
 	var data map[string]*Metric
-	util.Json.Unmarshal([]byte(metricsJSONString), &data)
+	_ = util.Json.Unmarshal([]byte(metricsJSONString), &data)
 
 	// load any metric that has "lifetime" in the key
 	// from the database so that we can manage rules

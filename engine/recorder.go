@@ -324,7 +324,8 @@ func (recorder *recorder) worker() {
 				if recorder.db != nil {
 					// insert new metrics inside transaction
 					recorder.doWithIsolatedTransaction(func(tx *sql.Tx) {
-						recorder.metrics.insert(tx, time.Now())
+						now := time.Now()
+						recorder.metrics.insert(tx, &now)
 					})
 				}
 			}

@@ -48,7 +48,8 @@ func (gudgeon *Gudgeon) Start() error {
 	events.StartFileWatch()
 
 	// create engine which handles resolution, logging, etc
-	gudgeon.engine, err = engine.NewReloadingEngine(gudgeon.confPath, gudgeon.config)
+	//gudgeon.engine, err = engine.NewReloadingEngine(gudgeon.confPath, gudgeon.config)
+	gudgeon.engine, err = engine.NewEngine(gudgeon.config)
 	if err != nil {
 		return err
 	}

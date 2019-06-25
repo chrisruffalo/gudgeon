@@ -23,7 +23,7 @@ import (
 // returns an array of the GudgeonLists that are assigned either by name or by tag from within the list of GudgeonLists in the config file
 func assignedLists(listNames []string, listTags []string, lists []*config.GudgeonList) []*config.GudgeonList {
 	// empty list
-	should := []*config.GudgeonList{}
+	should := make([]*config.GudgeonList, 0)
 
 	// check names
 	for _, list := range lists {
@@ -181,23 +181,17 @@ func (engine *engine) bootstrap() error {
 	// configure resolvers
 	engine.resolvers = resolver.NewResolverMap(conf, conf.Resolvers)
 
-	// get lists from the configuration
-	lists := conf.Lists
-
-	// empty groups list of size equal to available groups
-	workingGroups := append([]*config.GudgeonGroup{}, conf.Groups...)
-
 	// use length of working groups to make list of active groups
-	groups := make([]*group, len(workingGroups))
+	groups := make([]*group, len(conf.Groups))
 	groupMap := make(map[string]*group)
 
 	// process groups
-	for idx, configGroup := range workingGroups {
+	for idx, configGroup := range conf.Groups {
 		// create active group for group name
 		engineGroup := &group{
 			engine: engine,
 			configGroup: configGroup,
-			lists: assignedLists(configGroup.Lists, configGroup.SafeTags(), lists),
+			lists: assignedLists(configGroup.Lists, configGroup.SafeTags(), conf.Lists),
 		}
 
 		// add created engine group to list of groups
@@ -266,7 +260,7 @@ func (engine *engine) bootstrap() error {
 	}
 
 	// load lists (from remote urls)
-	for _, list := range lists {
+	for _, list := range conf.Lists {
 		// get list path
 		path := conf.PathToList(list)
 

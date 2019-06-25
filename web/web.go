@@ -40,23 +40,9 @@ func New() Web {
 	return &web{}
 }
 
-func (web *web) metrics() engine.Metrics {
-	if web.engine == nil {
-		return nil
-	}
-	return web.engine.Metrics()
-}
-
-func (web *web) queryLog() engine.QueryLog {
-	if web.engine == nil {
-		return nil
-	}
-	return web.engine.QueryLog()
-}
-
 // get metrics counter named in query
 func (web *web) GetMetrics(c *gin.Context) {
-	if web.metrics() == nil {
+	if web.engine.Metrics() == nil {
 		c.String(http.StatusNotFound, "Metrics not enabled)")
 		return
 	}
@@ -69,7 +55,7 @@ func (web *web) GetMetrics(c *gin.Context) {
 		lists = append(lists, listEntry)
 	}
 
-	metrics := web.metrics().GetAll()
+	metrics := web.engine.Metrics().GetAll()
 
 	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
 		keepMetrics := strings.Split(filterStrings, ",")
@@ -101,14 +87,14 @@ func condenseMetric(target *engine.MetricsEntry, from *engine.MetricsEntry, coun
 }
 
 func (web *web) QueryStream(entryChan chan *engine.MetricsEntry, queryStart *time.Time, queryEnd *time.Time) {
-	err := web.metrics().QueryStream(entryChan, *queryStart, *queryEnd)
+	err := web.engine.Metrics().QueryStream(entryChan, queryStart, queryEnd)
 	if err != nil {
 		log.Errorf("Could not query metrics: %s", err)
 	}
 }
 
 func (web *web) QueryMetrics(c *gin.Context) {
-	if web.metrics() == nil {
+	if web.engine.Metrics() == nil {
 		c.String(http.StatusNotFound, "Metrics not enabled")
 		return
 	}
@@ -146,7 +132,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 		queryEnd = &endTime
 	}
 
-	keepMetrics := []string{}
+	keepMetrics := make([]string, 0)
 	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
 		keepMetrics = strings.Split(filterStrings, ",")
 	}
@@ -156,16 +142,14 @@ func (web *web) QueryMetrics(c *gin.Context) {
 		condenseMetrics = true
 	}
 
+	// when on the first entry the output is slightly different
 	firstEntry := true
-	entryChan := make(chan *engine.MetricsEntry)
 
 	// hold an entry for condensing into
 	var heldEntry *engine.MetricsEntry
 
 	// calculate condensation factor
-	stime := *queryStart
-	etime := *queryEnd
-	distance := int(etime.Sub(stime).Hours())
+	distance := int((*queryEnd).Sub(*queryStart).Hours())
 	factor := distance / 2
 	if distance >= 24 {
 		distance = distance / 2
@@ -182,7 +166,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 	encoder := util.Json.NewEncoder(c.Writer)
 
 	// start query stream
-	go web.QueryStream(entryChan, queryStart, queryEnd)
+	entryChan := web.engine.Metrics().QueryStreamChan(queryStart, queryEnd)
 
 	// start empty array
 	c.String(http.StatusOK, "[")
@@ -236,7 +220,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 }
 
 func (web *web) GetQueryLogInfo(c *gin.Context) {
-	if web.queryLog() == nil {
+	if web.engine.QueryLog() == nil {
 		c.String(http.StatusNotFound, "Query log not enabled")
 		return
 	}
@@ -321,14 +305,14 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 
 	c.String(http.StatusOK, "{")
 
-	// create channels
-	infoChan := make(chan *engine.InfoRecord)
-	countChan := make(chan uint64)
-
-	go web.queryLog().QueryStream(query, infoChan, countChan)
+	//go web.engine.QueryLog()..QueryStream(query, infoChan, countChan)
+	infoChan, countChan := web.engine.QueryLog().QueryStreamChan(query)
 
 	c.String(http.StatusOK, "\"total\": %d", <-countChan)
 	c.String(http.StatusOK, ", \"items\": [")
+
+	// encoder
+	encoder := util.Json.NewEncoder(c.Writer)
 
 	firstRecord := true
 	for info := range infoChan {
@@ -336,7 +320,7 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 			c.String(http.StatusOK, ", ")
 		}
 		firstRecord = false
-		_ = util.Json.NewEncoder(c.Writer).Encode(info)
+		_ = encoder.Encode(info)
 	}
 
 	c.String(http.StatusOK, "]}")
@@ -380,7 +364,7 @@ func (web *web) GetTestComponents(c *gin.Context) {
 }
 
 func (web *web) GetTop(c *gin.Context) {
-	if web.metrics() == nil || !(*web.conf.Metrics.Detailed) {
+	if web.engine.Metrics() == nil || !(*web.conf.Metrics.Detailed) {
 		c.String(http.StatusNotFound, "Detailed Metrics not enabled)")
 		return
 	}
@@ -402,15 +386,15 @@ func (web *web) GetTop(c *gin.Context) {
 	if topType != "" {
 		switch strings.ToLower(topType) {
 		case "domains":
-			results = web.metrics().TopDomains(limit)
+			results = web.engine.Metrics().TopDomains(limit)
 		case "lists":
-			results = web.metrics().TopLists(limit)
+			results = web.engine.Metrics().TopLists(limit)
 		case "clients":
-			results = web.metrics().TopClients(limit)
+			results = web.engine.Metrics().TopClients(limit)
 		case "rules":
-			results = web.metrics().TopRules(limit)
+			results = web.engine.Metrics().TopRules(limit)
 		case "types":
-			results = web.metrics().TopQueryTypes(limit)
+			results = web.engine.Metrics().TopQueryTypes(limit)
 		}
 	}
 
@@ -478,8 +462,8 @@ func (web *web) GetTestResult(c *gin.Context) {
 
 func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine) error {
 	// set metrics endpoint
-	web.engine = engine
 	web.conf = conf
+	web.engine = engine
 
 	// create new router
 	gin.SetMode(gin.ReleaseMode)

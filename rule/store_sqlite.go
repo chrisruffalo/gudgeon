@@ -16,6 +16,7 @@ import (
 
 // the static names of the rules database
 const sqlDbName = "rules.db"
+const _insertStmt = "INSERT OR IGNORE INTO rules (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)"
 
 type sqlStore struct {
 	db *sql.DB
@@ -60,10 +61,10 @@ func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonL
 	if store.tx != nil {
 		err := store.tx.Commit()
 		if err != nil {
-			log.Errorf("Commiting rules to rules DB: %s", err)
+			log.Errorf("Committing rules to rules DB: %s", err)
 			err = store.tx.Rollback()
 			if err != nil {
-				log.Errorf("Rolling back transaction: %s", err)
+				log.Errorf("Rolling back rule clear transaction: %s", err)
 			}
 		}
 		log.Tracef("Closing initial transaction...")
@@ -108,7 +109,7 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 		}
 	}
 
-	_, err := store.tx.Exec("INSERT OR IGNORE INTO rules (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)", list.ShortName(), rule)
+	_, err := store.tx.Exec(_insertStmt, list.ShortName(), rule)
 	if err != nil {
 		log.Errorf("Could not insert into rules store: %s", err)
 		err = store.tx.Rollback()
@@ -170,7 +171,6 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 	if err != nil {
 		log.Errorf("Could not open database after finalize: %s", err)
 	}
-
 }
 
 func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []string) (bool, string, string) {

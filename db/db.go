@@ -17,11 +17,7 @@ func Open(path string, options string) (*sql.DB, error) {
 		return nil, fmt.Errorf("Opening database: path must not be empty")
 	}
 
-	if options == "" {
-		options = "cache=shared&journal_mode=WAL"
-	}
-
-	db, err := sql.Open("sqlite3", path+"?"+options)
+	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		// if the file exists try removing it and opening it again
 		// this could be because of change in database file formats
@@ -35,7 +31,7 @@ func Open(path string, options string) (*sql.DB, error) {
 			return nil, rmErr
 		}
 
-		db, err = sql.Open("sqlite3", path)//+"?"+options)
+		db, err = sql.Open("sqlite3", path)
 		if err != nil {
 			return nil, err
 		}
@@ -43,18 +39,13 @@ func Open(path string, options string) (*sql.DB, error) {
 		// execute pragma
 		ddl := `
         PRAGMA automatic_index = ON;
-        PRAGMA cache_size = 32768;
-        PRAGMA cache_spill = OFF;
-        PRAGMA foreign_keys = ON;
-        PRAGMA journal_size_limit = 67110000;
+        PRAGMA cache_size = 8192;
+        PRAGMA journal_size_limit = 16777500;
         PRAGMA locking_mode = NORMAL;
-        PRAGMA page_size = 4096;
-        PRAGMA recursive_triggers = ON;
-        PRAGMA secure_delete = ON;
+        PRAGMA page_size = 1024;
         PRAGMA synchronous = NORMAL;
-        PRAGMA temp_store = MEMORY;
         PRAGMA journal_mode = WAL;
-        PRAGMA wal_autocheckpoint = 16384;
+        PRAGMA wal_autocheckpoint = 4092;
 		`
 		_, err = db.Exec(ddl)
 		if err != nil {

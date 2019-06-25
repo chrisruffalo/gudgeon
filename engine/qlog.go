@@ -64,6 +64,7 @@ type qlog struct {
 type QueryLog interface {
 	Query(query *QueryLogQuery) ([]*InfoRecord, uint64)
 	QueryStream(query *QueryLogQuery, infoChan chan *InfoRecord, countChan chan uint64)
+	QueryStreamChan(query *QueryLogQuery) (chan *InfoRecord, chan uint64)
 	Stop()
 
 	// package management methods
@@ -504,6 +505,13 @@ func (qlog *qlog) QueryStream(query *QueryLogQuery, infoChan chan *InfoRecord, c
 
 	// close chan when done
 	close(infoChan)
+}
+
+func (qlog *qlog) QueryStreamChan(query *QueryLogQuery) (chan *InfoRecord, chan uint64) {
+	iChan := make(chan *InfoRecord)
+	cChan := make(chan uint64)
+	go qlog.QueryStream(query, iChan, cChan)
+	return iChan, cChan
 }
 
 func (qlog *qlog) Stop() {
