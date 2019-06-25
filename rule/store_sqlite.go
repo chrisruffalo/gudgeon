@@ -19,9 +19,12 @@ const sqlDbName = "rules.db"
 const _insertStmt = "INSERT OR IGNORE INTO rules (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)"
 
 type sqlStore struct {
+	path string
 	db *sql.DB
 
 	tx *sql.Tx
+
+	ro bool
 }
 
 func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
@@ -33,13 +36,14 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 			log.Errorf("Could not create directories for SQL storage: %s", err)
 		}
 	}
+	store.path = sessionDb
 
 	// get/migrate schema
 	migrationsBox := rice.MustFindBox("sqlite-store-migrations")
 
 	// open db with migrated schema
 	var err error
-	store.db, err = db.OpenAndMigrate(sessionDb, "", migrationsBox)
+	store.db, err = db.OpenAndMigrate(store.path, "", migrationsBox)
 	if err != nil {
 		log.Errorf("Creating SQLite Rule Store: %s", err)
 	}
@@ -71,18 +75,28 @@ func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonL
 	}
 
 	var err error
+
+	// reopen db if db is in read only mode
+	if store.ro {
+		err = store.db.Close()
+		if err != nil {
+			log.Errorf("Could not close read-only rule store database")
+		}
+		store.db, err = db.Open(store.path, "")
+		if err != nil {
+			log.Errorf("Could not clear list '%s': %s", list.CanonicalName(), err)
+			return
+		}
+		store.ro = false
+	}
+
 	store.tx, err = store.db.Begin()
 	if err != nil {
 		log.Errorf("Could not start transaction: %s", err)
 		return
 	}
 
-	stmt, err := store.tx.Prepare("DELETE FROM rules WHERE ListRowId = (SELECT Id FROM lists WHERE ShortName = ? LIMIT 1)")
-	if err != nil {
-		log.Errorf("Error preparing rule insert statement: %s", err)
-		return
-	}
-	_, err = stmt.Exec(list.ShortName())
+	_, err = store.tx.Exec("DELETE FROM rules WHERE ListRowId = (SELECT Id FROM lists WHERE ShortName = ? LIMIT 1)", list.ShortName())
 	if err != nil {
 		log.Errorf("Could not insert into rules store: %s", err)
 		err = store.tx.Rollback()
@@ -90,13 +104,31 @@ func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonL
 			log.Errorf("Could not roll back transaction: %s", err)
 		}
 	}
-	err = stmt.Close()
-	if err != nil {
-		log.Errorf("Could not close rule insert statement: %s", err)
-	}
 
+	err = store.tx.Commit()
+	if err != nil {
+		log.Errorf("Could not close rule clear statement: %s", err)
+	}
 	// start with a fresh transaction on the next operation
 	store.tx = nil
+
+	// free memory
+	_, err = store.db.Exec(`PRAGMA shrink_memory;`)
+	if err != nil {
+		log.Errorf("Could not shrink memory in db finalize")
+	}
+
+	// close and reopen the db
+	err = store.db.Close()
+	if err != nil {
+		log.Errorf("Could not close writable rule DB: %s", err)
+	}
+
+	store.db, err = db.Open(store.path, "mode=ro&cache=shared")
+	if err != nil {
+		log.Errorf("Could not open database as read only after clear: %s", err)
+	}
+	store.ro = true
 }
 
 func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
@@ -161,16 +193,23 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 	// clear out for further transactions
 	store.tx = nil
 
+	// free memory
+	_, err = store.db.Exec(`PRAGMA shrink_memory;`)
+	if err != nil {
+		log.Errorf("Could not shrink memory in db finalize")
+	}
+
 	// close and reopen the db
 	err = store.db.Close()
 	if err != nil {
-		log.Errorf("Could not close insertion-mode DB: %s", err)
+		log.Errorf("Could not close writable rule DB: %s", err)
 	}
-	sessionDb := path.Join(sessionRoot, sqlDbName)
-	store.db, err = db.Open(sessionDb, "")
+
+	store.db, err = db.Open(store.path, "mode=ro&cache=shared")
 	if err != nil {
-		log.Errorf("Could not open database after finalize: %s", err)
+		log.Errorf("Could not open database as read only after finalize: %s", err)
 	}
+	store.ro = true
 }
 
 func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []string) (bool, string, string) {
