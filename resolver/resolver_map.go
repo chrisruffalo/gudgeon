@@ -16,8 +16,8 @@ import (
 
 // a group of resolvers
 type resolverMap struct {
-	cache     cache.Cache
-	resolvers map[string]Resolver
+	cache         cache.Cache
+	resolvers     map[string]Resolver
 	sourceHandler *events.Handle
 }
 

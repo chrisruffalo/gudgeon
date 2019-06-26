@@ -78,7 +78,7 @@ func MulticastMdnsListen(msgChan chan *dns.Msg, closeChan chan bool) {
 	// loop that decides to read/forward messages or close listener
 	for {
 		select {
-		case <- closeChan:
+		case <-closeChan:
 			keeprunning = false
 			err := co.Close()
 			if err != nil {
@@ -88,7 +88,7 @@ func MulticastMdnsListen(msgChan chan *dns.Msg, closeChan chan bool) {
 			closeChan <- true
 			log.Debugf("Closed mDNS listener")
 			return
-		case msg := <- internalChan:
+		case msg := <-internalChan:
 			if msgChan != nil && msg != nil {
 				msgChan <- msg
 			}

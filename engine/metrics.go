@@ -34,7 +34,9 @@ const (
 	BlockedIntervalQueries = "blocked-interval-queries"
 	QueriesPerSecond       = "session-queries-ps"
 	BlocksPerSecond        = "session-blocks-ps"
-	QueryTime              = "query-time"
+	// query time is the total time for an interval, query average time is the average for that interval
+	QueryTime    = "query-time"
+	QueryAvgTime = "query-avg-time"
 	// cache entries
 	CurrentCacheEntries = "cache-entries"
 	// runtime metrics
@@ -63,9 +65,7 @@ type MetricsEntry struct {
 	IntervalSeconds int
 }
 
-type  Metric struct {
-	Avg int64 `json:"average,omitempty"`
-	Records int64 `json:"records,omitempty"`
+type Metric struct {
 	Count int64 `json:"count"`
 }
 
@@ -79,26 +79,13 @@ func (metric *Metric) Inc(value int64) *Metric {
 	return metric
 }
 
-func (metric *Metric) RecordSample(value int64) *Metric {
-	metric.Count = metric.Count + value
-	metric.Records = metric.Records + 1
-	metric.Avg = metric.Count / metric.Records
-	return metric
-}
-
 func (metric *Metric) Clear() *Metric {
 	metric.Set(0)
-	metric.Records = 0
-	metric.Avg = 0
 	return metric
 }
 
 func (metric *Metric) Value() int64 {
 	return metric.Count
-}
-
-func (metric *Metric) Average() int64 {
-	return metric.Avg
 }
 
 type metrics struct {
@@ -207,10 +194,16 @@ func (metrics *metrics) Get(name string) *Metric {
 // capture memory metrics
 var proc, _ = process.NewProcess(int32(os.Getpid()))
 var memoryStats = &runtime.MemStats{}
+
 func (metrics *metrics) update() {
 
-	// capture queries per interval into queries per second
+	// capture average service time
+	totalQueries := metrics.Get(TotalIntervalQueries).Value() + metrics.Get(BlockedIntervalQueries).Value()
+	if totalQueries > 0 {
+		metrics.Get(QueryAvgTime).Set(metrics.Get(QueryTime).Value() / totalQueries)
+	}
 
+	// capture queries per interval into queries per second
 	if metrics.duration != nil {
 		metrics.Get(QueriesPerSecond).Set(int64(math.Round(float64(metrics.Get(TotalIntervalQueries).Value()) / float64(metrics.duration.Seconds()))))
 		metrics.Get(BlocksPerSecond).Set(int64(math.Round(float64(metrics.Get(BlockedIntervalQueries).Value()) / float64(metrics.duration.Seconds()))))
@@ -250,14 +243,12 @@ func (metrics *metrics) record(info *InfoRecord) {
 	metrics.Get(TotalQueries).Inc(1)
 	metrics.Get(TotalLifetimeQueries).Inc(1)
 	metrics.Get(TotalIntervalQueries).Inc(1)
+	metrics.Get(QueryTime).Inc(info.ServiceMilliseconds)
 
 	// add cache hits
 	if info.Result != nil && info.Result.Cached {
 		metrics.Get(CachedQueries).Inc(1)
 	}
-
-	// add latency
-	metrics.Get(QueryTime).RecordSample(info.ServiceMilliseconds)
 
 	// add blocked queries
 	if info.Result != nil && (info.Result.Blocked || info.Result.Match == rule.MatchBlock) {
@@ -389,7 +380,7 @@ func (metrics *metrics) QueryStream(returnChan chan *MetricsEntry, start *time.T
 }
 
 // returns a channel that streams query metrics entries
-func (metrics *metrics) QueryStreamChan(start *time.Time, end *time.Time)  (chan *MetricsEntry) {
+func (metrics *metrics) QueryStreamChan(start *time.Time, end *time.Time) chan *MetricsEntry {
 	mChan := make(chan *MetricsEntry)
 	go metrics.QueryStream(mChan, start, end)
 	return mChan

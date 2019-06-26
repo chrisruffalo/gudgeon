@@ -68,7 +68,7 @@ func StartFileWatch() {
 					return
 				}
 				log.Errorf("Error: %s", err)
-			case <- endWatch:
+			case <-endWatch:
 				endWatch <- true
 				log.Debugf("File change watcher event loop closed")
 				return
@@ -121,7 +121,7 @@ func StartFileWatch() {
 	// close/end all watches
 	Listen("file:watch:close", func(message *Message) {
 		endWatch <- true
-		<- endWatch
+		<-endWatch
 		close(endWatch)
 		watchedFilesHashes = nil
 		err := watcher.Close()

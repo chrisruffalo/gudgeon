@@ -21,8 +21,8 @@ type RequestContext struct {
 
 func DefaultRequestContext() *RequestContext {
 	reqCon := &RequestContext{
-		Started: time.Now(), // start time
-		Protocol: "udp", // default to udp
+		Started:  time.Now(), // start time
+		Protocol: "udp",      // default to udp
 	}
 	return reqCon
 }

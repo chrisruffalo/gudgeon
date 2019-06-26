@@ -82,7 +82,7 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 
 	// for our outer reloading delegate to a complex store that delegates to the type of chosen store
 	// reloading -> complex -> actual chosen store (which can delegate even further)
-	store.delegate = &complexStore{ backingStore: delegate }
+	store.delegate = &complexStore{backingStore: delegate}
 
 	// initialize stores
 	store.Init(storeRoot, config, config.Lists)
@@ -99,14 +99,14 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 		// notify that we want to watch for changes in a given file
 		events.Send("file:watch:start", &events.Message{"path": config.PathToList(watchList)})
 		// save handle so it can later be used to close watchers
-		handle := events.Listen("file:" + config.PathToList(watchList), func(message *events.Message) {
+		handle := events.Listen("file:"+config.PathToList(watchList), func(message *events.Message) {
 			store.Clear(config, watchList)
 			newRuleCount := loadList(store, config, watchList)
 			// send message that a list value changed
 			events.Send("store:list:changed", &events.Message{
-				"listName": watchList.CanonicalName(),
+				"listName":      watchList.CanonicalName(),
 				"listShortName": watchList.ShortName(),
-				"count": newRuleCount,
+				"count":         newRuleCount,
 			})
 			// watch file again
 			events.Send("file:watch:start", &events.Message{"path": config.PathToList(watchList)})

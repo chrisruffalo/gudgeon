@@ -9,7 +9,7 @@ import (
 type reloadingStore struct {
 	handlers []*events.Handle
 	delegate RuleStore
-	mux sync.RWMutex
+	mux      sync.RWMutex
 }
 
 func (reloadingStore *reloadingStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {

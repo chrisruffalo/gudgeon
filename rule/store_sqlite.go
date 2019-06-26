@@ -20,7 +20,7 @@ const _insertStmt = "INSERT OR IGNORE INTO rules (ListRowId, Rule) VALUES ((SELE
 
 type sqlStore struct {
 	path string
-	db *sql.DB
+	db   *sql.DB
 
 	tx *sql.Tx
 

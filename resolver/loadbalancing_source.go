@@ -9,9 +9,9 @@ import (
 )
 
 type lbSource struct {
-	name       string
-	sources    []Source
-	idx        int
+	name    string
+	sources []Source
+	idx     int
 
 	askChan    chan bool
 	chosenChan chan Source
@@ -20,12 +20,12 @@ type lbSource struct {
 
 func newLoadBalancingSource(name string, sources []Source) Source {
 	lb := &lbSource{
-		name: name,
-		sources: sources,
-		idx: 0,
-		askChan: make(chan bool),
+		name:       name,
+		sources:    sources,
+		idx:        0,
+		askChan:    make(chan bool),
 		chosenChan: make(chan Source),
-		closeChan: make(chan bool),
+		closeChan:  make(chan bool),
 	}
 	go lb.router()
 	return lb
@@ -38,10 +38,10 @@ func (lb *lbSource) Load(specification string) {
 func (lb *lbSource) router() {
 	for {
 		select {
-		case <- lb.askChan:
+		case <-lb.askChan:
 			lb.chosenChan <- lb.sources[lb.idx]
 			lb.idx = (lb.idx + 1) % len(lb.sources)
-		case <- lb.closeChan:
+		case <-lb.closeChan:
 			lb.closeChan <- true
 			return
 		}
@@ -52,7 +52,7 @@ func (lb *lbSource) Answer(rCon *RequestContext, context *ResolutionContext, req
 	tries := len(lb.sources)
 	for tries >= 0 {
 		lb.askChan <- true
-		source := <- lb.chosenChan
+		source := <-lb.chosenChan
 
 		response, err := source.Answer(rCon, context, request)
 		if err == nil && !util.IsEmptyResponse(response) {

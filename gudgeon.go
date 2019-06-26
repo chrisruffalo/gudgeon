@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
-	"net/http/pprof"
 	"syscall"
 
 	"github.com/google/gops/agent"
@@ -36,7 +36,7 @@ type Gudgeon struct {
 func NewGudgeon(confPath string, config *config.GudgeonConfig) *Gudgeon {
 	return &Gudgeon{
 		confPath: confPath,
-		config: config,
+		config:   config,
 	}
 }
 
@@ -44,12 +44,14 @@ func (gudgeon *Gudgeon) Start() error {
 	// error
 	var err error
 
+	// start the event bus
+	events.Start()
+
 	// start the file watcher
 	events.StartFileWatch()
 
 	// create engine which handles resolution, logging, etc
-	//gudgeon.engine, err = engine.NewReloadingEngine(gudgeon.confPath, gudgeon.config)
-	gudgeon.engine, err = engine.NewEngine(gudgeon.config)
+	gudgeon.engine, err = engine.NewReloadingEngine(gudgeon.confPath, gudgeon.config)
 	if err != nil {
 		return err
 	}
@@ -84,6 +86,9 @@ func (gudgeon *Gudgeon) Start() error {
 func (gudgeon *Gudgeon) Shutdown() {
 	// stop the file watcher
 	events.StopFileWatch()
+
+	// stop the event bus
+	events.Stop()
 
 	// stop providers
 	if gudgeon.provider != nil {
@@ -137,7 +142,7 @@ func main() {
 		// start profile http endpoint on given port
 		profPort := "9900"
 		go func() {
-			err = http.ListenAndServe("127.0.0.1:" + profPort, http.HandlerFunc(pprof.Index))
+			err = http.ListenAndServe("127.0.0.1:"+profPort, http.HandlerFunc(pprof.Index))
 			if err != nil {
 				log.Errorf("Could not expose HTTP profile endpoint on %s: %s", profPort, err)
 			}

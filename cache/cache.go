@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"strings"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,9 +14,9 @@ import (
 
 const (
 	// key delimeter
-	delimeter                 = "|"
+	delimeter = "|"
 	// absolute max TTL
-	dnsMaxTTL                 = uint32(604800)
+	dnsMaxTTL = uint32(604800)
 	/// default time to scrape expired items
 	defaultCacheScrapeMinutes = 1
 )
@@ -37,8 +37,8 @@ type Cache interface {
 // group -> int mappings that saves several bytes for
 // each key entry. (this optimization may be overkill)
 type gocache struct {
-	backers          map[string]*backer.Cache
-	partitionMux     sync.Mutex
+	backers      map[string]*backer.Cache
+	partitionMux sync.Mutex
 }
 
 func min(a uint32, b uint32) uint32 {
@@ -48,15 +48,8 @@ func min(a uint32, b uint32) uint32 {
 	return b
 }
 
-func max(a uint32, b uint32) uint32 {
-	if a <= b {
-		return b
-	}
-	return a
-}
-
 func New() Cache {
-	gocache := new(gocache)
+	gocache := &gocache{}
 	gocache.backers = make(map[string]*backer.Cache)
 	return gocache
 }
@@ -118,7 +111,7 @@ func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.
 		// put in backing store key -> envelope
 		gocache.backers[partition].Set(key, &envelope{
 			message: response,
-			time: time.Now(),
+			time:    time.Now(),
 		}, time.Duration(ttl)*time.Second)
 
 		return true

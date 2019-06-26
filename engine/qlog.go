@@ -18,6 +18,7 @@ import (
 
 // lit of valid sort names (lower case for ease of use with util.StringIn)
 var validSorts = []string{"address", "connectiontype", "requestdomain", "requesttype", "blocked", "blockedlist", "blockedrule", "created"}
+
 const bufferFlushStmt = "INSERT INTO qlog (Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Rcode, Cached, Blocked, Match, MatchList, MatchRule, ServiceTime, Created, EndTime) SELECT Address, Consumer, ClientName, RequestDomain, RequestType, ResponseText, Rcode, Cached, Blocked, Match, MatchList, MatchRule, ServiceTime, Created, EndTime FROM buffer WHERE true"
 
 // allows a dependency injection-way of defining a reverse lookup function, takes a string address (should be an IP) and returns a string that contains the domain name result
@@ -37,9 +38,9 @@ type QueryLogQuery struct {
 	Blocked        *bool
 	Cached         *bool
 	// aspects of the match
-	Match          *rule.Match
-	MatchList      string
-	MatchRule      string
+	Match     *rule.Match
+	MatchList string
+	MatchRule string
 	// query on created time
 	After  *time.Time
 	Before *time.Time

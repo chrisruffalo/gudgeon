@@ -31,14 +31,14 @@ func NewReloadingEngine(confPath string, conf *config.GudgeonConfig) (Engine, er
 	// create new reloading shell for engine
 	reloading := &reloadingEngine{
 		confPath: confPath,
-		current: current,
-		handles: make([]*events.Handle, 0),
+		current:  current,
+		handles:  make([]*events.Handle, 0),
 	}
 
 	// establish file watch
-	events.Send("file:watch:start", &events.Message{ "path": confPath })
+	events.Send("file:watch:start", &events.Message{"path": confPath})
 	// subscribe to topic
-	handle := events.Listen("file:" + confPath, func(message *events.Message) {
+	handle := events.Listen("file:"+confPath, func(message *events.Message) {
 		// clear all file watches
 		events.Send("file:watch:clear", nil)
 
@@ -60,7 +60,7 @@ func NewReloadingEngine(confPath string, conf *config.GudgeonConfig) (Engine, er
 		}
 
 		// subscribe for new change events / ensure still subscribed
-		events.Send("file:watch:start", &events.Message{ "path": confPath })
+		events.Send("file:watch:start", &events.Message{"path": confPath})
 	})
 	reloading.handles = append(reloading.handles, handle)
 
@@ -216,6 +216,3 @@ func (engine *reloadingEngine) Shutdown() {
 		}
 	}
 }
-
-
-

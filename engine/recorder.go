@@ -89,7 +89,7 @@ type InfoRecord struct {
 	Cached bool
 
 	// when this log record was created
-	Created time.Time
+	Created  time.Time
 	Finished time.Time
 
 	// how long it took to service the request inside the engine
@@ -509,7 +509,7 @@ func (recorder *recorder) shutdown() {
 	// signal stop mdns if enabled
 	if recorder.mdnsCloseChan != nil {
 		recorder.mdnsCloseChan <- true
-		<- recorder.mdnsCloseChan
+		<-recorder.mdnsCloseChan
 		close(recorder.mdnsCloseChan)
 	}
 

@@ -5,7 +5,6 @@ import (
 	"github.com/miekg/dns"
 
 	log "github.com/sirupsen/logrus"
-
 )
 
 var localServers = []string{
@@ -16,13 +15,13 @@ var localServers = []string{
 
 type resolvSource struct {
 	// the original file
-	filePath      string
+	filePath string
 
 	// search domains
 	searchDomains []string
 
 	// upstream multisource (or load balanced source)
-	upstream      Source
+	upstream Source
 }
 
 func (resolvSource *resolvSource) Load(resolvFilePath string) {
@@ -59,7 +58,6 @@ func (resolvSource *resolvSource) Load(resolvFilePath string) {
 	}
 }
 
-
 func (resolvSource *resolvSource) Name() string {
 	return resolvSource.filePath
 }
@@ -79,4 +77,3 @@ func (resolvSource *resolvSource) Answer(rCon *RequestContext, context *Resoluti
 func (resolvSource *resolvSource) Close() {
 
 }
-

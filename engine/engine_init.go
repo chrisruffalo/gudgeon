@@ -87,12 +87,12 @@ func NewEngine(conf *config.GudgeonConfig) (Engine, error) {
 func newEngineWithComponents(conf *config.GudgeonConfig, db *sql.DB, recorder *recorder, metrics Metrics, queryLog QueryLog) (Engine, error) {
 	// create return object
 	engine := &engine{
-		config: conf,
-		db: db,
+		config:   conf,
+		db:       db,
 		recorder: recorder,
-		metrics: metrics,
-		qlog: queryLog,
-		handles: make([]*events.Handle, 0),
+		metrics:  metrics,
+		qlog:     queryLog,
+		handles:  make([]*events.Handle, 0),
 	}
 
 	err := engine.bootstrap()
@@ -189,9 +189,9 @@ func (engine *engine) bootstrap() error {
 	for idx, configGroup := range conf.Groups {
 		// create active group for group name
 		engineGroup := &group{
-			engine: engine,
+			engine:      engine,
 			configGroup: configGroup,
-			lists: assignedLists(configGroup.Lists, configGroup.SafeTags(), conf.Lists),
+			lists:       assignedLists(configGroup.Lists, configGroup.SafeTags(), conf.Lists),
 		}
 
 		// add created engine group to list of groups
@@ -307,7 +307,7 @@ func (engine *engine) bootstrap() error {
 	// subscribe to rule list changes to update metrics/counts
 	listChangeHandle := events.Listen("store:list:changed", func(message *events.Message) {
 		// bail if engine metrics are nil
-		if message == nil{
+		if message == nil {
 			return
 		}
 

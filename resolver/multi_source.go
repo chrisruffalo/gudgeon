@@ -9,14 +9,14 @@ import (
 )
 
 type multiSource struct {
-	name       string
-	sources    []Source
-	idx        int
+	name    string
+	sources []Source
+	idx     int
 }
 
 func newMultiSource(name string, sources []Source) Source {
 	ms := &multiSource{
-		name: name,
+		name:    name,
 		sources: sources,
 	}
 	return ms

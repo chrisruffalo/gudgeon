@@ -23,11 +23,11 @@ type fileSource struct {
 }
 
 func (source *fileSource) watchAndLoad() {
-	source.handle = events.Listen("file:" + source.path, func(message *events.Message) {
+	source.handle = events.Listen("file:"+source.path, func(message *events.Message) {
 		log.Infof("Loading new source from: '%s'", source.path)
 		source.Load(source.path)
 		// notify of source change
-		events.Send("souce:change", &events.Message{ "source": source.Name()})
+		events.Send("souce:change", &events.Message{"source": source.Name()})
 	})
 }
 

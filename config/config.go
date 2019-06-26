@@ -109,13 +109,13 @@ type GudgeonNetwork struct {
 // provides more configuration options and details for sources beyond the simple source specification
 type GudgeonSource struct {
 	// name that would be in the source list for a resolver
-	Name         string                  `yaml:"name"`
+	Name string `yaml:"name"`
 	// specs of children resolvers (same as a simple source spec)
-	Specs        []string                `yaml:"spec"`
+	Specs []string `yaml:"spec"`
 	// should the entries in the spec list be load balanced (default: false)
-	LoadBalance  bool                   `yaml:"load_balance"`
+	LoadBalance bool `yaml:"load_balance"`
 	// source specific options to allow further configuration of sources
-	Options      map[string]interface{}  `yaml:"options"`
+	Options map[string]interface{} `yaml:"options"`
 }
 
 // a resolver is composed of a list of sources to get DNS information from
@@ -137,7 +137,7 @@ type GudgeonResolver struct {
 // GudgeonList different types of lists for domains that gudgeon will evaluate (and if they explicitly allow or block the matched entries)
 type GudgeonList struct {
 	// the name of the list
-	Name string `yaml:"name"`
+	Name      string `yaml:"name"`
 	shortName string `yaml:"-"`
 	// the type of the list, requires "allow" or "block", defaults to "block"
 	Type string `yaml:"type"`

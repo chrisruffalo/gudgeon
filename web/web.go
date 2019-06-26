@@ -25,10 +25,10 @@ const (
 )
 
 type web struct {
-	conf     *config.GudgeonConfig
-	server   *http.Server
+	conf   *config.GudgeonConfig
+	server *http.Server
 
-	engine   engine.Engine
+	engine engine.Engine
 }
 
 type Web interface {
@@ -70,7 +70,7 @@ func (web *web) GetMetrics(c *gin.Context) {
 	c.Status(http.StatusOK)
 	_ = util.Json.NewEncoder(c.Writer).Encode(&gin.H{
 		"metrics": metrics,
-		"lists": lists,
+		"lists":   lists,
 	})
 }
 
@@ -357,7 +357,7 @@ func (web *web) GetTestComponents(c *gin.Context) {
 	// option in the drop down list
 	c.Status(http.StatusOK)
 	_ = util.Json.NewEncoder(c.Writer).Encode(&gin.H{
-		"consumer": consumers,
+		"consumer":  consumers,
 		"groups":    groups,
 		"resolvers": resolvers,
 	})
@@ -428,11 +428,11 @@ func (web *web) GetTestResult(c *gin.Context) {
 			Opcode:            dns.OpcodeQuery,
 		},
 	}
-	question.Question = []dns.Question{ { Name: domain, Qclass: dns.ClassINET, Qtype: dns.StringToType[qtype]} }
+	question.Question = []dns.Question{{Name: domain, Qclass: dns.ClassINET, Qtype: dns.StringToType[qtype]}}
 
 	var (
 		response *dns.Msg
-		result *resolver.ResolutionResult
+		result   *resolver.ResolutionResult
 	)
 
 	rCon := resolver.DefaultRequestContext()
@@ -453,10 +453,10 @@ func (web *web) GetTestResult(c *gin.Context) {
 
 	// set code and stream results
 	c.Status(http.StatusOK)
-    _ = json.NewEncoder(c.Writer).Encode(&gin.H{
+	_ = json.NewEncoder(c.Writer).Encode(&gin.H{
 		"response": response,
-		"result": result,
-		"text": responseText,
+		"result":   result,
+		"text":     responseText,
 	})
 }
 

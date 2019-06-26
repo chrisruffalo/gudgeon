@@ -124,7 +124,7 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	// explicitly close the writer since it's done
-	err  = writer.Close()
+	err = writer.Close()
 	if err != nil {
 		log.Errorf("Closing response: %s", err)
 	}
