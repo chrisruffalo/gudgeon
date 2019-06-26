@@ -136,7 +136,7 @@ func main() {
 		// start gops agent
 		err := agent.Listen(agent.Options{})
 		if err != nil {
-			log.Errorf("Could not starting GOPS profilling agent: %s", err)
+			log.Errorf("Could not starting GOPS profiling agent: %s", err)
 		}
 
 		// start profile http endpoint on given port

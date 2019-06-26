@@ -2,10 +2,8 @@ package web
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/chrisruffalo/gudgeon/resolver"
-	"github.com/miekg/dns"
+
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,10 +11,12 @@ import (
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/gin-gonic/gin"
+	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
 	"github.com/chrisruffalo/gudgeon/engine"
+	"github.com/chrisruffalo/gudgeon/resolver"
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
@@ -28,7 +28,9 @@ type web struct {
 	conf   *config.GudgeonConfig
 	server *http.Server
 
-	engine engine.Engine
+	engine   engine.Engine
+	metrics  engine.Metrics
+	queryLog engine.QueryLog
 }
 
 type Web interface {
@@ -42,7 +44,7 @@ func New() Web {
 
 // get metrics counter named in query
 func (web *web) GetMetrics(c *gin.Context) {
-	if web.engine.Metrics() == nil {
+	if web.metrics == nil {
 		c.String(http.StatusNotFound, "Metrics not enabled)")
 		return
 	}
@@ -55,7 +57,7 @@ func (web *web) GetMetrics(c *gin.Context) {
 		lists = append(lists, listEntry)
 	}
 
-	metrics := web.engine.Metrics().GetAll()
+	metrics := web.metrics.GetAll()
 
 	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
 		keepMetrics := strings.Split(filterStrings, ",")
@@ -66,9 +68,7 @@ func (web *web) GetMetrics(c *gin.Context) {
 		}
 	}
 
-	// send output
-	c.Status(http.StatusOK)
-	_ = util.Json.NewEncoder(c.Writer).Encode(&gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"metrics": metrics,
 		"lists":   lists,
 	})
@@ -86,16 +86,9 @@ func condenseMetric(target *engine.MetricsEntry, from *engine.MetricsEntry, coun
 	}
 }
 
-func (web *web) QueryStream(entryChan chan *engine.MetricsEntry, queryStart *time.Time, queryEnd *time.Time) {
-	err := web.engine.Metrics().QueryStream(entryChan, queryStart, queryEnd)
-	if err != nil {
-		log.Errorf("Could not query metrics: %s", err)
-	}
-}
-
 func (web *web) QueryMetrics(c *gin.Context) {
-	if web.engine.Metrics() == nil {
-		c.String(http.StatusNotFound, "Metrics not enabled")
+	if web.metrics == nil {
+		c.String(http.StatusNotFound, "Metrics not enabled)")
 		return
 	}
 
@@ -132,95 +125,25 @@ func (web *web) QueryMetrics(c *gin.Context) {
 		queryEnd = &endTime
 	}
 
-	keepMetrics := make([]string, 0)
-	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
-		keepMetrics = strings.Split(filterStrings, ",")
-	}
-
-	condenseMetrics := false
-	if condense := c.Query("condense"); len(condense) > 0 && ("true" == condense || "1" == condense) {
-		condenseMetrics = true
-	}
-
-	// when on the first entry the output is slightly different
 	firstEntry := true
-
-	// hold an entry for condensing into
-	var heldEntry *engine.MetricsEntry
-
-	// calculate condensation factor
-	distance := int((*queryEnd).Sub(*queryStart).Hours())
-	factor := distance / 2
-	if distance >= 24 {
-		distance = distance / 2
-	}
-	if distance > 48 {
-		distance = distance / 2
-	}
-	if factor >= 512 {
-		factor = 512
-	}
-	condenseCounter := 1
-
-	// encoder
-	encoder := util.Json.NewEncoder(c.Writer)
-
-	// start query stream
-	entryChan := web.engine.Metrics().QueryStreamChan(queryStart, queryEnd)
-
-	// start empty array
 	c.String(http.StatusOK, "[")
-	for me := range entryChan {
-		// filter out metrics that are not in the "keep list"
-		if len(keepMetrics) > 0 {
-			for k := range me.Values {
-				if !util.StringIn(k, keepMetrics) {
-					delete(me.Values, k)
-				}
-			}
-		}
-
-		// if we are condensing, do condense logic, otherwise just
-		// stream output
-		if condenseMetrics {
-			if heldEntry == nil || condenseCounter < 2 {
-				heldEntry = me
-			} else {
-				condenseMetric(heldEntry, me, condenseCounter)
-			}
-			condenseCounter++
-			me = heldEntry
-		}
-
-		if !condenseMetrics || (condenseMetrics && condenseCounter >= factor) {
-			if !firstEntry {
-				c.String(http.StatusOK, ",")
-			}
-			firstEntry = false
-			_ = encoder.Encode(me)
-
-			// if condensing start over
-			if condenseMetrics {
-				heldEntry = nil
-				condenseCounter = 1
-			}
-		}
-	}
-
-	// write any additional held entries
-	if heldEntry != nil {
+	_ = web.metrics.QueryFunc(func(entry *engine.MetricsEntry) {
 		if !firstEntry {
 			c.String(http.StatusOK, ",")
 		}
-		_ = encoder.Encode(heldEntry)
-	}
-
-	// finish array
+		firstEntry = false
+		c.String(http.StatusOK, "{")
+		c.String(http.StatusOK, "\"AtTime\": \""+entry.AtTime.String()+"\", ")
+		c.String(http.StatusOK, "\"FromTime\": \""+entry.FromTime.String()+"\", ")
+		c.String(http.StatusOK, "\"IntervalSeconds\": "+fmt.Sprintf("%d", entry.IntervalSeconds)+",")
+		c.String(http.StatusOK, "\"Values\": "+entry.JsonString)
+		c.String(http.StatusOK, "}")
+	}, *queryStart, *queryEnd)
 	c.String(http.StatusOK, "]")
 }
 
 func (web *web) GetQueryLogInfo(c *gin.Context) {
-	if web.engine.QueryLog() == nil {
+	if web.queryLog == nil {
 		c.String(http.StatusNotFound, "Query log not enabled")
 		return
 	}
@@ -305,14 +228,14 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 
 	c.String(http.StatusOK, "{")
 
-	//go web.engine.QueryLog()..QueryStream(query, infoChan, countChan)
-	infoChan, countChan := web.engine.QueryLog().QueryStreamChan(query)
+	// create channels
+	infoChan := make(chan *engine.InfoRecord)
+	countChan := make(chan uint64)
+
+	go web.queryLog.QueryStream(query, infoChan, countChan)
 
 	c.String(http.StatusOK, "\"total\": %d", <-countChan)
 	c.String(http.StatusOK, ", \"items\": [")
-
-	// encoder
-	encoder := util.Json.NewEncoder(c.Writer)
 
 	firstRecord := true
 	for info := range infoChan {
@@ -320,7 +243,7 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 			c.String(http.StatusOK, ", ")
 		}
 		firstRecord = false
-		_ = encoder.Encode(info)
+		c.JSON(http.StatusOK, info)
 	}
 
 	c.String(http.StatusOK, "]}")
@@ -355,8 +278,7 @@ func (web *web) GetTestComponents(c *gin.Context) {
 	// accept singular consumers at the api endpoint and
 	// this is consistent with that and the naming of the
 	// option in the drop down list
-	c.Status(http.StatusOK)
-	_ = util.Json.NewEncoder(c.Writer).Encode(&gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"consumer":  consumers,
 		"groups":    groups,
 		"resolvers": resolvers,
@@ -364,7 +286,7 @@ func (web *web) GetTestComponents(c *gin.Context) {
 }
 
 func (web *web) GetTop(c *gin.Context) {
-	if web.engine.Metrics() == nil || !(*web.conf.Metrics.Detailed) {
+	if web.metrics == nil || !(*web.conf.Metrics.Detailed) {
 		c.String(http.StatusNotFound, "Detailed Metrics not enabled)")
 		return
 	}
@@ -386,20 +308,19 @@ func (web *web) GetTop(c *gin.Context) {
 	if topType != "" {
 		switch strings.ToLower(topType) {
 		case "domains":
-			results = web.engine.Metrics().TopDomains(limit)
+			results = web.metrics.TopDomains(limit)
 		case "lists":
-			results = web.engine.Metrics().TopLists(limit)
+			results = web.metrics.TopLists(limit)
 		case "clients":
-			results = web.engine.Metrics().TopClients(limit)
+			results = web.metrics.TopClients(limit)
 		case "rules":
-			results = web.engine.Metrics().TopRules(limit)
+			results = web.metrics.TopRules(limit)
 		case "types":
-			results = web.engine.Metrics().TopQueryTypes(limit)
+			results = web.metrics.TopQueryTypes(limit)
 		}
 	}
 
-	c.Status(http.StatusOK)
-	_ = util.Json.NewEncoder(c.Writer).Encode(results)
+	c.JSON(http.StatusOK, results)
 }
 
 func (web *web) GetTestResult(c *gin.Context) {
@@ -451,9 +372,7 @@ func (web *web) GetTestResult(c *gin.Context) {
 		responseText = response.String()
 	}
 
-	// set code and stream results
-	c.Status(http.StatusOK)
-	_ = json.NewEncoder(c.Writer).Encode(&gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"response": response,
 		"result":   result,
 		"text":     responseText,
@@ -462,8 +381,10 @@ func (web *web) GetTestResult(c *gin.Context) {
 
 func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine) error {
 	// set metrics endpoint
-	web.conf = conf
 	web.engine = engine
+	web.metrics = engine.Metrics()
+	web.queryLog = engine.QueryLog()
+	web.conf = conf
 
 	// create new router
 	gin.SetMode(gin.ReleaseMode)

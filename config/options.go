@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
 	"os"
+	"runtime"
 )
 
 type HelpOptions struct {
@@ -38,6 +39,7 @@ func Options(longVersion string) (GudgeonOptions, error) {
 	// if version or help we start out the same way
 	if opts.HelpOptions.Help || opts.HelpOptions.Version {
 		fmt.Printf("%s\n", longVersion)
+		fmt.Printf("%s\n", runtime.Version())
 		// and then print the rest of the help
 		if opts.HelpOptions.Help {
 			parser.WriteHelp(os.Stdout)

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"database/sql"
+	"encoding/json"
 	"math"
 	"os"
 	"runtime"
@@ -34,12 +35,10 @@ const (
 	BlockedIntervalQueries = "blocked-interval-queries"
 	QueriesPerSecond       = "session-queries-ps"
 	BlocksPerSecond        = "session-blocks-ps"
-	// query time is the total time for an interval, query average time is the average for that interval
-	QueryTime    = "query-time"
-	QueryAvgTime = "query-avg-time"
+	QueryTime              = "query-time"
 	// cache entries
 	CurrentCacheEntries = "cache-entries"
-	// runtime metrics
+	// rutnime metrics
 	GoRoutines         = "goroutines"
 	Threads            = "process-threads"
 	CurrentlyAllocated = "allocated-bytes"    // heap allocation in go runtime stats
@@ -59,9 +58,10 @@ type metricsInfo struct {
 }
 
 type MetricsEntry struct {
-	FromTime        *time.Time
-	AtTime          *time.Time
-	Values          map[string]*Metric
+	FromTime        time.Time
+	AtTime          time.Time
+	JsonString      string             `json:"-"`
+	Values          map[string]*Metric `json:"Values,omitempty"`
 	IntervalSeconds int
 }
 
@@ -74,8 +74,8 @@ func (metric *Metric) Set(newValue int64) *Metric {
 	return metric
 }
 
-func (metric *Metric) Inc(value int64) *Metric {
-	metric.Count = metric.Count + value
+func (metric *Metric) Inc(byValue int64) *Metric {
+	metric.Count = metric.Count + byValue
 	return metric
 }
 
@@ -98,9 +98,6 @@ type metrics struct {
 	metricsInfoChan chan *metricsInfo
 	db              *sql.DB
 
-	// metrics keep duration
-	duration *time.Duration
-
 	cacheSizeFunc CacheSizeFunction
 
 	// time management for interval insert
@@ -110,6 +107,9 @@ type metrics struct {
 
 type CacheSizeFunction = func() int64
 
+// allows the same query and row scan logic to share code
+type MetricsAccumulator = func(entry *MetricsEntry)
+
 type Metrics interface {
 	GetAll() map[string]*Metric
 	Get(name string) *Metric
@@ -118,9 +118,8 @@ type Metrics interface {
 	UseCacheSizeFunction(function CacheSizeFunction)
 
 	// Query metrics from db
-	Query(start *time.Time, end *time.Time) ([]*MetricsEntry, error)
-	QueryStream(returnChan chan *MetricsEntry, start *time.Time, end *time.Time) error
-	QueryStreamChan(start *time.Time, end *time.Time) chan *MetricsEntry
+	Query(start time.Time, end time.Time) ([]*MetricsEntry, error)
+	QueryFunc(accumulatorFunction MetricsAccumulator, start time.Time, end time.Time) error
 
 	// top information
 	TopClients(limit int) []*TopInfo
@@ -134,7 +133,7 @@ type Metrics interface {
 
 	// package db management methods
 	update()
-	insert(tx *sql.Tx, currentTime *time.Time)
+	insert(tx *sql.Tx, currentTime time.Time)
 	record(info *InfoRecord)
 	flush(tx *sql.Tx)
 	prune(tx *sql.Tx)
@@ -154,14 +153,6 @@ func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 		metrics.load()
 	}
 
-	// parse duration once
-	if "" != config.Metrics.Duration {
-		duration, err := util.ParseDuration(config.Metrics.Duration)
-		if err != nil {
-			metrics.duration = &duration
-		}
-	}
-
 	// update metrics initially
 	metrics.update()
 
@@ -172,8 +163,13 @@ func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 }
 
 func (metrics *metrics) GetAll() map[string]*Metric {
-	// wish i could just wrap this in an immutable map
-	return metrics.metricsMap
+	metrics.metricsMutex.RLock()
+	mapCopy := make(map[string]*Metric, 0)
+	for k, v := range metrics.metricsMap {
+		mapCopy[k] = &Metric{Count: v.Value()}
+	}
+	metrics.metricsMutex.RUnlock()
+	return mapCopy
 }
 
 func (metrics *metrics) Get(name string) *Metric {
@@ -191,33 +187,27 @@ func (metrics *metrics) Get(name string) *Metric {
 	return metric
 }
 
-// capture memory metrics
-var proc, _ = process.NewProcess(int32(os.Getpid()))
-var memoryStats = &runtime.MemStats{}
-
 func (metrics *metrics) update() {
-
-	// capture average service time
-	totalQueries := metrics.Get(TotalIntervalQueries).Value() + metrics.Get(BlockedIntervalQueries).Value()
-	if totalQueries > 0 {
-		metrics.Get(QueryAvgTime).Set(metrics.Get(QueryTime).Value() / totalQueries)
-	}
+	// get pid
+	pid := os.Getpid()
 
 	// capture queries per interval into queries per second
-	if metrics.duration != nil {
-		metrics.Get(QueriesPerSecond).Set(int64(math.Round(float64(metrics.Get(TotalIntervalQueries).Value()) / float64(metrics.duration.Seconds()))))
-		metrics.Get(BlocksPerSecond).Set(int64(math.Round(float64(metrics.Get(BlockedIntervalQueries).Value()) / float64(metrics.duration.Seconds()))))
+	duration, err := util.ParseDuration(metrics.config.Metrics.Interval)
+	if err == nil {
+		metrics.Get(QueriesPerSecond).Set(int64(math.Round(float64(metrics.Get(TotalIntervalQueries).Value()) / float64(duration.Seconds()))))
+		metrics.Get(BlocksPerSecond).Set(int64(math.Round(float64(metrics.Get(BlockedIntervalQueries).Value()) / float64(duration.Seconds()))))
 	}
 
 	// get process
-	if proc != nil {
-		if percent, err := proc.CPUPercent(); err == nil {
+	process, err := process.NewProcess(int32(pid))
+	if err == nil && process != nil {
+		if percent, err := process.CPUPercent(); err == nil {
 			metrics.Get(CPUHundredsPercent).Set(int64(percent * 100))
 		}
-		if pmem, err := proc.MemoryInfo(); err == nil {
+		if pmem, err := process.MemoryInfo(); err == nil {
 			metrics.Get(UsedMemory).Set(int64(pmem.RSS))
 		}
-		if threads, err := proc.NumThreads(); err == nil {
+		if threads, err := process.NumThreads(); err == nil {
 			metrics.Get(Threads).Set(int64(threads))
 		}
 		if vmem, err := mem.VirtualMemory(); err == nil {
@@ -229,6 +219,8 @@ func (metrics *metrics) update() {
 	// capture goroutines
 	metrics.Get(GoRoutines).Set(int64(runtime.NumGoroutine()))
 
+	// capture memory metrics
+	memoryStats := &runtime.MemStats{}
 	runtime.ReadMemStats(memoryStats)
 	metrics.Get(CurrentlyAllocated).Set(int64(memoryStats.Alloc))
 
@@ -243,7 +235,6 @@ func (metrics *metrics) record(info *InfoRecord) {
 	metrics.Get(TotalQueries).Inc(1)
 	metrics.Get(TotalLifetimeQueries).Inc(1)
 	metrics.Get(TotalIntervalQueries).Inc(1)
-	metrics.Get(QueryTime).Inc(info.ServiceMilliseconds)
 
 	// add cache hits
 	if info.Result != nil && info.Result.Cached {
@@ -263,12 +254,12 @@ func (metrics *metrics) record(info *InfoRecord) {
 	}
 }
 
-func (metrics *metrics) insert(tx *sql.Tx, currentTime *time.Time) {
+func (metrics *metrics) insert(tx *sql.Tx, currentTime time.Time) {
 	// get all metrics
 	all := metrics.GetAll()
 
 	// make into json string
-	bytes, err := util.Json.Marshal(all)
+	bytes, err := json.Marshal(all)
 	if err != nil {
 		log.Errorf("Error marshalling metrics json: %s", err)
 		return
@@ -293,7 +284,7 @@ func (metrics *metrics) insert(tx *sql.Tx, currentTime *time.Time) {
 	metrics.Get(BlockedIntervalQueries).Clear()
 	//metrics.Get(QueriesPerSecond).Clear()
 	//metrics.Get(BlocksPerSecond).Clear()
-	metrics.lastInsert = *currentTime
+	metrics.lastInsert = currentTime
 }
 
 func (metrics *metrics) prune(tx *sql.Tx) {
@@ -304,97 +295,55 @@ func (metrics *metrics) prune(tx *sql.Tx) {
 	}
 }
 
-// allows the same query and row scan logic to share code
-type metricsAccumulator = func(entry *MetricsEntry)
-
-// implementation of the underlying query function
-func (metrics *metrics) query(qA metricsAccumulator, start *time.Time, end *time.Time) error {
+// allows custom accumulation for either streaming or custom marshalling
+func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, start time.Time, end time.Time) error {
 	// don't do anything with nil accumulator
-	if qA == nil {
+	if accumulatorFunction == nil {
 		return nil
 	}
 
-	stmt, err := metrics.db.Prepare("SELECT FromTime, AtTime, MetricsJson, IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime ASC")
+	rows, err := metrics.db.Query("SELECT FromTime, AtTime, MetricsJson, IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime ASC", start, end)
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer rows.Close()
 
-	rows, err := stmt.Query(start, end)
-	if err != nil {
-		return err
-	}
-
-	var metricsJSONString string
-
-	var me *MetricsEntry
+	me := &MetricsEntry{}
 	for rows.Next() {
-		me = &MetricsEntry{}
-
-		err = rows.Scan(&me.AtTime, &me.FromTime, &metricsJSONString, &me.IntervalSeconds)
+		err = rows.Scan(&me.AtTime, &me.FromTime, &me.JsonString, &me.IntervalSeconds)
 		if err != nil {
 			log.Errorf("Error scanning for metrics query: %s", err)
 			continue
 		}
-		// unmarshal string into values
-		err = util.Json.Unmarshal([]byte(metricsJSONString), &me.Values)
-		if err != nil {
-			log.Errorf("Error unmarshalling json: %s", err)
-		}
 
 		// call accumulator function
-		qA(me)
+		accumulatorFunction(me)
 	}
 
-	err = rows.Close()
-	if err != nil {
-		log.Errorf("Could not close result: %s", err)
-	}
 	return nil
 }
 
-// traditional query that returns an arry of metrics entries, good for testing, small queries
-func (metrics *metrics) Query(start *time.Time, end *time.Time) ([]*MetricsEntry, error) {
+// traditional query that returns an array of metrics entries, good for testing, small queries
+func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, error) {
 	entries := make([]*MetricsEntry, 0, 100)
 	acc := func(me *MetricsEntry) {
 		if me == nil {
 			return
 		}
-		entries = append(entries, me)
+		entry := &MetricsEntry{
+			FromTime:        me.FromTime,
+			AtTime:          me.AtTime,
+			IntervalSeconds: me.IntervalSeconds,
+		}
+		_ = json.Unmarshal([]byte(me.JsonString), &entry.Values)
+		entries = append(entries, entry)
 	}
-	err := metrics.query(acc, start, end)
+	err := metrics.QueryFunc(acc, start, end)
 	return entries, err
 }
 
-// less traditional query type that allows the web endpoint to stream the json back out as rows are scanned
-func (metrics *metrics) QueryStream(returnChan chan *MetricsEntry, start *time.Time, end *time.Time) error {
-	acc := func(me *MetricsEntry) {
-		if me == nil {
-			return
-		}
-		returnChan <- me
-	}
-	err := metrics.query(acc, start, end)
-	close(returnChan)
-	return err
-}
-
-// returns a channel that streams query metrics entries
-func (metrics *metrics) QueryStreamChan(start *time.Time, end *time.Time) chan *MetricsEntry {
-	mChan := make(chan *MetricsEntry)
-	go metrics.QueryStream(mChan, start, end)
-	return mChan
-}
-
 func (metrics *metrics) load() {
-	stmt, err := metrics.db.Prepare("SELECT MetricsJson FROM metrics ORDER BY AtTime DESC LIMIT 1")
-	if err != nil {
-		log.Errorf("Could not prepare metrics load statement: %s", err)
-		return
-	}
-	defer stmt.Close()
-
-	rows, err := stmt.Query()
+	rows, err := metrics.db.Query("SELECT MetricsJson FROM metrics ORDER BY AtTime DESC LIMIT 1")
 	if err != nil {
 		log.Errorf("Could not load initial metrics information: %s", err)
 		return

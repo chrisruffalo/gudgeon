@@ -325,7 +325,7 @@ func (recorder *recorder) worker() {
 					// insert new metrics inside transaction
 					recorder.doWithIsolatedTransaction(func(tx *sql.Tx) {
 						now := time.Now()
-						recorder.metrics.insert(tx, &now)
+						recorder.metrics.insert(tx, now)
 					})
 				}
 			}

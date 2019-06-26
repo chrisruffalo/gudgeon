@@ -12,7 +12,7 @@ import {HumanBytes, LocaleNumber, ProcessorPercentFormatter} from "./helpers";
 
 const CHART_REFRESH_TIMEOUT = 2500;
 
-class Metrics {}
+export class Metrics {}
 Metrics.Queries = {
   label: "Queries",
   formatter: LocaleNumber,
@@ -52,8 +52,7 @@ Metrics.CPU = {
   }
 };
 
-
-class GudgeonChart extends React.Component {
+export class GudgeonChart extends React.Component {
   constructor(props) {
     super(props);
 
@@ -66,8 +65,12 @@ class GudgeonChart extends React.Component {
     // state doesn't need to change every time the chart is rendered
     this.columns = [];
 
-    // create a new chart ref
-    this.chartId = "gudgeon-chart-id" + props.chartName;
+    // create a new chart id for use in div name
+    if(props.chartName !== null && props.chartName.length > 0) {
+      this.chartId = "gudgeon-chart-id-" + props.chartName;
+    } else {
+      this.chartId = "gudgeon-chart-id";
+    }
   };
 
   state = {
@@ -156,23 +159,7 @@ class GudgeonChart extends React.Component {
     // basic queries start at the given time as long as the interval is positive
     let params = {
       start: lastAtTime,
-      condense: "true" 
     };
-
-    // use this to filter query down to what is requested for the chart
-    let metricsSelected = "";
-    let key;
-    let idx = 0;
-    for ( key in this.props.metrics[selected].series ) {
-      if ( idx > 0 ) {
-        metricsSelected = metricsSelected + ","
-      }
-      metricsSelected = metricsSelected + this.props.metrics[selected].series[key].key;
-      idx++;
-    }
-    if ( metricsSelected !== "" || metricsSelected.length > 0 ) {
-      params["metrics"] = metricsSelected
-    }
 
     Axios
       .get("/api/metrics/query", {
@@ -201,7 +188,7 @@ class GudgeonChart extends React.Component {
 
           // the index starts at one
           let idx = 1;
-          for ( key in this.props.metrics[selected].series ) {
+          for (let key in this.props.metrics[selected].series ) {
             // guard series
             if (!this.props.metrics[selected].series.hasOwnProperty(key)) {
               continue
@@ -532,5 +519,3 @@ class GudgeonChart extends React.Component {
     );
   }
 }
-
-export { Metrics, GudgeonChart }
