@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"net"
 	"strings"
 
@@ -96,33 +97,26 @@ func MulticastMdnsListen(msgChan chan *dns.Msg, closeChan chan bool) {
 	}
 }
 
-func ParseMulticastMessage(msg *dns.Msg) map[string]string {
-	// map of values parsed
-	parsed := make(map[string]string)
-
-	// collect all entries
-	entries := []dns.RR{}
-	entries = append(entries, msg.Answer...)
-	entries = append(entries, msg.Extra...)
-
+// parses entries out of records and adds them to the map when found
+func parseEntries(entryMap map[string]string, entries []dns.RR) {
 	for _, rr := range entries {
 		switch rr.Header().Rrtype {
 		case dns.TypeA:
 			name := rr.Header().Name
 			if "" != name {
-				parsed["hostname"] = name
+				entryMap["hostname"] = name
 				if value, ok := rr.(*dns.A); ok && value != nil && value.A != nil {
-					parsed["address"] = value.A.String()
+					entryMap["address"] = value.A.String()
 				}
 				if idx := strings.Index(name, "."); idx > -1 {
 					shortname := name[:idx]
 					if "" != shortname {
-						if name, found := parsed["name"]; found {
+						if name, found := entryMap["name"]; found {
 							if len(shortname) < len(name) {
-								parsed["name"] = shortname
+								entryMap["name"] = shortname
 							}
 						} else {
-							parsed["name"] = shortname
+							entryMap["name"] = shortname
 						}
 					}
 				}
@@ -130,19 +124,19 @@ func ParseMulticastMessage(msg *dns.Msg) map[string]string {
 		case dns.TypeAAAA:
 			name := rr.Header().Name
 			if "" != name {
-				parsed["hostname6"] = name
+				entryMap["hostname6"] = name
 				if value, ok := rr.(*dns.AAAA); ok && value != nil && value.AAAA != nil {
-					parsed["address6"] = value.AAAA.String()
+					entryMap["address6"] = value.AAAA.String()
 				}
 				if idx := strings.Index(name, "."); idx > -1 {
 					shortname := name[:idx]
 					if "" != shortname {
-						if name, found := parsed["name6"]; found {
+						if name, found := entryMap["name6"]; found {
 							if len(shortname) < len(name) {
-								parsed["name6"] = shortname
+								entryMap["name6"] = shortname
 							}
 						} else {
-							parsed["name6"] = shortname
+							entryMap["name6"] = shortname
 						}
 					}
 				}
@@ -151,27 +145,52 @@ func ParseMulticastMessage(msg *dns.Msg) map[string]string {
 			if len(rr.(*dns.TXT).Txt) > 0 {
 				for _, txt := range rr.(*dns.TXT).Txt {
 					if idx := strings.Index(txt, "="); idx > -1 {
-						parsed["txt:"+txt[:idx]] = txt[idx+1:]
+						entryMap["txt:"+txt[:idx]] = txt[idx+1:]
 					} else {
-						parsed["txt"] = txt
+						entryMap["txt"] = txt
 					}
 				}
 			}
 		}
 	}
+}
 
-	return parsed
+func ParseMulticastMessage(msg *dns.Msg) (map[string]string, error) {
+	if len(msg.Answer) < 1 && len(msg.Extra) < 1 {
+		return nil, fmt.Errorf("No messages found")
+	}
+
+	// map of values parsed
+	parsed := make(map[string]string)
+
+	parseEntries(parsed, msg.Answer)
+	parseEntries(parsed, msg.Extra)
+
+	if len(parsed) < 1 {
+		return nil, fmt.Errorf("No messages parsed")
+	}
+
+	return parsed, nil
 }
 
 func CacheMulticastMessages(cache *gocache.Cache, msgChan chan *dns.Msg) {
+	var err error
+	var parsed map[string]string
 	for msg := range msgChan {
-		parsed := ParseMulticastMessage(msg)
+		parsed, err = ParseMulticastMessage(msg)
+		if err != nil || len(parsed) < 1 {
+			continue
+		}
+
 		// if there's no address in the parsed values, move onto the next message
 		_, ok4 := parsed["address"]
 		_, ok6 := parsed["address6"]
 		if !ok4 && !ok6 {
 			continue
 		}
+
+		// show valid entry, may convert this to trace at some point
+		//log.Infof("parsed entry: %+v", parsed)
 
 		// since we have a parsed message let's do something with it
 		addresses := []string{parsed["address"], parsed["address6"]}
