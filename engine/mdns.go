@@ -114,8 +114,8 @@ func ParseMulticastMessage(msg *dns.Msg) map[string]string {
 				if value, ok := rr.(*dns.A); ok && value != nil && value.A != nil {
 					parsed["address"] = value.A.String()
 				}
-				if strings.Contains(name, ".") {
-					shortname := strings.Split(name, ".")[0]
+				if idx := strings.Index(name, "."); idx > -1 {
+					shortname := name[:idx]
 					if "" != shortname {
 						if name, found := parsed["name"]; found {
 							if len(shortname) < len(name) {
@@ -134,8 +134,8 @@ func ParseMulticastMessage(msg *dns.Msg) map[string]string {
 				if value, ok := rr.(*dns.AAAA); ok && value != nil && value.AAAA != nil {
 					parsed["address6"] = value.AAAA.String()
 				}
-				if strings.Contains(name, ".") {
-					shortname := strings.Split(name, ".")[0]
+				if idx := strings.Index(name, "."); idx > -1 {
+					shortname := name[:idx]
 					if "" != shortname {
 						if name, found := parsed["name6"]; found {
 							if len(shortname) < len(name) {
@@ -150,8 +150,8 @@ func ParseMulticastMessage(msg *dns.Msg) map[string]string {
 		case dns.TypeTXT:
 			if len(rr.(*dns.TXT).Txt) > 0 {
 				for _, txt := range rr.(*dns.TXT).Txt {
-					if split := strings.Split(txt, "="); len(split) > 1 {
-						parsed["txt:"+split[0]] = split[1]
+					if idx := strings.Index(txt, "="); idx > -1 {
+						parsed["txt:"+txt[:idx]] = txt[idx+1:]
 					} else {
 						parsed["txt"] = txt
 					}

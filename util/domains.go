@@ -14,20 +14,10 @@ const (
 
 // finds the subdomain of a requested domain, so "www.google.com" returns "google.com" and "google.com" returns "google.com"
 func SubDomain(domain string) string {
-	split := strings.Split(domain, ".")
-	if len(split) >= 2 {
-		return strings.Join(split[1:], ".")
+	if strings.Contains(domain, ".") && !strings.HasSuffix(domain, ".") {
+		return strings.TrimSpace(domain[strings.Index(domain, ".")+1:])
 	}
-	return domain
-}
-
-// finds the "root" domain, that is a the domain with just the name and the TLD
-func RootDomain(domain string) string {
-	split := strings.Split(domain, ".")
-	if len(split) >= 2 {
-		return strings.Join(split[len(split)-2:], ".")
-	}
-	return domain
+	return strings.TrimSpace(domain)
 }
 
 // returns the reverse lookup arpa domain for the given IP
@@ -107,19 +97,20 @@ func ReverseDomainTree(domain string) string {
 // based on a domain name ("sub.google.com") returns a slice of domains that
 // should be matched EXACTLY against ["sub.google.com", "google.com", "com"]
 func DomainList(domain string) []string {
-	if "" == strings.TrimSpace(domain) {
+	domain = strings.TrimSpace(domain)
+	if "" == domain {
 		return []string{}
 	}
 
-	domains := []string{}
-	check := strings.ToLower(strings.TrimSpace(domain))
-	for len(check) > 0 {
-		domains = append(domains, check)
-		split := strings.Split(check, ".")
-		check = strings.Join(split[1:], ".")
-		if len(strings.Split(check, ".")) == 1 {
+	// start with a default size of 3
+	domains := make([]string, 0, 3)
+
+	for len(domain) > 1 && "." != domain && (len(domains) < 1 || domain != domains[len(domains)-1]) {
+		if len(domains) > 0 && !strings.Contains(domain, ".") {
 			break
 		}
+		domains = append(domains, domain)
+		domain = SubDomain(domain)
 	}
 	return domains
 }

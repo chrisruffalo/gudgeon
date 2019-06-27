@@ -225,11 +225,6 @@ func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []strin
 
 	// build query statement
 	stmt := "SELECT l.ShortName, r.Rule FROM rules R LEFT JOIN lists L ON R.ListRowId = L.rowid WHERE l.ShortName in (?" + strings.Repeat(", ?", len(shortNames)-1) + ") AND r.Rule in (?" + strings.Repeat(", ?", len(domains)-1) + ");"
-	pstmt, err := store.db.Prepare(stmt)
-	if err != nil {
-		log.Errorf("Preparing rule query statement: %s", err)
-	}
-	defer pstmt.Close()
 
 	// build parameters
 	vars := make([]interface{}, 0, len(shortNames)+len(domains))
@@ -240,7 +235,7 @@ func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []strin
 		vars = append(vars, dm)
 	}
 
-	rows, err := pstmt.Query(vars...)
+	rows, err := store.db.Query(stmt, vars...)
 	if err != nil {
 		log.Errorf("Executing rule storage query: %s", err)
 	}

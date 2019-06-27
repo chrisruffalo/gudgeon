@@ -353,8 +353,8 @@ func (recorder *recorder) worker() {
 
 			// extend timer, should be exponential backoff but this is close enough
 			mdnsDuration = mdnsDuration * 2
-			if mdnsDuration > (15 * time.Minute) {
-				mdnsDuration = (15 * time.Minute)
+			if mdnsDuration > (30 * time.Minute) {
+				mdnsDuration = 30 * time.Minute
 			}
 			mdnsQueryTimer.Reset(mdnsDuration)
 		case <-flushTimer.C:

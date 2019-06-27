@@ -68,7 +68,7 @@ func (web *web) GetMetrics(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	_ = util.Json.NewEncoder(c.Writer).Encode(gin.H{
 		"metrics": metrics,
 		"lists":   lists,
 	})
@@ -87,8 +87,8 @@ func condenseMetric(target *engine.MetricsEntry, from *engine.MetricsEntry, coun
 }
 
 func (web *web) QueryMetrics(c *gin.Context) {
-	if web.metrics == nil {
-		c.String(http.StatusNotFound, "Metrics not enabled)")
+	if web.engine.Metrics() == nil {
+		c.String(http.StatusNotFound, "Metrics not enabled")
 		return
 	}
 
@@ -125,20 +125,87 @@ func (web *web) QueryMetrics(c *gin.Context) {
 		queryEnd = &endTime
 	}
 
+	keepMetrics := make([]string, 0)
+	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
+		keepMetrics = strings.Split(filterStrings, ",")
+	}
+
+	condenseMetrics := false
+	if condense := c.Query("condense"); len(condense) > 0 && ("true" == condense || "1" == condense) {
+		condenseMetrics = true
+	}
+
+	// when on the first entry the output is slightly different
 	firstEntry := true
+
+	// hold an entry for condensing into
+	var heldEntry *engine.MetricsEntry
+
+	// calculate condensation factor
+	distance := int((*queryEnd).Sub(*queryStart).Hours())
+	factor := distance / 2
+	if distance >= 24 {
+		distance = distance / 2
+	}
+	if distance > 48 {
+		distance = distance / 2
+	}
+	if factor >= 512 {
+		factor = 512
+	}
+	condenseCounter := 1
+
+	// encoder
+	encoder := util.Json.NewEncoder(c.Writer)
+
+	// start empty array
 	c.String(http.StatusOK, "[")
-	_ = web.metrics.QueryFunc(func(entry *engine.MetricsEntry) {
+	_ = web.engine.Metrics().QueryFunc(func(entry *engine.MetricsEntry) {
+		// filter out metrics that are not in the "keep list"
+		if len(keepMetrics) > 0 {
+			for k := range entry.Values {
+				if !util.StringIn(k, keepMetrics) {
+					delete(entry.Values, k)
+				}
+			}
+		}
+
+		// if we are condensing, do condense logic, otherwise just
+		// stream output
+		if condenseMetrics {
+			if heldEntry == nil || condenseCounter < 2 {
+				heldEntry = entry
+			} else {
+				condenseMetric(heldEntry, entry, condenseCounter)
+			}
+			condenseCounter++
+			entry = heldEntry
+		}
+
+		if !condenseMetrics || (condenseMetrics && condenseCounter >= factor) {
+			if !firstEntry {
+				c.String(http.StatusOK, ",")
+			}
+			firstEntry = false
+			_ = encoder.Encode(entry)
+
+			// if condensing start over
+			if condenseMetrics {
+				heldEntry = nil
+				condenseCounter = 1
+			}
+		}
+	}, *queryStart, *queryEnd)
+
+	// write any additional held entries
+	if heldEntry != nil {
 		if !firstEntry {
 			c.String(http.StatusOK, ",")
 		}
-		firstEntry = false
-		c.String(http.StatusOK, "{")
-		c.String(http.StatusOK, "\"AtTime\": \""+entry.AtTime.String()+"\", ")
-		c.String(http.StatusOK, "\"FromTime\": \""+entry.FromTime.String()+"\", ")
-		c.String(http.StatusOK, "\"IntervalSeconds\": "+fmt.Sprintf("%d", entry.IntervalSeconds)+",")
-		c.String(http.StatusOK, "\"Values\": "+entry.JsonString)
-		c.String(http.StatusOK, "}")
-	}, *queryStart, *queryEnd)
+		_ = encoder.Encode(heldEntry)
+	}
+
+	// finish array
 	c.String(http.StatusOK, "]")
 }
 
@@ -243,7 +310,7 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 			c.String(http.StatusOK, ", ")
 		}
 		firstRecord = false
-		c.JSON(http.StatusOK, info)
+		_ = util.Json.NewEncoder(c.Writer).Encode(info)
 	}
 
 	c.String(http.StatusOK, "]}")
@@ -278,7 +345,7 @@ func (web *web) GetTestComponents(c *gin.Context) {
 	// accept singular consumers at the api endpoint and
 	// this is consistent with that and the naming of the
 	// option in the drop down list
-	c.JSON(http.StatusOK, gin.H{
+	_ = util.Json.NewEncoder(c.Writer).Encode(gin.H{
 		"consumer":  consumers,
 		"groups":    groups,
 		"resolvers": resolvers,
@@ -320,7 +387,7 @@ func (web *web) GetTop(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, results)
+	_ = util.Json.NewEncoder(c.Writer).Encode(results)
 }
 
 func (web *web) GetTestResult(c *gin.Context) {
@@ -372,7 +439,7 @@ func (web *web) GetTestResult(c *gin.Context) {
 		responseText = response.String()
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	_ = util.Json.NewEncoder(c.Writer).Encode(gin.H{
 		"response": response,
 		"result":   result,
 		"text":     responseText,

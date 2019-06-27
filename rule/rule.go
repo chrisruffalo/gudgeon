@@ -39,9 +39,8 @@ func ParseLine(line string) string {
 	// or
 	// <domain name>
 	// and we are interpreting these as rules
-	split := strings.Split(line, " ")
-	if len(split) > 1 {
-		line = strings.Join(split[1:], " ")
+	if idx := strings.Index(line, " "); idx > -1 {
+		line = line[idx+1:]
 	}
 
 	// return rule

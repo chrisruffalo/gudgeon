@@ -36,6 +36,7 @@ const (
 	QueriesPerSecond       = "session-queries-ps"
 	BlocksPerSecond        = "session-blocks-ps"
 	QueryTime              = "query-time"
+	QueryTimeAvg           = "query-time-avg"
 	// cache entries
 	CurrentCacheEntries = "cache-entries"
 	// rutnime metrics
@@ -60,8 +61,7 @@ type metricsInfo struct {
 type MetricsEntry struct {
 	FromTime        time.Time
 	AtTime          time.Time
-	JsonString      string             `json:"-"`
-	Values          map[string]*Metric `json:"Values,omitempty"`
+	Values          map[string]*Metric
 	IntervalSeconds int
 }
 
@@ -90,7 +90,9 @@ func (metric *Metric) Value() int64 {
 
 type metrics struct {
 	// keep config
-	config *config.GudgeonConfig
+	config   *config.GudgeonConfig
+	interval *time.Duration
+	duration *time.Duration
 
 	metricsMap   map[string]*Metric
 	metricsMutex sync.RWMutex
@@ -145,6 +147,18 @@ func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 		metricsMap: make(map[string]*Metric),
 	}
 
+	if duration, err := util.ParseDuration(config.Metrics.Duration); err == nil {
+		metrics.duration = &duration
+	} else {
+		log.Errorf("Error parsing metric duration: %s", err)
+	}
+
+	if interval, err := util.ParseDuration(config.Metrics.Interval); err == nil {
+		metrics.interval = &interval
+	} else {
+		log.Errorf("Error parsing metric interval: %s", err)
+	}
+
 	if *(config.Metrics.Persist) {
 		// use provided/shared db
 		metrics.db = db
@@ -163,13 +177,7 @@ func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 }
 
 func (metrics *metrics) GetAll() map[string]*Metric {
-	metrics.metricsMutex.RLock()
-	mapCopy := make(map[string]*Metric, 0)
-	for k, v := range metrics.metricsMap {
-		mapCopy[k] = &Metric{Count: v.Value()}
-	}
-	metrics.metricsMutex.RUnlock()
-	return mapCopy
+	return metrics.metricsMap
 }
 
 func (metrics *metrics) Get(name string) *Metric {
@@ -187,27 +195,30 @@ func (metrics *metrics) Get(name string) *Metric {
 	return metric
 }
 
+// metrics update single allocations
+var pid = os.Getpid()
+var proc, _ = process.NewProcess(int32(pid))
+var memoryStats = &runtime.MemStats{}
+
 func (metrics *metrics) update() {
-	// get pid
-	pid := os.Getpid()
 
 	// capture queries per interval into queries per second
-	duration, err := util.ParseDuration(metrics.config.Metrics.Interval)
-	if err == nil {
-		metrics.Get(QueriesPerSecond).Set(int64(math.Round(float64(metrics.Get(TotalIntervalQueries).Value()) / float64(duration.Seconds()))))
-		metrics.Get(BlocksPerSecond).Set(int64(math.Round(float64(metrics.Get(BlockedIntervalQueries).Value()) / float64(duration.Seconds()))))
+	if metrics.interval != nil {
+		metrics.Get(QueriesPerSecond).Set(int64(math.Round(float64(metrics.Get(TotalIntervalQueries).Value()) / float64(metrics.interval.Seconds()))))
+		metrics.Get(BlocksPerSecond).Set(int64(math.Round(float64(metrics.Get(BlockedIntervalQueries).Value()) / float64(metrics.interval.Seconds()))))
 	}
 
 	// get process
-	process, err := process.NewProcess(int32(pid))
-	if err == nil && process != nil {
-		if percent, err := process.CPUPercent(); err == nil {
-			metrics.Get(CPUHundredsPercent).Set(int64(percent * 100))
+	if proc != nil {
+		if percent, err := proc.CPUPercent(); err == nil {
+			// right now under the assumption that processor percentage is given per cores so that
+			// the maximum is 100 times the number of cores
+			metrics.Get(CPUHundredsPercent).Set(int64(percent*100) / int64(runtime.NumCPU()))
 		}
-		if pmem, err := process.MemoryInfo(); err == nil {
+		if pmem, err := proc.MemoryInfo(); err == nil {
 			metrics.Get(UsedMemory).Set(int64(pmem.RSS))
 		}
-		if threads, err := process.NumThreads(); err == nil {
+		if threads, err := proc.NumThreads(); err == nil {
 			metrics.Get(Threads).Set(int64(threads))
 		}
 		if vmem, err := mem.VirtualMemory(); err == nil {
@@ -220,7 +231,6 @@ func (metrics *metrics) update() {
 	metrics.Get(GoRoutines).Set(int64(runtime.NumGoroutine()))
 
 	// capture memory metrics
-	memoryStats := &runtime.MemStats{}
 	runtime.ReadMemStats(memoryStats)
 	metrics.Get(CurrentlyAllocated).Set(int64(memoryStats.Alloc))
 
@@ -266,14 +276,7 @@ func (metrics *metrics) insert(tx *sql.Tx, currentTime time.Time) {
 	}
 
 	stmt := "INSERT INTO metrics (FromTime, AtTime, MetricsJson, IntervalSeconds) VALUES (?, ?, ?, ?)"
-	pstmt, err := tx.Prepare(stmt)
-	if err != nil {
-		log.Errorf("Error preparing metrics statement: %s", err)
-		return
-	}
-	defer pstmt.Close()
-
-	_, err = pstmt.Exec(metrics.lastInsert, currentTime, string(bytes), int(math.Round(currentTime.Sub(metrics.lastInsert).Seconds())))
+	_, err = tx.Exec(stmt, metrics.lastInsert, currentTime, string(bytes), int(math.Round(currentTime.Sub(metrics.lastInsert).Seconds())))
 	if err != nil {
 		log.Errorf("Error executing metrics statement: %s", err)
 		return
@@ -288,10 +291,11 @@ func (metrics *metrics) insert(tx *sql.Tx, currentTime time.Time) {
 }
 
 func (metrics *metrics) prune(tx *sql.Tx) {
-	duration, _ := util.ParseDuration(metrics.config.Metrics.Duration)
-	_, err := tx.Exec("DELETE FROM metrics WHERE AtTime <= ?", time.Now().Add(-1*duration))
-	if err != nil {
-		log.Errorf("Error pruning metrics data: %s", err)
+	if metrics.duration != nil {
+		_, err := tx.Exec("DELETE FROM metrics WHERE AtTime <= ?", time.Now().Add(-1*(*metrics.duration)))
+		if err != nil {
+			log.Errorf("Error pruning metrics data: %s", err)
+		}
 	}
 }
 
@@ -309,12 +313,16 @@ func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, start 
 	defer rows.Close()
 
 	me := &MetricsEntry{}
+	var jsonString string
 	for rows.Next() {
-		err = rows.Scan(&me.AtTime, &me.FromTime, &me.JsonString, &me.IntervalSeconds)
+		err = rows.Scan(&me.AtTime, &me.FromTime, &jsonString, &me.IntervalSeconds)
 		if err != nil {
 			log.Errorf("Error scanning for metrics query: %s", err)
 			continue
 		}
+
+		// unmarshall data
+		_ = util.Json.Unmarshal([]byte(jsonString), &me.Values)
 
 		// call accumulator function
 		accumulatorFunction(me)
@@ -334,8 +342,8 @@ func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, 
 			FromTime:        me.FromTime,
 			AtTime:          me.AtTime,
 			IntervalSeconds: me.IntervalSeconds,
+			Values:          me.Values,
 		}
-		_ = json.Unmarshal([]byte(me.JsonString), &entry.Values)
 		entries = append(entries, entry)
 	}
 	err := metrics.QueryFunc(acc, start, end)
