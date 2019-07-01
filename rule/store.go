@@ -38,14 +38,14 @@ type RuleStore interface {
 }
 
 // stores are created from lists of files inside a configuration
-func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []uint64) {
+func CreateStore(storeRoot string, conf *config.GudgeonConfig) (RuleStore, []uint64) {
 	// outer shell reloading store
 	store := &reloadingStore{
 		handlers: make([]*events.Handle, 0),
 	}
 
-	// get type of backing store from config file
-	backingStoreType := strings.ToLower(config.Storage.RuleStorage)
+	// get type of backing store from conf file
+	backingStoreType := strings.ToLower(conf.Storage.RuleStorage)
 
 	// create appropriate backing store
 	var delegate RuleStore
@@ -85,23 +85,24 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 	store.delegate = &complexStore{backingStore: delegate}
 
 	// initialize stores
-	store.Init(storeRoot, config, config.Lists)
+	store.Init(storeRoot, conf, conf.Lists)
 
 	// load files into stores based on complexity
-	outputCount := make([]uint64, 0, len(config.Lists))
+	outputCount := make([]uint64, 0, len(conf.Lists))
 
-	for _, list := range config.Lists {
-		listCounter := loadList(store, config, list)
+	for _, list := range conf.Lists {
+		listCounter := loadList(store, conf, list)
 
 		// locally scoped variable for list watching
 		watchList := list
 
 		// notify that we want to watch for changes in a given file
-		events.Send("file:watch:start", &events.Message{"path": config.PathToList(watchList)})
+		events.Send("file:watch:start", &events.Message{"path": conf.PathToList(watchList)})
 		// save handle so it can later be used to close watchers
-		handle := events.Listen("file:"+config.PathToList(watchList), func(message *events.Message) {
-			store.Clear(config, watchList)
-			newRuleCount := loadList(store, config, watchList)
+		handle := events.Listen("file:"+conf.PathToList(watchList), func(message *events.Message) {
+			store.Clear(conf, watchList)
+			newRuleCount := loadList(store, conf, watchList)
+			store.Finalize(conf.SessionRoot(), []*config.GudgeonList{watchList})
 			// send message that a list value changed
 			events.Send("store:list:changed", &events.Message{
 				"listName":      watchList.CanonicalName(),
@@ -109,7 +110,7 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 				"count":         newRuleCount,
 			})
 			// watch file again
-			events.Send("file:watch:start", &events.Message{"path": config.PathToList(watchList)})
+			events.Send("file:watch:start", &events.Message{"path": conf.PathToList(watchList)})
 		})
 		if handle != nil {
 			store.handlers = append(store.handlers, handle)
@@ -120,7 +121,7 @@ func CreateStore(storeRoot string, config *config.GudgeonConfig) (RuleStore, []u
 	}
 
 	// finalize both stores (store finalizes delegate)
-	store.Finalize(storeRoot, config.Lists)
+	store.Finalize(storeRoot, conf.Lists)
 
 	// finalize and return store
 	return store, outputCount

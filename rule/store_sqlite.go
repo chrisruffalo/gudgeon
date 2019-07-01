@@ -22,8 +22,8 @@ const _deleteStmt = "DELETE FROM rules WHERE ListRowId = (SELECT Id FROM lists W
 type sqlStore struct {
 	path string
 	db   *sql.DB
-
-	tx *sql.Tx
+	stmt *sql.Stmt
+	tx   *sql.Tx
 }
 
 func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
@@ -103,8 +103,9 @@ func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonL
 }
 
 func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
+	var err error
+
 	if store.tx == nil {
-		var err error
 		store.tx, err = store.db.Begin()
 		if err != nil {
 			log.Errorf("Could not start transaction: %s", err)
@@ -112,7 +113,15 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 		}
 	}
 
-	_, err := store.tx.Exec(_insertStmt, list.ShortName(), rule)
+	if store.stmt == nil {
+		store.stmt, err = store.tx.Prepare(_insertStmt)
+		if err != nil {
+			log.Errorf("Could not prepare rule insert statement: %s", err)
+			return
+		}
+	}
+
+	_, err = store.stmt.Exec(list.ShortName(), rule)
 	if err != nil {
 		log.Errorf("Could not insert into rules store: %s", err)
 		err = store.tx.Rollback()
@@ -125,6 +134,10 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 
 func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList) {
 	var err error
+
+	if store.stmt != nil {
+		_ = store.stmt.Close()
+	}
 
 	// commit any outstanding transactions
 	if store.tx != nil {
