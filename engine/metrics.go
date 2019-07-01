@@ -61,7 +61,8 @@ type metricsInfo struct {
 type MetricsEntry struct {
 	FromTime        time.Time
 	AtTime          time.Time
-	Values          map[string]*Metric
+	JsonString      string             `json:"-"`
+	Values          map[string]*Metric `json:"Values,omitempty"`
 	IntervalSeconds int
 }
 
@@ -94,6 +95,11 @@ type metrics struct {
 	interval *time.Duration
 	duration *time.Duration
 
+	// metrics update single allocations
+	pid     int
+	proc    *process.Process
+	memStat *runtime.MemStats
+
 	metricsMap   map[string]*Metric
 	metricsMutex sync.RWMutex
 
@@ -113,7 +119,7 @@ type CacheSizeFunction = func() int64
 type MetricsAccumulator = func(entry *MetricsEntry)
 
 type Metrics interface {
-	GetAll() map[string]*Metric
+	GetAll() *map[string]*Metric
 	Get(name string) *Metric
 
 	// use cache function
@@ -121,7 +127,7 @@ type Metrics interface {
 
 	// Query metrics from db
 	Query(start time.Time, end time.Time) ([]*MetricsEntry, error)
-	QueryFunc(accumulatorFunction MetricsAccumulator, start time.Time, end time.Time) error
+	QueryFunc(accumulatorFunction MetricsAccumulator, filter []string, start time.Time, end time.Time) error
 
 	// top information
 	TopClients(limit int) []*TopInfo
@@ -145,7 +151,10 @@ func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 	metrics := &metrics{
 		config:     config,
 		metricsMap: make(map[string]*Metric),
+		pid:        os.Getpid(),
+		memStat:    &runtime.MemStats{},
 	}
+	metrics.proc, _ = process.NewProcess(int32(metrics.pid))
 
 	if duration, err := util.ParseDuration(config.Metrics.Duration); err == nil {
 		metrics.duration = &duration
@@ -176,8 +185,8 @@ func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 	return metrics
 }
 
-func (metrics *metrics) GetAll() map[string]*Metric {
-	return metrics.metricsMap
+func (metrics *metrics) GetAll() *map[string]*Metric {
+	return &metrics.metricsMap
 }
 
 func (metrics *metrics) Get(name string) *Metric {
@@ -195,11 +204,6 @@ func (metrics *metrics) Get(name string) *Metric {
 	return metric
 }
 
-// metrics update single allocations
-var pid = os.Getpid()
-var proc, _ = process.NewProcess(int32(pid))
-var memoryStats = &runtime.MemStats{}
-
 func (metrics *metrics) update() {
 
 	// capture queries per interval into queries per second
@@ -209,16 +213,16 @@ func (metrics *metrics) update() {
 	}
 
 	// get process
-	if proc != nil {
-		if percent, err := proc.CPUPercent(); err == nil {
+	if metrics.proc != nil {
+		if percent, err := metrics.proc.CPUPercent(); err == nil {
 			// right now under the assumption that processor percentage is given per cores so that
 			// the maximum is 100 times the number of cores
 			metrics.Get(CPUHundredsPercent).Set(int64(percent*100) / int64(runtime.NumCPU()))
 		}
-		if pmem, err := proc.MemoryInfo(); err == nil {
+		if pmem, err := metrics.proc.MemoryInfo(); err == nil {
 			metrics.Get(UsedMemory).Set(int64(pmem.RSS))
 		}
-		if threads, err := proc.NumThreads(); err == nil {
+		if threads, err := metrics.proc.NumThreads(); err == nil {
 			metrics.Get(Threads).Set(int64(threads))
 		}
 		if vmem, err := mem.VirtualMemory(); err == nil {
@@ -231,8 +235,8 @@ func (metrics *metrics) update() {
 	metrics.Get(GoRoutines).Set(int64(runtime.NumGoroutine()))
 
 	// capture memory metrics
-	runtime.ReadMemStats(memoryStats)
-	metrics.Get(CurrentlyAllocated).Set(int64(memoryStats.Alloc))
+	runtime.ReadMemStats(metrics.memStat)
+	metrics.Get(CurrentlyAllocated).Set(int64(metrics.memStat.Alloc))
 
 	// capture cache size
 	if metrics.cacheSizeFunc != nil {
@@ -265,11 +269,8 @@ func (metrics *metrics) record(info *InfoRecord) {
 }
 
 func (metrics *metrics) insert(tx *sql.Tx, currentTime time.Time) {
-	// get all metrics
-	all := metrics.GetAll()
-
-	// make into json string
-	bytes, err := json.Marshal(all)
+	// make all metrics into a json string
+	bytes, err := json.Marshal(metrics.GetAll())
 	if err != nil {
 		log.Errorf("Error marshalling metrics json: %s", err)
 		return
@@ -300,13 +301,35 @@ func (metrics *metrics) prune(tx *sql.Tx) {
 }
 
 // allows custom accumulation for either streaming or custom marshalling
-func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, start time.Time, end time.Time) error {
+func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter []string, start time.Time, end time.Time) error {
 	// don't do anything with nil accumulator
 	if accumulatorFunction == nil {
 		return nil
 	}
 
-	rows, err := metrics.db.Query("SELECT FromTime, AtTime, MetricsJson, IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime ASC", start, end)
+	var builder strings.Builder
+	builder.WriteString("SELECT FromTime, AtTime, ")
+	if len(filter) > 0 {
+		first := true
+		builder.WriteString("json_set('{}', ")
+		for _, value := range filter {
+			if !first {
+				builder.WriteString(", ")
+			}
+			first = false
+			builder.WriteString("'$.")
+			builder.WriteString(value)
+			builder.WriteString("', json_extract(MetricsJson, '$.")
+			builder.WriteString(value)
+			builder.WriteString("')")
+		}
+		builder.WriteString(")")
+	} else {
+		builder.WriteString("MetricsJson")
+	}
+	builder.WriteString(", IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime ASC")
+
+	rows, err := metrics.db.Query(builder.String(), start, end)
 	if err != nil {
 		return err
 	}
@@ -321,7 +344,7 @@ func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, start 
 			continue
 		}
 
-		// unmarshall data
+		// unmarshal data
 		_ = util.Json.Unmarshal([]byte(jsonString), &me.Values)
 
 		// call accumulator function
@@ -346,7 +369,7 @@ func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, 
 		}
 		entries = append(entries, entry)
 	}
-	err := metrics.QueryFunc(acc, start, end)
+	err := metrics.QueryFunc(acc, []string{}, start, end)
 	return entries, err
 }
 
@@ -369,7 +392,6 @@ func (metrics *metrics) load() {
 			break
 		}
 	}
-
 	// can't do anything with empty string, set, or object
 	metricsJSONString = strings.TrimSpace(metricsJSONString)
 	if "" == metricsJSONString || "{}" == metricsJSONString || "[]" == metricsJSONString {

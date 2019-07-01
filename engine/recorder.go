@@ -384,8 +384,11 @@ func (recorder *recorder) doWithIsolatedTransaction(next func(tx *sql.Tx)) {
 		err := recorder.tx.Commit()
 		recorder.tx = nil
 		if err != nil {
-			recorder.tx.Rollback()
 			log.Errorf("Could not start transaction: %s", err)
+			err = recorder.tx.Rollback()
+			if err != nil {
+				log.Errorf("Could not rollback transaction: %s", err)
+			}
 			return
 		}
 	}
@@ -403,8 +406,11 @@ func (recorder *recorder) doWithIsolatedTransaction(next func(tx *sql.Tx)) {
 
 	err = tx.Commit()
 	if err != nil {
-		tx.Rollback()
 		log.Errorf("Flushing buffered entries: %s", err)
+		err = tx.Rollback()
+		if err != nil {
+			log.Errorf("Could not rollback transaction after flush: %s", err)
+		}
 	}
 }
 
@@ -477,6 +483,12 @@ func (recorder *recorder) flush() {
 		if err != nil {
 			log.Errorf("Could not delete from buffer: %s", err)
 		}
+
+		// free memory
+		_, err = tx.Exec(`PRAGMA shrink_memory;`)
+		if err != nil {
+			log.Errorf("Could not shrink memory after recorder flush: %s", err)
+		}
 	})
 }
 
@@ -497,6 +509,12 @@ func (recorder *recorder) prune() {
 
 		if nil != recorder.metrics {
 			recorder.metrics.prune(tx)
+		}
+
+		// free memory
+		_, err := tx.Exec(`PRAGMA shrink_memory;`)
+		if err != nil {
+			log.Errorf("Could not shrink memory after recorder prune: %s", err)
 		}
 	})
 }

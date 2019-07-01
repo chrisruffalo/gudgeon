@@ -178,6 +178,7 @@ func CacheMulticastMessages(cache *gocache.Cache, msgChan chan *dns.Msg) {
 	var parsed map[string]string
 	for msg := range msgChan {
 		parsed, err = ParseMulticastMessage(msg)
+
 		if err != nil || len(parsed) < 1 {
 			continue
 		}

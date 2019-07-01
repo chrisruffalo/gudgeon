@@ -48,6 +48,12 @@ func (config *GudgeonConfig) verifyAndInit() ([]string, []error) {
 	}
 	config.Storage.verifyAndInit()
 
+	// systemd
+	if config.Systemd == nil {
+		config.Systemd = &GudgeonSystemd{}
+	}
+	config.Systemd.verifyAndInit()
+
 	// network verification
 	if config.Network == nil {
 		config.Network = &GudgeonNetwork{
@@ -151,9 +157,6 @@ func (network *GudgeonNetwork) verifyAndInit() ([]string, []error) {
 	if network.UDP == nil {
 		network.UDP = boolPointer(true)
 	}
-	if network.Systemd == nil {
-		network.Systemd = boolPointer(true)
-	}
 
 	// do the same for all configured interfaces
 	for _, iface := range network.Interfaces {
@@ -223,6 +226,30 @@ func (metrics *GudgeonMetrics) verifyAndInit() ([]string, []error) {
 		metrics.Interval = "15s"
 	} else if parsed > 30*time.Minute {
 		warnings = append(warnings, fmt.Sprintf("A metrics interval more than 30 minutes (30m) is fairly low resolution, consider changing this value"))
+	}
+
+	return warnings, []error{}
+}
+
+func (systemd *GudgeonSystemd) verifyAndInit() ([]string, []error) {
+	// collect warnings
+	warnings := make([]string, 0)
+
+	if systemd.Enabled == nil {
+		systemd.Enabled = boolPointer(true)
+	}
+
+	if systemd.DnsPorts == nil {
+		systemd.DnsPorts = &[]uint32{
+			53,
+		}
+	}
+
+	if systemd.HttpPorts == nil {
+		systemd.HttpPorts = &[]uint32{
+			80,
+			8080,
+		}
 	}
 
 	return warnings, []error{}

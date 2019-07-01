@@ -7,6 +7,7 @@ import (
 	"github.com/chrisruffalo/gudgeon/events"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 
 	"github.com/GeertJohan/go.rice"
@@ -99,6 +100,10 @@ func newEngineWithComponents(conf *config.GudgeonConfig, db *sql.DB, recorder *r
 	if err != nil {
 		return nil, err
 	}
+
+	// force GC after loading a new engine which is the biggest
+	// single allocator of memory (at least at the beginning)
+	runtime.GC()
 
 	return engine, nil
 }

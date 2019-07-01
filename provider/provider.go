@@ -61,13 +61,13 @@ func (provider *provider) listen(listener net.Listener, packetConn net.PacketCon
 	server := defaultServer()
 	if packetConn != nil {
 		if t, ok := packetConn.(*net.UDPConn); ok && t != nil {
-			log.Infof("Listen on datagram: %s", t.LocalAddr().String())
+			log.Infof("Listen to udp on address: %s", t.LocalAddr().String())
 		} else {
 			log.Info("Listen on unspecified datagram")
 		}
 		server.PacketConn = packetConn
 	} else if listener != nil {
-		log.Infof("Listen on stream: %s", listener.Addr().String())
+		log.Infof("Listen to tcp on stream: %s", listener.Addr().String())
 		server.Listener = listener
 	}
 
@@ -133,12 +133,13 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine) error {
 	// get network config
 	netConf := config.Network
+	systemdConf := config.Systemd
 
 	// start out with no file socket descriptors
 	fileSockets := []*os.File{}
 
 	// get file descriptors from systemd and fail gracefully
-	if *netConf.Systemd {
+	if *systemdConf.Enabled {
 		fileSockets = activation.Files(true)
 		if recovery := recover(); recovery != nil {
 			log.Errorf("Could not use systemd activation: %s", recovery)
@@ -149,8 +150,8 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 	interfaces := netConf.Interfaces
 
 	// if no interfaces and either systemd isn't enabled or
-	if (interfaces == nil || len(interfaces) < 1) && (*netConf.Systemd && len(fileSockets) < 1) {
-		log.Errorf("No interfaces provided through configuration file or systemd(enabled=%t)", *netConf.Systemd)
+	if (interfaces == nil || len(interfaces) < 1) && (*systemdConf.Enabled && len(fileSockets) < 1) {
+		log.Errorf("No interfaces provided through configuration file or systemd(enabled=%t)", *systemdConf.Enabled)
 		return nil
 	}
 
@@ -162,22 +163,23 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 	dns.HandleFunc(".", provider.handle)
 
 	// open interface connections
-	if *netConf.Systemd && len(fileSockets) > 0 {
-		log.Infof("Using [%d] systemd listeners...", len(fileSockets))
+	if *systemdConf.Enabled && len(fileSockets) > 0 {
 		for _, f := range fileSockets {
-			// check if udp
-			if pc, err := net.FilePacketConn(f); err == nil {
-				provider.servers = append(provider.servers, provider.listen(nil, pc))
-				f.Close()
-			} else if pc, err := net.FileListener(f); err == nil { // then check if tcp
-				provider.servers = append(provider.servers, provider.listen(pc, nil))
-				f.Close()
+			// check that the port that systemd is offering is in the range of ports accepted for dns by systemd
+			for _, port := range *systemdConf.DnsPorts {
+				// check if udp
+				if pc, err := net.FilePacketConn(f); err == nil && strings.HasSuffix(pc.LocalAddr().String(), fmt.Sprintf(":%d", port)) {
+					provider.servers = append(provider.servers, provider.listen(nil, pc))
+					_ = f.Close()
+				} else if pc, err := net.FileListener(f); err == nil && strings.HasSuffix(pc.Addr().String(), fmt.Sprintf(":%d", port)) { // then check if tcp
+					provider.servers = append(provider.servers, provider.listen(pc, nil))
+					_ = f.Close()
+				}
 			}
 		}
 	}
 
 	if len(interfaces) > 0 {
-		log.Infof("Using [%d] configured interfaces...", len(interfaces))
 		for _, iface := range interfaces {
 
 			addr := fmt.Sprintf("%s:%d", iface.IP, iface.Port)
@@ -195,7 +197,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 
 func (provider *provider) Shutdown() error {
 	// set with a 60 second timeout
-	context, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	// start a waitgroup
@@ -208,7 +210,7 @@ func (provider *provider) Shutdown() error {
 			wg.Add(1)
 			// do a go shutdown function with wg for each server
 			go func() {
-				server.ShutdownContext(context)
+				server.ShutdownContext(ctx)
 				log.Infof("Shtudown server: %s", server.Addr)
 				wg.Done()
 			}()

@@ -24,7 +24,7 @@ func ClearDirectory(inputdir string) {
 		return
 	}
 	for _, d := range dir {
-		os.RemoveAll(path.Join([]string{inputdir, d.Name()}...))
+		_ = os.RemoveAll(path.Join([]string{inputdir, d.Name()}...))
 	}
 }
 

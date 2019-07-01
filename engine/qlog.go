@@ -64,8 +64,7 @@ type qlog struct {
 // public interface
 type QueryLog interface {
 	Query(query *QueryLogQuery) ([]*InfoRecord, uint64)
-	QueryStream(query *QueryLogQuery, infoChan chan *InfoRecord, countChan chan uint64)
-	QueryStreamChan(query *QueryLogQuery) (chan *InfoRecord, chan uint64)
+	QueryFunc(query *QueryLogQuery, accumulator QueryAccumulator)
 	Stop()
 
 	// package management methods
@@ -294,9 +293,9 @@ func (qlog *qlog) log(info *InfoRecord) {
 	}
 }
 
-type queryAccumulator = func(count uint64, info *InfoRecord)
+type QueryAccumulator = func(count uint64, info *InfoRecord)
 
-func (qlog *qlog) query(query *QueryLogQuery, accumulator queryAccumulator) {
+func (qlog *qlog) QueryFunc(query *QueryLogQuery, accumulator QueryAccumulator) {
 	if nil == qlog.db {
 		return
 	}
@@ -422,7 +421,6 @@ func (qlog *qlog) query(query *QueryLogQuery, accumulator queryAccumulator) {
 	if err != nil {
 		log.Errorf("Could not get log item count: %s", err)
 	}
-	accumulator(resultLen, nil)
 	if err != nil {
 		log.Errorf("Could not close prepared statement: %s", err)
 		return
@@ -440,9 +438,8 @@ func (qlog *qlog) query(query *QueryLogQuery, accumulator queryAccumulator) {
 	}
 
 	// scan each row and get results
-	var info *InfoRecord
+	info := &InfoRecord{}
 	for rows.Next() {
-		info = &InfoRecord{}
 		err = rows.Scan(&info.Address, &info.ClientName, &info.Consumer, &info.RequestDomain, &info.RequestType, &info.ResponseText, &info.Rcode, &info.Blocked, &info.Match, &info.MatchList, &info.MatchRule, &info.Cached, &info.ServiceMilliseconds, &info.Created, &info.Finished)
 		if err != nil {
 			log.Errorf("Scanning qlog results: %s", err)
@@ -451,50 +448,48 @@ func (qlog *qlog) query(query *QueryLogQuery, accumulator queryAccumulator) {
 		accumulator(resultLen, info)
 	}
 
-	_ = rows.Close()
+	err = rows.Close()
+	if err != nil {
+		log.Errorf("Could not close row set: %s", err)
+	}
 }
 
 func (qlog *qlog) Query(query *QueryLogQuery) ([]*InfoRecord, uint64) {
 	var records []*InfoRecord
 	var totalCount uint64
 
-	qlog.query(query, func(count uint64, info *InfoRecord) {
+	qlog.QueryFunc(query, func(count uint64, info *InfoRecord) {
 		if count > 0 {
 			totalCount = count
 		}
 		if info != nil {
-			records = append(records, info)
+			records = append(records, &InfoRecord{
+				ServiceMilliseconds: info.ServiceMilliseconds,
+				Request:             info.Request,
+				Created:             info.Created,
+				Finished:            info.Finished,
+				MatchRule:           info.MatchRule,
+				MatchList:           info.MatchList,
+				Blocked:             info.Blocked,
+				RequestContext:      info.RequestContext,
+				Address:             info.Address,
+				Cached:              info.Cached,
+				ClientName:          info.ClientName,
+				ConnectionType:      info.ConnectionType,
+				Consumer:            info.Consumer,
+				Match:               info.Match,
+				MatchListShort:      info.MatchListShort,
+				Rcode:               info.Rcode,
+				RequestDomain:       info.RequestDomain,
+				RequestType:         info.RequestType,
+				Response:            info.Response,
+				ResponseText:        info.ResponseText,
+				Result:              info.Result,
+			})
 		}
 	})
 
 	return records, totalCount
-}
-
-func (qlog *qlog) QueryStream(query *QueryLogQuery, infoChan chan *InfoRecord, countChan chan uint64) {
-	sendingCount := true
-
-	// use accumulator to pipe back query data
-	qlog.query(query, func(count uint64, info *InfoRecord) {
-		if sendingCount {
-			sendingCount = false
-			countChan <- count
-			// close chan after only one send
-			close(countChan)
-		}
-		if info != nil {
-			infoChan <- info
-		}
-	})
-
-	// close chan when done
-	close(infoChan)
-}
-
-func (qlog *qlog) QueryStreamChan(query *QueryLogQuery) (chan *InfoRecord, chan uint64) {
-	iChan := make(chan *InfoRecord)
-	cChan := make(chan uint64)
-	go qlog.QueryStream(query, iChan, cChan)
-	return iChan, cChan
 }
 
 func (qlog *qlog) Stop() {

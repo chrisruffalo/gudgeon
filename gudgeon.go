@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/google/gops/agent"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -21,7 +20,7 @@ import (
 )
 
 // default divider
-var divider = "==============================="
+const divider = "==============================="
 
 // Gudgeon Core Gudgeon object for executing a Gudgeon process
 type Gudgeon struct {
@@ -33,9 +32,9 @@ type Gudgeon struct {
 }
 
 // NewGudgeon Create a new Gudgeon instance from a given Gudgeon Config
-func NewGudgeon(confPath string, config *config.GudgeonConfig) *Gudgeon {
+func NewGudgeon(confPath *string, config *config.GudgeonConfig) *Gudgeon {
 	return &Gudgeon{
-		confPath: confPath,
+		confPath: *confPath,
 		config:   config,
 	}
 }
@@ -133,16 +132,10 @@ func main() {
 
 	// start profiling if enabled
 	if opts.DebugOptions.Profile {
-		// start gops agent
-		err := agent.Listen(agent.Options{})
-		if err != nil {
-			log.Errorf("Could not starting GOPS profiling agent: %s", err)
-		}
-
 		// start profile http endpoint on given port
 		profPort := "9900"
 		go func() {
-			err = http.ListenAndServe("127.0.0.1:"+profPort, http.HandlerFunc(pprof.Index))
+			err := http.ListenAndServe("127.0.0.1:"+profPort, http.HandlerFunc(pprof.Index))
 			if err != nil {
 				log.Errorf("Could not expose HTTP profile endpoint on %s: %s", profPort, err)
 			}
@@ -172,7 +165,7 @@ func main() {
 	}
 
 	// create new Gudgeon instance
-	instance := NewGudgeon(filename, conf)
+	instance := NewGudgeon(&filename, conf)
 
 	// start new instance
 	err = instance.Start()

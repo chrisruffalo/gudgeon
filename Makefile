@@ -76,8 +76,8 @@ OS_ARCH?=x86_64
 BINARY_TARGET?=$(BINARY_NAME)-$(OS_TYPE)-$(OS_BIN_ARCH)
 
 # build tags can change by target platform, only linux builds for now though
-GO_BUILD_TAGS?=netgo linux sqlite3 jsoniter
-GO_LD_FLAGS?=-s -w -extldflags "-static" -X "github.com/chrisruffalo/gudgeon/version.Version=$(VERSION)" -X "github.com/chrisruffalo/gudgeon/version.GitHash=$(GITHASH)" -X "github.com/chrisruffalo/gudgeon/version.Release=$(RELEASE)" -X "github.com/chrisruffalo/gudgeon/version.Descriptor=$(DESCRIPTOR)" 
+GO_BUILD_TAGS?=netgo linux sqlite3 jsoniter json1
+GO_LD_FLAGS?=-s -w -extldflags "-static" -X "github.com/chrisruffalo/gudgeon/version.Version=$(VERSION)" -X "github.com/chrisruffalo/gudgeon/version.GitHash=$(GITHASH)" -X "github.com/chrisruffalo/gudgeon/version.Release=$(RELEASE)" -X "github.com/chrisruffalo/gudgeon/version.Descriptor=$(DESCRIPTOR)"
 
 # common FPM commands
 FMPARCH?=$(shell echo "$(OS_ARCH)" | sed -r 's/arm-?5/armhf/g' | sed -r 's/arm-?6/armhf/g' | sed -r 's/arm-?7/armhf/g')

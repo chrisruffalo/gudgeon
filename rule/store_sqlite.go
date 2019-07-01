@@ -17,14 +17,13 @@ import (
 // the static names of the rules database
 const sqlDbName = "rules.db"
 const _insertStmt = "INSERT OR IGNORE INTO rules (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)"
+const _deleteStmt = "DELETE FROM rules WHERE ListRowId = (SELECT Id FROM lists WHERE ShortName = ? LIMIT 1)"
 
 type sqlStore struct {
 	path string
 	db   *sql.DB
 
 	tx *sql.Tx
-
-	ro bool
 }
 
 func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
@@ -43,7 +42,7 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 
 	// open db with migrated schema
 	var err error
-	store.db, err = db.OpenAndMigrate(store.path, "", migrationsBox)
+	store.db, err = db.OpenAndMigrate(store.path, "cache=shared&_journal_mode=OFF", migrationsBox)
 	if err != nil {
 		log.Errorf("Creating SQLite Rule Store: %s", err)
 	}
@@ -76,27 +75,13 @@ func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonL
 
 	var err error
 
-	// reopen db if db is in read only mode
-	if store.ro {
-		err = store.db.Close()
-		if err != nil {
-			log.Errorf("Could not close read-only rule store database")
-		}
-		store.db, err = db.Open(store.path, "")
-		if err != nil {
-			log.Errorf("Could not clear list '%s': %s", list.CanonicalName(), err)
-			return
-		}
-		store.ro = false
-	}
-
 	store.tx, err = store.db.Begin()
 	if err != nil {
 		log.Errorf("Could not start transaction: %s", err)
 		return
 	}
 
-	_, err = store.tx.Exec("DELETE FROM rules WHERE ListRowId = (SELECT Id FROM lists WHERE ShortName = ? LIMIT 1)", list.ShortName())
+	_, err = store.tx.Exec(_deleteStmt, list.ShortName())
 	if err != nil {
 		log.Errorf("Could not insert into rules store: %s", err)
 		err = store.tx.Rollback()
@@ -111,24 +96,6 @@ func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonL
 	}
 	// start with a fresh transaction on the next operation
 	store.tx = nil
-
-	// free memory
-	_, err = store.db.Exec(`PRAGMA shrink_memory;`)
-	if err != nil {
-		log.Errorf("Could not shrink memory in db finalize")
-	}
-
-	// close and reopen the db
-	err = store.db.Close()
-	if err != nil {
-		log.Errorf("Could not close writable rule DB: %s", err)
-	}
-
-	store.db, err = db.Open(store.path, "mode=ro&cache=shared")
-	if err != nil {
-		log.Errorf("Could not open database as read only after clear: %s", err)
-	}
-	store.ro = true
 }
 
 func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
@@ -153,63 +120,27 @@ func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 }
 
 func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList) {
-	// close transaction if it exists
+	var err error
+
+	// commit any outstanding transactions
 	if store.tx != nil {
-		err := store.tx.Commit()
+		err = store.tx.Commit()
 		if err != nil {
-			log.Errorf("Commiting rules to rules DB: %s", err)
+			log.Errorf("Committing index transaction: %s", err)
 			err = store.tx.Rollback()
 			if err != nil {
 				log.Errorf("Rolling back transaction: %s", err)
 			}
 		}
-		log.Tracef("Closing initial transaction...")
-		// clean up after
+		// clear out for further transactions
 		store.tx = nil
 	}
 
-	// create indexes after write
-	var err error
-	store.tx, err = store.db.Begin()
-	if err != nil {
-		log.Errorf("Could not start transaction to write indicies: %s", err)
-	} else {
-		indexes := []string{
-			"CREATE INDEX IF NOT EXISTS idx_rules_Rule on rules (Rule)",
-			"CREATE INDEX IF NOT EXISTS idx_rules_ListRowId on rules (ListRowId)",
-			"CREATE INDEX IF NOT EXISTS idx_rules_IdRule on rules (ListRowId, Rule)",
-		}
-		for _, index := range indexes {
-			_, err = store.db.Exec(index)
-			if err != nil {
-				log.Errorf("Could not create index '%s' with error '%s'", index, err)
-			}
-		}
-	}
-	err = store.tx.Commit()
-	if err != nil {
-		log.Errorf("Error committing index transaction: %s", err)
-	}
-	// clear out for further transactions
-	store.tx = nil
-
 	// free memory
-	_, err = store.db.Exec(`PRAGMA shrink_memory;`)
+	_, err = store.db.Exec("PRAGMA shrink_memory;")
 	if err != nil {
 		log.Errorf("Could not shrink memory in db finalize")
 	}
-
-	// close and reopen the db
-	err = store.db.Close()
-	if err != nil {
-		log.Errorf("Could not close writable rule DB: %s", err)
-	}
-
-	store.db, err = db.Open(store.path, "mode=ro&cache=shared")
-	if err != nil {
-		log.Errorf("Could not open database as read only after finalize: %s", err)
-	}
-	store.ro = true
 }
 
 func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []string) (bool, string, string) {
