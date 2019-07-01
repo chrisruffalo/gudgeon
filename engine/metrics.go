@@ -309,6 +309,8 @@ func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter
 
 	var builder strings.Builder
 	builder.WriteString("SELECT FromTime, AtTime, ")
+	// todo: probably want to do some sort of sql-injection protection
+	//       either here or in the web layer
 	if len(filter) > 0 {
 		first := true
 		builder.WriteString("json_set('{}', ")
