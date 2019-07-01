@@ -46,6 +46,10 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	if err != nil {
 		log.Errorf("Creating SQLite Rule Store: %s", err)
 	}
+	// because this db doesn't read and write at the same time (or at any time)
+	// this is safe and doesn't have much of an impact if you set it higher
+	// anyway
+	store.db.SetMaxOpenConns(1)
 
 	// insert lists into table
 	for _, list := range lists {
