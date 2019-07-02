@@ -14,7 +14,7 @@ const (
 
 type bloomStore struct {
 	blooms           map[string]*bloom.BloomFilter
-	backingStore     RuleStore
+	backingStore     Store
 	defaultRuleCount uint
 }
 

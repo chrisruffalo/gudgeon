@@ -5,7 +5,7 @@ import (
 )
 
 type complexStore struct {
-	backingStore RuleStore
+	backingStore Store
 	complexRules map[string][]ComplexRule
 }
 

@@ -23,7 +23,7 @@ const (
 	MatchNone  Match = 0
 )
 
-type RuleStore interface {
+type Store interface {
 	Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList)
 
 	Load(list *config.GudgeonList, rule string)
@@ -38,7 +38,7 @@ type RuleStore interface {
 }
 
 // stores are created from lists of files inside a configuration
-func CreateStore(storeRoot string, conf *config.GudgeonConfig) (RuleStore, []uint64) {
+func CreateStore(storeRoot string, conf *config.GudgeonConfig) (Store, []uint64) {
 	// outer shell reloading store
 	store := &reloadingStore{
 		handlers: make([]*events.Handle, 0),
@@ -48,7 +48,7 @@ func CreateStore(storeRoot string, conf *config.GudgeonConfig) (RuleStore, []uin
 	backingStoreType := strings.ToLower(conf.Storage.RuleStorage)
 
 	// create appropriate backing store
-	var delegate RuleStore
+	var delegate Store
 	if "hash" == backingStoreType || "hash64" == backingStoreType {
 		delegate = new(hashStore)
 		backingStoreType = "hash"
@@ -127,7 +127,7 @@ func CreateStore(storeRoot string, conf *config.GudgeonConfig) (RuleStore, []uin
 	return store, outputCount
 }
 
-func loadList(store RuleStore, config *config.GudgeonConfig, list *config.GudgeonList) uint64 {
+func loadList(store Store, config *config.GudgeonConfig, list *config.GudgeonList) uint64 {
 	// open file and scan
 	data, err := os.Open(config.PathToList(list))
 	if err != nil {

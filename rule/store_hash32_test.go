@@ -5,15 +5,15 @@ import (
 )
 
 func TestHash32RuleStore(t *testing.T) {
-	testStore(defaultRuleData, func() RuleStore { return &hashStore32{} }, t)
+	testStore(defaultRuleData, func() Store { return &hashStore32{} }, t)
 }
 
 func BenchmarkHash32RuleStore(b *testing.B) {
-	benchNonComplexStore(func() RuleStore { return &hashStore32{} }, b)
+	benchNonComplexStore(func() Store { return &hashStore32{} }, b)
 }
 
 func TestHash32SqlRuleStore(t *testing.T) {
-	testStore(defaultRuleData, func() RuleStore {
+	testStore(defaultRuleData, func() Store {
 		return &hashStore32{
 			delegate: &sqlStore{},
 		}
@@ -21,7 +21,7 @@ func TestHash32SqlRuleStore(t *testing.T) {
 }
 
 func BenchmarkHash32SqlRuleStore(b *testing.B) {
-	benchNonComplexStore(func() RuleStore {
+	benchNonComplexStore(func() Store {
 		return &hashStore32{
 			delegate: &sqlStore{},
 		}

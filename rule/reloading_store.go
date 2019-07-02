@@ -8,7 +8,7 @@ import (
 
 type reloadingStore struct {
 	handlers []*events.Handle
-	delegate RuleStore
+	delegate Store
 	mux      sync.RWMutex
 }
 

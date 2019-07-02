@@ -5,15 +5,15 @@ import (
 )
 
 func TestBloomRuleStore(t *testing.T) {
-	testStore(defaultRuleData, func() RuleStore { return &bloomStore{} }, t)
+	testStore(defaultRuleData, func() Store { return &bloomStore{} }, t)
 }
 
 func BenchmarkBloomRuleStore(b *testing.B) {
-	benchNonComplexStore(func() RuleStore { return &bloomStore{} }, b)
+	benchNonComplexStore(func() Store { return &bloomStore{} }, b)
 }
 
 func TestBloomSqlRuleStore(t *testing.T) {
-	testStore(defaultRuleData, func() RuleStore {
+	testStore(defaultRuleData, func() Store {
 		return &bloomStore{
 			backingStore:     &sqlStore{},
 			defaultRuleCount: 1000000,
@@ -22,7 +22,7 @@ func TestBloomSqlRuleStore(t *testing.T) {
 }
 
 func BenchmarkBloomSqlRuleStore(b *testing.B) {
-	benchNonComplexStore(func() RuleStore {
+	benchNonComplexStore(func() Store {
 		return &bloomStore{
 			backingStore:     &sqlStore{},
 			defaultRuleCount: benchRules,

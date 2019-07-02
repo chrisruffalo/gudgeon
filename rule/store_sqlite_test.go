@@ -8,9 +8,9 @@ import (
 
 func TestSqliteRuleStore(t *testing.T) {
 	defer leaktest.Check(t)()
-	testStore(defaultRuleData, func() RuleStore { return &sqlStore{} }, t)
+	testStore(defaultRuleData, func() Store { return &sqlStore{} }, t)
 }
 
 func BenchmarkSqliteRuleStore(b *testing.B) {
-	benchNonComplexStore(func() RuleStore { return &sqlStore{} }, b)
+	benchNonComplexStore(func() Store { return &sqlStore{} }, b)
 }

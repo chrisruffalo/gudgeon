@@ -33,7 +33,7 @@ var defaultRuleData = []ruleList{
 	{group: "default", rules: []string{"bonkers.com"}, ruleType: BLOCK, blocked: []string{"text.bonkers.com", "bonkers.com"}, nomatch: []string{"argument.com", "boop.com", "krunch.io", "bonk.com", "bonkerss.com"}},
 }
 
-type ruleStoreCreator func() RuleStore
+type ruleStoreCreator func() Store
 
 func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing.T) {
 	tmpDir := testutil.TempDir()
@@ -145,7 +145,7 @@ func TestComplexRuleStore(t *testing.T) {
 	}
 
 	// with creator function
-	testStore(ruleData, func() RuleStore { return &complexStore{} }, t)
+	testStore(ruleData, func() Store { return &complexStore{} }, t)
 }
 
 func printMemUsage(msg string, b *testing.B) {

@@ -14,7 +14,7 @@ import (
 type hashStore32 struct {
 	hashes map[string][]uint32
 
-	delegate RuleStore
+	delegate Store
 }
 
 func (store *hashStore32) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {

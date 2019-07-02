@@ -92,7 +92,7 @@ type engine struct {
 	defaultGroup *group
 
 	// the backing store for block/allow rules
-	store rule.RuleStore
+	store rule.Store
 
 	// the resolution structure
 	resolvers resolver.ResolverMap
