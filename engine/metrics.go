@@ -212,6 +212,11 @@ func (metrics *metrics) update() {
 		metrics.Get(BlocksPerSecond).Set(int64(math.Round(float64(metrics.Get(BlockedIntervalQueries).Value()) / float64(metrics.interval.Seconds()))))
 	}
 
+	// capture time and divide it by total queries for that interval
+	if metrics.Get(TotalIntervalQueries).Value() > 0 {
+		metrics.Get(QueryTimeAvg).Set(metrics.Get(QueryTime).Value() / metrics.Get(TotalIntervalQueries).Value())
+	}
+
 	// get process
 	if metrics.proc != nil {
 		if percent, err := metrics.proc.CPUPercent(); err == nil {
@@ -250,6 +255,9 @@ func (metrics *metrics) record(info *InfoRecord) {
 	metrics.Get(TotalLifetimeQueries).Inc(1)
 	metrics.Get(TotalIntervalQueries).Inc(1)
 
+	// increase time spent serving query
+	metrics.Get(QueryTime).Inc(info.ServiceMilliseconds)
+
 	// add cache hits
 	if info.Result != nil && info.Result.Cached {
 		metrics.Get(CachedQueries).Inc(1)
@@ -286,8 +294,7 @@ func (metrics *metrics) insert(tx *sql.Tx, currentTime time.Time) {
 	// clear and restart interval
 	metrics.Get(TotalIntervalQueries).Clear()
 	metrics.Get(BlockedIntervalQueries).Clear()
-	//metrics.Get(QueriesPerSecond).Clear()
-	//metrics.Get(BlocksPerSecond).Clear()
+	metrics.Get(QueryTime).Clear()
 	metrics.lastInsert = currentTime
 }
 

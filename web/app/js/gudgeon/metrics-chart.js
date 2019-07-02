@@ -11,6 +11,7 @@ import {
 import {HumanBytes, LocaleNumber, ProcessorPercentFormatter} from "./helpers";
 
 const CHART_REFRESH_TIMEOUT = 2500;
+const DOMAIN_FACTOR = 1.3;
 
 class Metrics {}
 Metrics.Queries = {
@@ -19,7 +20,7 @@ Metrics.Queries = {
   series: {
     queries: { name: "Queries/s", key: "gudgeon-session-queries-ps" },
     blocked: { name: "Blocked/s", key: "gudgeon-session-blocks-ps" } ,
-    latency: { name: "Service Time (ms)", key: "gudgeon-query-time", axis: "y2", use_average: true }
+    latency: { name: "Service Time (ms)", key: "gudgeon-query-time-avg", axis: "y2"}
   }
 };
 Metrics.Memory = {
@@ -224,14 +225,9 @@ class GudgeonChart extends React.Component {
               this.columns[0].push(new Date(item.AtTime));
             }
 
-            // determine if we should use the average instead of the count (default false)
-            let use_average = metric.use_average;
-
             // push new item into value array for that key and push a 0 if there is no value (makes missing metrics a "0" until they start)
-            if (!use_average && item.Values[metric.key] != null && item.Values[metric.key].count != null) {
+            if (item.Values[metric.key] != null && item.Values[metric.key].count != null) {
               this.columns[idx].push(item.Values[metric.key].count);
-            } else if(use_average && item.Values[metric.key] != null && item.Values[metric.key].average != null) {
-              this.columns[idx].push(item.Values[metric.key].average);
             } else {
               this.columns[idx].push(0);
             }
@@ -461,7 +457,7 @@ class GudgeonChart extends React.Component {
       chartSettings['axis']['y']['max'] = this.props.metrics[selected].domain.maxY;
     } else {
       if ( domainMaxY > 0 ) {
-        let calcDomainMax = Math.floor(domainMaxY * 1.25);
+        let calcDomainMax = Math.floor(domainMaxY * DOMAIN_FACTOR);
         if ( calcDomainMax < 10 ) {
           calcDomainMax = 10;
         }        
@@ -489,7 +485,7 @@ class GudgeonChart extends React.Component {
 
       // manually set domain max if needed
       if ( this.props.metrics[selected]['domain'] == null || this.props.metrics[selected]['domain']['maxY'] == null ) {
-        let calcDomainMax = Math.floor(domainMaxY * 1.25);
+        let calcDomainMax = Math.floor(domainMaxY * DOMAIN_FACTOR);
         if ( calcDomainMax < 10 ) {
           calcDomainMax = 10;
         }
