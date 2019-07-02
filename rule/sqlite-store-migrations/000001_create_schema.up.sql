@@ -14,8 +14,5 @@ CREATE TABLE IF NOT EXISTS rules (
     Rule TEXT, 
     PRIMARY KEY(ListRowId, Rule) 
 );
--- without these indexes it is **much** slower but the size of the rules db is
--- increased substantially
+-- without this index it is **much** slower
 CREATE INDEX IF NOT EXISTS idx_rules_Rule on rules (Rule);
-CREATE INDEX IF NOT EXISTS idx_rules_ListRowId on rules (ListRowId);
-CREATE INDEX IF NOT EXISTS idx_rules_IdRule on rules (ListRowId, Rule);
