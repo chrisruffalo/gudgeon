@@ -34,7 +34,7 @@ GOGET=$(GOCMD) get
 CURLCMD=curl
 
 # SQLite binaries
-SQLITE_DEP?=https://sqlite.org/2019/sqlite-autoconf-3270200.tar.gz
+SQLITE_DEP?=https://sqlite.org/2019/sqlite-autoconf-3280000.tar.gz
 
 # rice command
 RICECMD=$(abspath $(GOBIN)/rice)
