@@ -535,7 +535,9 @@ func (engine *engine) Reverse(address string) string {
 	ip := net.ParseIP(address)
 
 	// make question parts
-	m.Question = []dns.Question{{Name: util.ReverseLookupDomain(&ip), Qtype: dns.TypePTR, Qclass: dns.ClassINET}}
+	m.Question = []dns.Question{
+		{util.ReverseLookupDomain(&ip), dns.TypePTR, dns.ClassINET},
+	}
 
 	// get just response using all groups
 	allGroups := make([]string, 0, len(engine.groups))
@@ -568,10 +570,10 @@ func (engine *engine) Handle(address *net.IP, protocol string, request *dns.Msg)
 
 	// get results
 	response, rCon, result := engine.HandleWithConsumer(consumer, rCon, request)
-	finishedTime := time.Now()
 
 	// log them if recorder is active
 	if engine.recorder != nil {
+		finishedTime := time.Now()
 		engine.recorder.queue(address, request, response, rCon, result, &finishedTime)
 	}
 
