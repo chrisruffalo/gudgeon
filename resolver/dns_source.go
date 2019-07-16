@@ -1,12 +1,12 @@
 package resolver
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -32,6 +32,10 @@ type dnsSource struct {
 	port          uint
 	remoteAddress string
 	protocol      string
+	network       string
+
+	dialer        net.Dialer
+	pool          sync.Pool
 
 	backoffTime *time.Time
 	tlsConfig   *tls.Config
@@ -73,6 +77,16 @@ func (dnsSource *dnsSource) Load(specification string) {
 		dnsSource.dnsServer = specification
 	}
 
+	// set defaults if missing
+	if "" == dnsSource.protocol {
+		dnsSource.protocol = "udp"
+	}
+	// the network should be just tcp, really
+	dnsSource.network = dnsSource.protocol
+	if "tcp-tls" == dnsSource.protocol {
+		dnsSource.network = "tcp"
+	}
+
 	// recover from parse errors or use default port in event port wasn't set
 	if dnsSource.port == 0 {
 		if "tcp-tls" == dnsSource.protocol {
@@ -91,52 +105,42 @@ func (dnsSource *dnsSource) Load(specification string) {
 		dnsSource.remoteAddress = fmt.Sprintf("%s%s%d", dnsSource.dnsServer, portDelimeter, dnsSource.port)
 	}
 
-}
 
-func (dnsSource *dnsSource) query(coType string, request *dns.Msg, remoteAddress string) (*dns.Msg, error) {
-	var err error
-
-	// create new request context
-	context, cancel := context.WithTimeout(context.Background(), 4*defaultTimeout)
-	defer cancel()
-
-	co := &dns.Conn{}
-	dialer := &net.Dialer{
+	// keep dialer for reuse
+	dnsSource.dialer = net.Dialer{
 		Timeout: defaultTimeout,
 	}
-	if coType == "tcp-tls" {
-		conn, err := dialer.DialContext(context, "tcp", remoteAddress)
-		if err != nil {
-			return nil, err
-		}
-		co.Conn = tls.Client(conn, dnsSource.tlsConfig)
-		defer conn.Close()
-	} else {
-		if co.Conn, err = dialer.DialContext(context, coType, remoteAddress); err != nil {
-			return nil, err
-		}
+}
+
+func (dnsSource *dnsSource) query(request *dns.Msg, remoteAddress string) (*dns.Msg, error) {
+	var err error
+
+	co := &dns.Conn{}
+	conn, err := dnsSource.dialer.Dial(dnsSource.network, remoteAddress)
+	if err != nil {
+		return nil, err
 	}
-	defer co.Conn.Close()
+	co.Conn = conn
+	defer co.Close()
+	if dnsSource.protocol == "tcp-tls" {
+		co.Conn = tls.Client(conn, dnsSource.tlsConfig)
+	}
 
 	// update deadline waiting for write to succeed
-	co.Conn.SetDeadline(time.Now().Add(2 * defaultTimeout))
+	_ = co.SetDeadline(time.Now().Add(2 * defaultTimeout))
 
 	// write message
 	if err := co.WriteMsg(request); err != nil {
-		co.Close()
 		return nil, err
 	}
 
 	// read response with deadline
-	co.Conn.SetDeadline(time.Now().Add(2 * defaultTimeout))
+	_ = co.SetDeadline(time.Now().Add(2 * defaultTimeout))
 	response, err := co.ReadMsg()
 	if err != nil {
-		co.Close()
 		return nil, err
 	}
 
-	// close and return response
-	co.Close()
 	return response, nil
 }
 
@@ -158,16 +162,8 @@ func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionCont
 		return nil, nil
 	}
 
-	// default
-	protocol := dnsSource.protocol
-	if protocol == "" && rCon != nil {
-		protocol = rCon.Protocol
-	} else if protocol == "" {
-		protocol = "udp"
-	}
-
 	// forward message without interference
-	response, err := dnsSource.query(protocol, request, dnsSource.remoteAddress)
+	response, err := dnsSource.query(request, dnsSource.remoteAddress)
 	if err != nil {
 		backoff := time.Now().Add(backoffInterval)
 		dnsSource.backoffTime = &backoff
@@ -179,7 +175,7 @@ func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionCont
 
 	// set source as answering source
 	if context != nil && !util.IsEmptyResponse(response) && context.SourceUsed == "" {
-		context.SourceUsed = dnsSource.Name() + "/" + protocol
+		context.SourceUsed = dnsSource.Name() + "/" + dnsSource.protocol
 	}
 
 	// otherwise just return

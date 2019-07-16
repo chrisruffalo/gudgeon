@@ -24,11 +24,18 @@ func TestProviderStartStop(t *testing.T) {
 
 	// create a new provider and start hosting
 	provider := NewProvider(engine)
-	provider.Host(config, engine)
+	err = provider.Host(config, engine)
+	if err != nil {
+		t.Errorf("Creating test provider: %s", err)
+		return
+	}
 	time.Sleep(5 * time.Second)
 
 	// make sure they shut down
-	provider.Shutdown()
+	err = provider.Shutdown()
+	if err != nil {
+		t.Errorf("Shutting down test provider: %s", err)
+	}
 }
 
 func TestProviderLocalResolution(t *testing.T) {
@@ -58,7 +65,11 @@ func TestProviderLocalResolution(t *testing.T) {
 
 	// create a new provider and start hosting
 	provider := NewProvider(engine)
-	provider.Host(config, engine)
+	err = provider.Host(config, engine)
+	if err != nil {
+		t.Errorf("Creating test provider: %s", err)
+		return
+	}
 	time.Sleep(5 * time.Second)
 
 	// create dns sources and use it
@@ -85,18 +96,18 @@ func TestProviderLocalResolution(t *testing.T) {
 			rCon := resolver.DefaultRequestContext()
 			response, err := source.Answer(rCon, nil, m)
 			if err != nil {
-				t.Errorf("Could not resolve: %s", err)
+				t.Errorf("Could not resolve question '%s' using source %s: %s", d.question, source.Name(), err)
 				continue
 			}
 
 			// check response
 			if response == nil {
-				t.Errorf("Nil response for question:\n%s\n-----\n%s", m, response)
+				t.Errorf("Nil response for question '%s' from source %s:\n%s\n-----\n%s", d.question, source.Name(), m, response)
 				continue
 			}
 
 			if len(response.Answer) < 1 {
-				t.Errorf("No answers for question:\n%s\n-----\n%s", m, response)
+				t.Errorf("No aswers for question '%s' from source %s:\n%s\n-----\n%s", d.question, source.Name(), m, response)
 				continue
 			}
 
@@ -109,5 +120,8 @@ func TestProviderLocalResolution(t *testing.T) {
 	}
 
 	// make sure they shut down
-	provider.Shutdown()
+	err = provider.Shutdown()
+	if err != nil {
+		t.Errorf("Shutting down test provider: %s", err)
+	}
 }

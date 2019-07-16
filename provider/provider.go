@@ -136,7 +136,7 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 	systemdConf := config.Systemd
 
 	// start out with no file socket descriptors
-	fileSockets := []*os.File{}
+	fileSockets := make([]*os.File, 0)
 
 	// get file descriptors from systemd and fail gracefully
 	if *systemdConf.Enabled {
@@ -209,11 +209,15 @@ func (provider *provider) Shutdown() error {
 			// add newly started go function to wg
 			wg.Add(1)
 			// do a go shutdown function with wg for each server
-			go func() {
-				server.ShutdownContext(ctx)
-				log.Infof("Shtudown server: %s", server.Addr)
+			go func(svr *dns.Server) {
+				err := svr.ShutdownContext(ctx)
+				if err != nil {
+					log.Errorf("During server %s shutdown: %s", svr.Addr, err)
+				} else {
+					log.Infof("Shutdown server: %s", svr.Addr)
+				}
 				wg.Done()
-			}()
+			}(server)
 		}
 	}
 

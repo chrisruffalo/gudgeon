@@ -10,14 +10,13 @@ require (
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/gin-gonic/gin v1.4.0
 	github.com/golang-migrate/migrate/v4 v4.4.0
-	github.com/google/gops v0.3.6
 	github.com/google/uuid v1.0.0
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/json-iterator/go v1.1.6
 	github.com/miekg/dns v1.1.14
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
-	github.com/shirou/gopsutil v0.0.0-20180427012116-c95755e4bcd7
+	github.com/shirou/gopsutil v0.0.0-20190627142359-4c8b404ee5c5
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 // indirect
 	github.com/twmb/murmur3 v0.0.0-20190212075929-930dc7964b30
