@@ -3,6 +3,7 @@ package web
 import (
 	"html/template"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,11 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/version"
+)
+
+const (
+	templateFileExtension = ".tmpl"
+	gzipFileExtension = ".gz"
 )
 
 // anti-cache from...
@@ -56,6 +62,33 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 		// then look for it as a template and if the template is found
 		// then process the template
 		if err != nil || file == nil {
+			// look for .gz (gzipped) file and return that if it exists
+			gzipped, err := fs.Open(path + gzipFileExtension)
+			if err == nil && gzipped != nil {
+				// set gzip output header
+				c.Header("Content-Encoding", "gzip")
+
+				// get mime type from extension
+				var contentType string
+				if strings.Contains(path, ".") {
+					ext := path[strings.LastIndex(path, ".") :]
+					contentType = mime.TypeByExtension(ext)
+				}
+				// default to x-gzip if no content type is computed from the extension
+				if contentType == "" {
+					contentType = "application/x-gzip"
+				}
+
+				// get stat for size
+				stat, _ := gzipped.Stat()
+
+				// write output
+				c.DataFromReader(http.StatusOK, stat.Size(), contentType, gzipped, map[string]string{})
+
+				// done
+				return
+			}
+
 			// look for template file and serve it if it exists
 			tmpl, err := fs.Open(path + templateFileExtension)
 			if err != nil || tmpl == nil {

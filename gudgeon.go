@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"net/http/pprof"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -135,7 +135,7 @@ func main() {
 		// start profile http endpoint on given port
 		profPort := "9900"
 		go func() {
-			err := http.ListenAndServe("127.0.0.1:"+profPort, http.HandlerFunc(pprof.Index))
+			err := http.ListenAndServe("127.0.0.1:"+profPort, nil)
 			if err != nil {
 				log.Errorf("Could not expose HTTP profile endpoint on %s: %s", profPort, err)
 			}

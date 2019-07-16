@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.0.0
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/json-iterator/go v1.1.6
-	github.com/miekg/dns v1.1.14
+	github.com/miekg/dns v1.1.15
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
 	github.com/shirou/gopsutil v0.0.0-20190627142359-4c8b404ee5c5

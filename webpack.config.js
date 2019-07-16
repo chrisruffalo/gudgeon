@@ -7,6 +7,8 @@ const WriteFilesPlugin = require('write-file-webpack-plugin');
 const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');
 const TerserJSPlugin = require('terser-webpack-plugin');
 const BabelEnvDeps = require('webpack-babel-env-deps');
+const CompressionPlugin = require('compression-webpack-plugin');
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 // determine if in dev mode or not
 const devMode = process.env.NODE_ENV !== 'production';
@@ -54,6 +56,14 @@ module.exports = {
     },
 
     plugins: [
+        // add compression plugin
+        new CompressionPlugin({
+            test: /\.(js|css|html|svg|eot|ttf|woff|woff2)$/,
+            deleteOriginalAssets: true,
+            threshold: 4092,
+            minRatio: 0.90
+        }),
+
         // Avoid publishing files when compilation failed:
         new webpack.NoEmitOnErrorsPlugin(),
 
@@ -78,25 +88,29 @@ module.exports = {
                 to: __dirname + '/web/static/',
                 flatten: true
             },
+
             // copy raw html if needed
             {
                 from: { glob: __dirname + '/web/app/html/*.html'},
                 to: __dirname + '/web/static/',
                 flatten: true
             },
+
             // copy html templates
             {
                 from: { glob: __dirname + '/web/app/html/*.tmpl'},
                 to: __dirname + '/web/static/',
                 flatten: true
             },
+
             // copy images from app
             {
                 from: { glob: __dirname + '/web/app/img/*'},
                 to: './img',
                 flatten: true
             },
-            //copy patternfly assets for app
+
+            // copy patternfly assets for app
             {
                 from: { glob: './node_modules/@patternfly/patternfly/assets/images/*.*'},
                 to: './img',
@@ -104,8 +118,16 @@ module.exports = {
             },
         ]),
 
-        //writes files on changes to src
-        new WriteFilesPlugin()
+        // writes files on changes to src
+        new WriteFilesPlugin(),
+
+        // bundle analyzer
+        new BundleAnalyzerPlugin({
+            analyzerMode: 'static',
+            reportFilename: "../../build/report.html",
+            generateStatsFile: false,
+            openAnalyzer: false,
+        })
     ],
 
     module: {

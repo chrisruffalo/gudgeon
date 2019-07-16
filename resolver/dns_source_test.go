@@ -49,7 +49,7 @@ func TestDnsSourceResolution(t *testing.T) {
 		rCon.Protocol = d.protocol
 		response, err := source.Answer(rCon, nil, m)
 		if err != nil {
-			t.Errorf("Could not resolve: %s", err)
+			t.Errorf("Could not resolve question '%s' with source %s: %s", d.domain, source.Name(), err)
 			continue
 		}
 

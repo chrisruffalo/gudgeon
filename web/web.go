@@ -19,10 +19,6 @@ import (
 	"github.com/chrisruffalo/gudgeon/resolver"
 )
 
-const (
-	templateFileExtension = ".tmpl"
-)
-
 type web struct {
 	conf   *config.GudgeonConfig
 	server *http.Server

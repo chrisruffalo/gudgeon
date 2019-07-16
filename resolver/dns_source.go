@@ -6,7 +6,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -22,7 +21,7 @@ const (
 )
 
 // how long to wait before source is active again
-var backoffInterval = 15 * time.Second
+var backoffInterval = 3 * time.Second
 var defaultTimeout = 1 * time.Second
 
 var validProtocols = []string{"udp", "tcp", "tcp-tls"}
@@ -35,14 +34,13 @@ type dnsSource struct {
 	network       string
 
 	dialer        net.Dialer
-	pool          sync.Pool
 
-	backoffTime *time.Time
-	tlsConfig   *tls.Config
+	backoffTime   *time.Time
+	tlsConfig     *tls.Config
 }
 
 func (dnsSource *dnsSource) Name() string {
-	return dnsSource.remoteAddress
+	return dnsSource.remoteAddress + "/" + dnsSource.protocol
 }
 
 func (dnsSource *dnsSource) Load(specification string) {
@@ -105,29 +103,32 @@ func (dnsSource *dnsSource) Load(specification string) {
 		dnsSource.remoteAddress = fmt.Sprintf("%s%s%d", dnsSource.dnsServer, portDelimeter, dnsSource.port)
 	}
 
-
 	// keep dialer for reuse
 	dnsSource.dialer = net.Dialer{
 		Timeout: defaultTimeout,
 	}
 }
 
-func (dnsSource *dnsSource) query(request *dns.Msg, remoteAddress string) (*dns.Msg, error) {
-	var err error
-
-	co := &dns.Conn{}
-	conn, err := dnsSource.dialer.Dial(dnsSource.network, remoteAddress)
+func (dnsSource *dnsSource) connect() (*dns.Conn, error) {
+	conn, err := dnsSource.dialer.Dial(dnsSource.network, dnsSource.remoteAddress)
 	if err != nil {
 		return nil, err
 	}
-	co.Conn = conn
-	defer co.Close()
 	if dnsSource.protocol == "tcp-tls" {
-		co.Conn = tls.Client(conn, dnsSource.tlsConfig)
+		conn = tls.Client(conn, dnsSource.tlsConfig)
 	}
+	return &dns.Conn{Conn: conn}, nil
+}
+
+func (dnsSource *dnsSource) query(request *dns.Msg) (*dns.Msg, error) {
+	co, err := dnsSource.connect()
+	if err != nil {
+		return nil, err
+	}
+	defer co.Close()
 
 	// update deadline waiting for write to succeed
-	_ = co.SetDeadline(time.Now().Add(2 * defaultTimeout))
+	_ = co.SetDeadline(time.Now().Add(defaultTimeout))
 
 	// write message
 	if err := co.WriteMsg(request); err != nil {
@@ -145,10 +146,6 @@ func (dnsSource *dnsSource) query(request *dns.Msg, remoteAddress string) (*dns.
 }
 
 func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
-	if "" == dnsSource.remoteAddress {
-		return nil, fmt.Errorf("No remote address for dns source")
-	}
-
 	now := time.Now()
 	if dnsSource.backoffTime != nil && now.Before(*dnsSource.backoffTime) {
 		// "asleep" during backoff interval
@@ -163,7 +160,7 @@ func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionCont
 	}
 
 	// forward message without interference
-	response, err := dnsSource.query(request, dnsSource.remoteAddress)
+	response, err := dnsSource.query(request)
 	if err != nil {
 		backoff := time.Now().Add(backoffInterval)
 		dnsSource.backoffTime = &backoff
@@ -175,7 +172,7 @@ func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionCont
 
 	// set source as answering source
 	if context != nil && !util.IsEmptyResponse(response) && context.SourceUsed == "" {
-		context.SourceUsed = dnsSource.Name() + "/" + dnsSource.protocol
+		context.SourceUsed = dnsSource.Name()
 	}
 
 	// otherwise just return
