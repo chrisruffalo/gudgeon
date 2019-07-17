@@ -134,6 +134,8 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 		if contentType == "" {
 			contentType = "application/octet-stream"
 		}
+
+		// write file
 		c.DataFromReader(http.StatusOK, stat.Size(), contentType, file, noCacheHeaders)
 
 		// close file
