@@ -110,6 +110,8 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 				// execute and write template
 				c.Status(http.StatusOK)
 				err = parsedTemplate.Execute(c.Writer, options)
+
+				// todo: this might not work if the template has already started writing we can't change the status code
 				if err != nil {
 					c.Status(http.StatusInternalServerError)
 					log.Errorf("Error executing template: %s", err)
