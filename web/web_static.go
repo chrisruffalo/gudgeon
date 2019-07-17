@@ -16,7 +16,7 @@ import (
 
 const (
 	templateFileExtension = ".tmpl"
-	gzipFileExtension = ".gz"
+	gzipFileExtension     = ".gz"
 )
 
 // anti-cache from...
@@ -61,7 +61,7 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 				// get mime type from extension
 				var contentType string
 				if strings.Contains(path, ".") {
-					ext := path[strings.LastIndex(path, ".") :]
+					ext := path[strings.LastIndex(path, "."):]
 					contentType = mime.TypeByExtension(ext)
 				}
 				// default to x-gzip if no content type is computed from the extension
@@ -129,7 +129,7 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 		// get mime type from extension
 		var contentType string
 		if strings.Contains(path, ".") {
-			ext := path[strings.LastIndex(path, ".") :]
+			ext := path[strings.LastIndex(path, "."):]
 			contentType = mime.TypeByExtension(ext)
 		}
 		// default to application/octet-stream

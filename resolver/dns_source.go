@@ -33,10 +33,10 @@ type dnsSource struct {
 	protocol      string
 	network       string
 
-	dialer        net.Dialer
+	dialer net.Dialer
 
-	backoffTime   *time.Time
-	tlsConfig     *tls.Config
+	backoffTime *time.Time
+	tlsConfig   *tls.Config
 }
 
 func (dnsSource *dnsSource) Name() string {
