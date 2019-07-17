@@ -30,17 +30,7 @@ var noCacheHeaders = map[string]string{
 	"X-Accel-Expires": "0",
 }
 
-var etagHeaders = []string{
-	"ETag",
-	"If-Modified-Since",
-	"If-Match",
-	"If-None-Match",
-	"If-Range",
-	"If-Unmodified-Since",
-}
-
 func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
-	fileServer := http.StripPrefix("/", http.FileServer(fs))
 	return func(c *gin.Context) {
 		url := c.Request.URL
 
@@ -85,6 +75,9 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 				// write output
 				c.DataFromReader(http.StatusOK, stat.Size(), contentType, gzipped, map[string]string{})
 
+				// close gzipped source
+				_ = gzipped.Close()
+
 				// done
 				return
 			}
@@ -100,7 +93,6 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 			if err != nil {
 				log.Errorf("Error getting template file contents: %s", err)
 			} else {
-				defer tmpl.Close()
 				parsedTemplate, err := template.New(path).Parse(string(contents))
 				if err != nil {
 					log.Errorf("Error parsing template file: %s", err)
@@ -130,21 +122,21 @@ func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
 		}
 
 		// done with file at this point
-		file.Close()
+		stat, _ := file.Stat()
 
-		// remove etag headers (don't request caching)
-		for _, v := range etagHeaders {
-			if c.Request.Header.Get(v) != "" {
-				c.Request.Header.Del(v)
-			}
+		// get mime type from extension
+		var contentType string
+		if strings.Contains(path, ".") {
+			ext := path[strings.LastIndex(path, ".") :]
+			contentType = mime.TypeByExtension(ext)
 		}
-
-		// serve
-		fileServer.ServeHTTP(c.Writer, c.Request)
-
-		// strip etags (don't cache this stuff)
-		for k, v := range noCacheHeaders {
-			c.Writer.Header().Set(k, v)
+		// default to application/octet-stream
+		if contentType == "" {
+			contentType = "application/octet-stream"
 		}
+		c.DataFromReader(http.StatusOK, stat.Size(), contentType, file, noCacheHeaders)
+
+		// close file
+		_ = file.Close()
 	}
 }
