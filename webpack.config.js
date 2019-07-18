@@ -82,10 +82,8 @@ module.exports = (env, argv) => {
 
             //creates distribution css file rather than inlining styles
             new MiniCssExtractPlugin({
-                // Options similar to the same options in webpackOptions.output
-                // both options are optional
-                filename: "css/" + (devMode ? '[name].bundle.css' : '[name].[hash].bundle.css'),
-                chunkFilename: "css/" + (devMode ? '[id].bundle.css' : '[id].[hash].bundle.css'),
+                filename: "css/[name].bundle.css",
+                chunkFilename: "css/" + (!devMode ? '[id].bundle.css' : '[id].[hash].bundle.css'),
             }),
 
             new CopyWebpackPlugin([

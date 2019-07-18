@@ -1,8 +1,9 @@
 {
   "name": "gudgeon",
-  "sideEffects": false,
+  "sideEffects": [
+    "*.css"
+  ],
   "dependencies": {
-    "@material-ui/icons": "^4.2.1",
     "@patternfly/patternfly": "^2.21.1",
     "@patternfly/react-core": "^3.58.1",
     "@patternfly/react-icons": "^3.10.11",
@@ -10,7 +11,6 @@
     "@tippy.js/react": "^2.2.2",
     "axios": "^0.19.0",
     "c3": "^0.7.2",
-    "d3": "^5.9.7",
     "core-js": "^3.1.4",
     "emotion": "^10.0.14",
     "exenv": "^1.2.2",
