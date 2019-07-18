@@ -1,6 +1,7 @@
 package web
 
 import (
+	rice "github.com/GeertJohan/go.rice"
 	"html/template"
 	"io/ioutil"
 	"mime"
@@ -30,7 +31,7 @@ var noCacheHeaders = map[string]string{
 	"X-Accel-Expires": "0",
 }
 
-func (web *web) ServeStatic(fs http.FileSystem) gin.HandlerFunc {
+func (web *web) ServeStatic(fs *rice.Box) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		url := c.Request.URL
 

@@ -1,4 +1,5 @@
-# Gudgeon [![Build Status](https://travis-ci.org/chrisruffalo/gudgeon.svg?branch=master)](https://travis-ci.org/chrisruffalo/gudgeon) [![Go Report Card](https://goreportcard.com/badge/github.com/chrisruffalo/gudgeon)](https://goreportcard.com/report/github.com/chrisruffalo/gudgeon) [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon?ref=badge_shield)
+# Gudgeon 
+[![Build Status](https://travis-ci.org/chrisruffalo/gudgeon.svg?branch=master)](https://travis-ci.org/chrisruffalo/gudgeon) [![Go Report Card](https://goreportcard.com/badge/github.com/chrisruffalo/gudgeon)](https://goreportcard.com/report/github.com/chrisruffalo/gudgeon) [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon?ref=badge_shield) [![Copr build status](https://copr.fedorainfracloud.org/coprs/cruffalo/gudgeon/package/gudgeon/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/cruffalo/gudgeon/package/gudgeon/)
 
 ## Overview
 Gudgeon is a caching/blocking DNS proxy server. What sets Gudgeon apart is the ability to segregate machines, subnets, and IP ranges into different groups that 

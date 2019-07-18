@@ -1,7 +1,8 @@
 {
   "name": "gudgeon",
+  "sideEffects": false,
   "dependencies": {
-    "@material-ui/core": "^4.2.0",
+    "@material-ui/icons": "^4.2.1",
     "@patternfly/patternfly": "^2.21.1",
     "@patternfly/react-core": "^3.58.1",
     "@patternfly/react-icons": "^3.10.11",
@@ -9,12 +10,12 @@
     "@tippy.js/react": "^2.2.2",
     "axios": "^0.19.0",
     "c3": "^0.7.2",
+    "d3": "^5.9.7",
     "core-js": "^3.1.4",
     "emotion": "^10.0.14",
     "exenv": "^1.2.2",
     "focus-trap-react": "^6.0.0",
     "lodash-es": "^4.17.14",
-    "material-icons": "^0.3.1",
     "material-table": "^1.40.1",
     "pretty-bytes": "^5.2.0",
     "react": "^16.8.6",
@@ -34,6 +35,7 @@
     "@babel/plugin-transform-typescript": "^7.5.2",
     "@babel/preset-env": "^7.5.4",
     "@babel/preset-react": "^7.0.0",
+    "babel-plugin-lodash": "^3.3.4",
     "acorn": "^6.2.0",
     "babel-loader": "^8.0.6",
     "babel-plugin-typescript-to-proptypes": "^0.17.1",
@@ -58,11 +60,13 @@
     "webpack-bundle-analyzer": "^3.3.2",
     "webpack-cli": "^3.3.6",
     "webpack-dev-server": "^3.7.2",
+    "lodash-webpack-plugin": "^0.11.5",
     "write-file-webpack-plugin": "^4.5"
   },
   "scripts": {
     "build:dev": "webpack-cli -d --config ./webpack.config.js --watch",
     "build:prod": "webpack-cli -p --config ./webpack.config.js",
+    "build:stats": "webpack-cli -p --config ./webpack.config.js --stats true",
     "clean": "rm -rf ./web/static/*",
     "start:dev": "webpack-dev-server"
   },

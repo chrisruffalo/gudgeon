@@ -384,7 +384,7 @@ func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine) error {
 	router.Use(gin.Recovery())
 
 	// if no route is matched, attempt to serve static assets
-	box := rice.MustFindBox("static").HTTPBox()
+	box := rice.MustFindBox("static")
 
 	// use static serving when no route is detected
 	router.NoRoute(web.ServeStatic(box))
@@ -406,14 +406,13 @@ func (web *web) Serve(conf *config.GudgeonConfig, engine engine.Engine) error {
 	// go serve
 	webConf := conf.Web
 	address := fmt.Sprintf("%s:%d", webConf.Address, webConf.Port)
-	srv := &http.Server{
+	web.server = &http.Server{
 		Addr:    address,
 		Handler: router,
 	}
-	web.server = srv
 	go func() {
 		// service connections
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := web.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Errorf("Starting server: %s", err)
 		}
 	}()
