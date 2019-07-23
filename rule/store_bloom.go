@@ -13,6 +13,8 @@ const (
 )
 
 type bloomStore struct {
+	baseStore
+
 	blooms           map[string]*bloom.BloomFilter
 	backingStore     Store
 	defaultRuleCount uint
@@ -50,6 +52,11 @@ func (store *bloomStore) Init(sessionRoot string, config *config.GudgeonConfig, 
 
 func (store *bloomStore) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
 	store.createBloom(config, list)
+	store.removeList(list)
+
+	if store.backingStore != nil {
+		store.backingStore.Clear(config, list)
+	}
 }
 
 func (store *bloomStore) Load(list *config.GudgeonList, rule string) {
@@ -57,6 +64,7 @@ func (store *bloomStore) Load(list *config.GudgeonList, rule string) {
 	if !store.blooms[list.CanonicalName()].TestString(rule) {
 		store.blooms[list.CanonicalName()].AddString(rule)
 	}
+	store.addList(list)
 
 	if store.backingStore != nil {
 		store.backingStore.Load(list, rule)
@@ -76,23 +84,13 @@ func (store *bloomStore) foundInList(filter *bloom.BloomFilter, domain string) (
 }
 
 func (store *bloomStore) FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string) {
-	// allow and block split
-	allowLists := make([]*config.GudgeonList, 0)
-	blockLists := make([]*config.GudgeonList, 0)
-	for _, l := range lists {
-		if ParseType(l.Type) == ALLOW {
-			allowLists = append(allowLists, l)
-		} else {
-			blockLists = append(blockLists, l)
-		}
-	}
 
 	domains := util.DomainList(domain)
 
-	for _, list := range allowLists {
+	match, list, rule := store.matchForEachOfTypeIn(config.ALLOW, lists, func(listType config.ListType, list *config.GudgeonList) (Match, *config.GudgeonList, string) {
 		filter, found := store.blooms[list.CanonicalName()]
 		if !found {
-			continue
+			return MatchNone, nil, ""
 		}
 		for _, d := range domains {
 			if found, ruleString := store.foundInList(filter, d); found {
@@ -102,12 +100,17 @@ func (store *bloomStore) FindMatch(lists []*config.GudgeonList, domain string) (
 				return MatchAllow, list, ruleString
 			}
 		}
+		return MatchNone, nil, ""
+	})
+
+	if MatchNone != match {
+		return match, list, rule
 	}
 
-	for _, list := range blockLists {
+	match, list, rule = store.matchForEachOfTypeIn(config.BLOCK, lists, func(listType config.ListType, list *config.GudgeonList) (Match, *config.GudgeonList, string) {
 		filter, found := store.blooms[list.CanonicalName()]
 		if !found {
-			continue
+			return MatchNone, nil, ""
 		}
 		for _, d := range domains {
 			if found, ruleString := store.foundInList(filter, d); found {
@@ -117,9 +120,10 @@ func (store *bloomStore) FindMatch(lists []*config.GudgeonList, domain string) (
 				return MatchBlock, list, ruleString
 			}
 		}
-	}
+		return MatchNone, nil, ""
+	})
 
-	return MatchNone, nil, ""
+	return match, list, rule
 }
 
 func (store *bloomStore) Close() {

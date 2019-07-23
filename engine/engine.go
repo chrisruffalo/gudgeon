@@ -434,8 +434,8 @@ func (engine *engine) HandleWithGroups(groups []string, rCon *resolver.RequestCo
 		return response, rCon, result
 	}
 
-	// accumulate resolver names
-	resolverNames := make([]string, 0)
+	// accumulate resolver names, up to a maximum of resolvers before having to append
+	resolverNames := make([]string, 0, len(engine.config.Resolvers))
 
 	// get the resolver names for the groups, in the given order
 	for _, groupName := range groups {

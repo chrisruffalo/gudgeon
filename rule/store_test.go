@@ -18,7 +18,7 @@ const (
 type ruleList struct {
 	group    string
 	rules    []string
-	ruleType uint8
+	ruleType config.ListType
 	blocked  []string
 	allowed  []string
 	nomatch  []string
@@ -27,10 +27,10 @@ type ruleList struct {
 // quick/dirty rule tests that all stores should pass
 var defaultRuleData = []ruleList{
 	// allowlist checks are inverted
-	{group: "default", rules: []string{"rate.com"}, ruleType: ALLOW, blocked: []string{}, allowed: []string{"we.rate.com", "no.rate.com", "rate.com"}, nomatch: []string{"crate.com", "rated.com"}},
+	{group: "default", rules: []string{"rate.com"}, ruleType: config.ALLOW, blocked: []string{}, allowed: []string{"we.rate.com", "no.rate.com", "rate.com"}, nomatch: []string{"crate.com", "rated.com"}},
 	// blocklist checks are not
-	{group: "default", rules: []string{"rate.com", "gorp.com"}, ruleType: BLOCK, blocked: []string{"we.rate.com", "no.rate.com", "rate.com", "gorp.com", "clog.gorp.com"}, allowed: []string{}, nomatch: []string{"crate.com", "rated.com", "orp.com"}},
-	{group: "default", rules: []string{"bonkers.com"}, ruleType: BLOCK, blocked: []string{"text.bonkers.com", "bonkers.com"}, nomatch: []string{"argument.com", "boop.com", "krunch.io", "bonk.com", "bonkerss.com"}},
+	{group: "default", rules: []string{"rate.com", "gorp.com"}, ruleType: config.BLOCK, blocked: []string{"we.rate.com", "no.rate.com", "rate.com", "gorp.com", "clog.gorp.com"}, allowed: []string{}, nomatch: []string{"crate.com", "rated.com", "orp.com"}},
+	{group: "default", rules: []string{"bonkers.com"}, ruleType: config.BLOCK, blocked: []string{"text.bonkers.com", "bonkers.com"}, nomatch: []string{"argument.com", "boop.com", "krunch.io", "bonk.com", "bonkerss.com"}},
 }
 
 type ruleStoreCreator func() Store
@@ -41,15 +41,22 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 
 	for idx, data := range ruleData {
 		// create rule and rule list
-		ruleType := "block"
-		if data.ruleType == ALLOW {
-			ruleType = "allow"
+		ruleType := config.BLOCKSTRING
+		if data.ruleType == config.ALLOW {
+			ruleType = config.ALLOWSTRING
 		}
 
 		// create single store for test
 		store := createRuleStore()
 
-		lists := []*config.GudgeonList{&config.GudgeonList{Name: fmt.Sprintf("Test List %d", idx), Type: ruleType}}
+		// create and verify/update lists
+		lists := []*config.GudgeonList{
+			{Name: fmt.Sprintf("Test List %d", idx), Type: string(ruleType)},
+		}
+		for _, list := range lists {
+			list.VerifyAndInit()
+		}
+
 		// load rules into target store
 		store.Init(tmpDir, nil, lists)
 		for _, rule := range data.rules {
@@ -103,6 +110,9 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 		{Name: "Allow2", Type: "allow"},
 		{Name: "Allow3", Type: "allow"},
 	}
+	for _, list := range lists {
+		list.VerifyAndInit()
+	}
 
 	store.Init(tmpDir, nil, lists)
 
@@ -138,10 +148,10 @@ func benchNonComplexStore(createRuleStore ruleStoreCreator, b *testing.B) {
 func TestComplexRuleStore(t *testing.T) {
 
 	ruleData := []ruleList{
-		// whitelist checks are inverted but force a return without going through BLACK or BLOCK lists
-		{group: "default", rules: []string{"/^r.*\\..*/"}, ruleType: ALLOW, blocked: []string{}, allowed: []string{"ring.com", "rank.org", "riff.io"}, nomatch: []string{}},
+		// whitelist checks are inverted but force a return without going through BLACK or config.BLOCK lists
+		{group: "default", rules: []string{"/^r.*\\..*/"}, ruleType: config.ALLOW, blocked: []string{}, allowed: []string{"ring.com", "rank.org", "riff.io"}, nomatch: []string{}},
 		// black and blocklist checks are not
-		{group: "default", rules: []string{"/^r.*\\..*/"}, ruleType: BLOCK, blocked: []string{"ring.com", "rank.org", "riff.io"}, allowed: []string{}, nomatch: []string{"argument.com"}},
+		{group: "default", rules: []string{"/^r.*\\..*/"}, ruleType: config.BLOCK, blocked: []string{"ring.com", "rank.org", "riff.io"}, allowed: []string{}, nomatch: []string{"argument.com"}},
 	}
 
 	// with creator function

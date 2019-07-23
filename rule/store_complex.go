@@ -5,6 +5,8 @@ import (
 )
 
 type complexStore struct {
+	baseStore
+
 	backingStore Store
 	complexRules map[string][]ComplexRule
 }
@@ -25,6 +27,11 @@ func (store *complexStore) Init(sessionRoot string, config *config.GudgeonConfig
 
 func (store *complexStore) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
 	store.complexRules[list.CanonicalName()] = make([]ComplexRule, 0)
+	store.removeList(list)
+
+	if store.backingStore != nil {
+		store.backingStore.Clear(config, list)
+	}
 }
 
 func (store *complexStore) Load(list *config.GudgeonList, rule string) {
@@ -43,6 +50,7 @@ func (store *complexStore) Load(list *config.GudgeonList, rule string) {
 	} else if store.backingStore != nil {
 		store.backingStore.Load(list, rule)
 	}
+	store.addList(list)
 }
 
 func (store *complexStore) Finalize(sessionRoot string, lists []*config.GudgeonList) {
@@ -58,17 +66,17 @@ func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string)
 	allowLists := make([]*config.GudgeonList, 0)
 	blockLists := make([]*config.GudgeonList, 0)
 	for _, l := range lists {
-		if ParseType(l.Type) == ALLOW {
+		if l.ParsedType() == config.ALLOW {
 			allowLists = append(allowLists, l)
 		} else {
 			blockLists = append(blockLists, l)
 		}
 	}
 
-	for _, list := range allowLists {
+	match, list, rule := store.matchForEachOfTypeIn(config.ALLOW, lists, func(listType config.ListType, list *config.GudgeonList) (Match, *config.GudgeonList, string) {
 		rules, found := store.complexRules[list.CanonicalName()]
 		if !found {
-			continue
+			return MatchNone, nil, ""
 		}
 
 		for _, rule := range rules {
@@ -76,12 +84,17 @@ func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string)
 				return MatchAllow, list, rule.Text()
 			}
 		}
+		return MatchNone, nil, ""
+	})
+
+	if MatchNone != match {
+		return match, list, rule
 	}
 
-	for _, list := range blockLists {
+	match, list, rule = store.matchForEachOfTypeIn(config.BLOCK, lists, func(listType config.ListType, list *config.GudgeonList) (Match, *config.GudgeonList, string) {
 		rules, found := store.complexRules[list.CanonicalName()]
 		if !found {
-			continue
+			return MatchNone, nil, ""
 		}
 
 		for _, rule := range rules {
@@ -89,6 +102,11 @@ func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string)
 				return MatchBlock, list, rule.Text()
 			}
 		}
+		return MatchNone, nil, ""
+	})
+
+	if MatchNone != match {
+		return match, list, rule
 	}
 
 	// delegate to backing store if no result found

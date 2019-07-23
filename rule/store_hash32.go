@@ -12,6 +12,8 @@ import (
 )
 
 type hashStore32 struct {
+	baseStore
+
 	hashes map[string][]uint32
 
 	delegate Store
@@ -40,10 +42,16 @@ func (store *hashStore32) Clear(config *config.GudgeonConfig, list *config.Gudge
 		startingArrayLength, _ = util.LineCount(config.PathToList(list))
 	}
 	store.hashes[list.CanonicalName()] = make([]uint32, 0, startingArrayLength)
+	store.removeList(list)
+
+	if store.delegate != nil {
+		store.delegate.Clear(config, list)
+	}
 }
 
 func (store *hashStore32) Load(list *config.GudgeonList, rule string) {
 	store.hashes[list.CanonicalName()] = append(store.hashes[list.CanonicalName()], murmur3.StringSum32(strings.ToLower(rule)))
+	store.addList(list)
 
 	if store.delegate != nil {
 		store.delegate.Load(list, rule)
@@ -80,17 +88,6 @@ func (store *hashStore32) foundInList(rules []uint32, domainHash uint32) (bool, 
 
 func (store *hashStore32) FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string) {
 
-	// allow and block split
-	allowLists := make([]*config.GudgeonList, 0)
-	blockLists := make([]*config.GudgeonList, 0)
-	for _, l := range lists {
-		if ParseType(l.Type) == ALLOW {
-			allowLists = append(allowLists, l)
-		} else {
-			blockLists = append(blockLists, l)
-		}
-	}
-
 	// get domain hashes
 	domains := util.DomainList(domain)
 	domainHashes := make([]uint32, len(domains))
@@ -98,10 +95,10 @@ func (store *hashStore32) FindMatch(lists []*config.GudgeonList, domain string) 
 		domainHashes[idx] = murmur3.StringSum32(strings.ToLower(d))
 	}
 
-	for _, list := range allowLists {
+	match, list, rule := store.matchForEachOfTypeIn(config.ALLOW, lists, func(listType config.ListType, list *config.GudgeonList) (Match, *config.GudgeonList, string) {
 		rules, found := store.hashes[list.CanonicalName()]
 		if !found {
-			continue
+			return MatchNone, nil, ""
 		}
 		for _, d := range domainHashes {
 			if found, ruleHash := store.foundInList(rules, d); found && ruleHash > 0 {
@@ -111,12 +108,17 @@ func (store *hashStore32) FindMatch(lists []*config.GudgeonList, domain string) 
 				return MatchAllow, list, fmt.Sprintf("%d", ruleHash)
 			}
 		}
+		return MatchNone, nil, ""
+	})
+
+	if MatchNone != match {
+		return match, list, rule
 	}
 
-	for _, list := range blockLists {
+	match, list, rule = store.matchForEachOfTypeIn(config.BLOCK, lists, func(listType config.ListType, list *config.GudgeonList) (Match, *config.GudgeonList, string) {
 		rules, found := store.hashes[list.CanonicalName()]
 		if !found {
-			continue
+			return MatchNone, nil, ""
 		}
 		for _, d := range domainHashes {
 			if found, ruleHash := store.foundInList(rules, d); found && ruleHash > 0 {
@@ -126,9 +128,10 @@ func (store *hashStore32) FindMatch(lists []*config.GudgeonList, domain string) 
 				return MatchBlock, list, fmt.Sprintf("%d", ruleHash)
 			}
 		}
-	}
+		return MatchNone, nil, ""
+	})
 
-	return MatchNone, nil, ""
+	return match, list, rule
 }
 
 func (store *hashStore32) Close() {

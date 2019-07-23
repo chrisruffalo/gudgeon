@@ -12,7 +12,19 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
+type ListType uint8
+type ListString string
+
 const (
+	// the constant that means ALLOW after pasring "allow" or "block"
+	ALLOW = ListType(1)
+	// the constant that means BLOCK after pasring "allow" or "block"
+	BLOCK = ListType(0)
+
+	// the string that represents "allow", all other results are treated as "block"
+	ALLOWSTRING = ListString("allow")
+	BLOCKSTRING = ListString("block")
+
 	defaultString = "default"
 	systemString  = "system"
 )
@@ -139,6 +151,7 @@ type GudgeonList struct {
 	shortName string `yaml:"-"`
 	// the type of the list, requires "allow" or "block", defaults to "block"
 	Type string `yaml:"type"`
+	parsedType ListType `yaml:"-"`
 	// should items in the list be interpreted as **regex only**
 	Regex *bool `yaml:"regex"`
 	// the tags that relate to the list for tag filtering/processing
@@ -156,6 +169,10 @@ func (list *GudgeonList) CanonicalName() string {
 }
 
 func (list *GudgeonList) ShortName() string {
+	// in case we miss verify/init and initial set up of list (like with test cases)
+	if "" == list.shortName {
+		return list.Name
+	}
 	return list.shortName
 }
 
@@ -177,6 +194,10 @@ func (list *GudgeonList) path(cachePath string) string {
 		source = evalPath
 	}
 	return source
+}
+
+func (list *GudgeonList) ParsedType() ListType {
+	return list.parsedType
 }
 
 func (list *GudgeonList) SafeTags() []string {

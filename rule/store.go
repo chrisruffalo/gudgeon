@@ -37,6 +37,84 @@ type Store interface {
 	Close()
 }
 
+type baseStore struct {
+	// map of block/allow -> short name -> config list
+	lists map[config.ListType]map[string]*config.GudgeonList
+}
+
+type eachListAction func(listType config.ListType, list *config.GudgeonList)
+type matchListAction func(listType config.ListType, list *config.GudgeonList) (Match, *config.GudgeonList, string)
+
+func (baseStore *baseStore) addList(list *config.GudgeonList) {
+	if list == nil {
+		return
+	}
+	if baseStore.lists == nil {
+		baseStore.lists = make(map[config.ListType]map[string]*config.GudgeonList)
+	}
+	if _, found := baseStore.lists[list.ParsedType()]; !found {
+		baseStore.lists[list.ParsedType()] = make(map[string]*config.GudgeonList)
+	}
+	baseStore.lists[list.ParsedType()][list.ShortName()] = list
+}
+
+func (baseStore *baseStore) removeList(list *config.GudgeonList) {
+	if list == nil {
+		return
+	}
+	if baseStore.lists == nil {
+		return
+	}
+	if _, found := baseStore.lists[list.ParsedType()]; !found {
+		return
+	}
+	delete(baseStore.lists[list.ParsedType()], list.ShortName())
+}
+
+func (baseStore *baseStore) getList(name string) *config.GudgeonList{
+	if "" == name {
+		return nil
+	}
+	for _, v := range baseStore.lists {
+		if _, ok := v[name]; ok {
+			return v[name]
+		}
+	}
+	return nil
+}
+
+func (baseStore *baseStore) forEachOfTypeIn(listType config.ListType, lists []*config.GudgeonList, listAction eachListAction) {
+	if len(lists) < 1 || listAction == nil {
+		return
+	}
+	if _, found := baseStore.lists[listType]; !found {
+		return
+	}
+	for _, v := range lists {
+		if list, found := baseStore.lists[listType][v.ShortName()]; found {
+			listAction(listType, list)
+		}
+	}
+}
+
+func (baseStore *baseStore) matchForEachOfTypeIn(listType config.ListType, lists []*config.GudgeonList, matchAction matchListAction) (Match, *config.GudgeonList, string) {
+	if len(lists) < 1 || matchAction == nil {
+		return MatchNone, nil, ""
+	}
+	if _, found := baseStore.lists[listType]; !found {
+		return MatchNone, nil, ""
+	}
+	for _, v := range lists {
+		if list, found := baseStore.lists[listType][v.ShortName()]; found {
+			m, list, rule := matchAction(listType, list)
+			if MatchNone != m {
+				return m, list, rule
+			}
+		}
+	}
+	return MatchNone, nil, ""
+}
+
 // stores are created from lists of files inside a configuration
 func CreateStore(storeRoot string, conf *config.GudgeonConfig) (Store, []uint64) {
 	// outer shell reloading store

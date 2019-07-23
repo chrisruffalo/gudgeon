@@ -11,6 +11,9 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
+// set alphabetical regex
+var alphaRegex, _ = regexp.Compile("[^a-zA-Z0-9]+")
+
 func boolPointer(b bool) *bool {
 	return &b
 }
@@ -460,9 +463,6 @@ func (config *GudgeonConfig) verifyAndInitLists() ([]string, []error) {
 	// collect warnings
 	warnings := make([]string, 0)
 
-	// compile regex for just this scope
-	alphaRegex, _ := regexp.Compile("[^a-zA-Z0-9]+")
-
 	for _, list := range config.Lists {
 		if list == nil {
 			continue
@@ -476,18 +476,36 @@ func (config *GudgeonConfig) verifyAndInitLists() ([]string, []error) {
 			continue
 		}
 
-		// replace here and have it done once
-		list.shortName = alphaRegex.ReplaceAllString(list.CanonicalName(), "_")
+		// verify/init individual list
+		list.VerifyAndInit()
 
-		// default the regex value for the list to false
-		// (by default lists are not regex only and require special formatting for regex)
-		if list.Regex == nil {
-			list.Regex = boolPointer(false)
-		}
-
-		list.Name = strings.ToLower(list.Name)
 		config.listMap[list.CanonicalName()] = list
 	}
 
 	return warnings, []error{}
+}
+
+func (list *GudgeonList) VerifyAndInit() {
+	if list == nil {
+		return
+	}
+
+	// replace here and have it done once
+	list.shortName = alphaRegex.ReplaceAllString(list.CanonicalName(), "_")
+
+	// default the regex value for the list to false
+	// (by default lists are not regex only and require special formatting for regex)
+	if list.Regex == nil {
+		list.Regex = boolPointer(false)
+	}
+
+	// canonical and pre-paresed values for allow/block
+	if strings.EqualFold(string(ALLOWSTRING), list.Type) {
+		list.parsedType = ALLOW
+	} else {
+		list.Type = string(BLOCKSTRING)
+		list.parsedType = BLOCK
+	}
+
+	list.Name = strings.ToLower(list.Name)
 }

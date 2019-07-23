@@ -7,23 +7,9 @@ import (
 )
 
 const (
-	// the constant that means ALLOW after pasring "allow" or "block"
-	ALLOW = uint8(1)
-	// the constant that means BLOCK after pasring "allow" or "block"
-	BLOCK = uint8(0)
-	// the string that represents "allow", all other results are treated as "block"
-	ALLOWSTRING = "allow"
-
 	ruleRegex = "/"
 	ruleGlob  = "*"
 )
-
-func ParseType(listType string) uint8 {
-	if strings.EqualFold(ALLOWSTRING, listType) {
-		return ALLOW
-	}
-	return BLOCK
-}
 
 // parse a line, as from a file, and return the part that represents the rule
 func ParseLine(line string) string {

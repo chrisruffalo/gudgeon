@@ -11,6 +11,8 @@ import (
 )
 
 type memoryStore struct {
+	baseStore
+
 	rules map[string][]string
 }
 
@@ -34,10 +36,12 @@ func (store *memoryStore) Clear(config *config.GudgeonConfig, list *config.Gudge
 		startingArrayLength, _ = util.LineCount(config.PathToList(list))
 	}
 	store.rules[list.CanonicalName()] = make([]string, 0, startingArrayLength)
+	store.removeList(list)
 }
 
 func (store *memoryStore) Load(list *config.GudgeonList, rule string) {
 	store.rules[list.CanonicalName()] = append(store.rules[list.CanonicalName()], strings.ToLower(rule))
+	store.addList(list)
 }
 
 func (store *memoryStore) Finalize(sessionRoot string, lists []*config.GudgeonList) {
@@ -65,44 +69,40 @@ func (store *memoryStore) foundInList(rules []string, domain string) (bool, stri
 }
 
 func (store *memoryStore) FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string) {
-	// allow and block split
-	allowLists := make([]*config.GudgeonList, 0)
-	blockLists := make([]*config.GudgeonList, 0)
-	for _, l := range lists {
-		if ParseType(l.Type) == ALLOW {
-			allowLists = append(allowLists, l)
-		} else {
-			blockLists = append(blockLists, l)
-		}
-	}
 
 	domains := util.DomainList(domain)
 
-	for _, list := range allowLists {
+	match, list, rule := store.matchForEachOfTypeIn(config.ALLOW, lists, func(listType config.ListType, list *config.GudgeonList) (Match, *config.GudgeonList, string) {
 		rules, found := store.rules[list.CanonicalName()]
 		if !found {
-			continue
+			return MatchNone, nil, ""
 		}
 		for _, d := range domains {
 			if found, ruleString := store.foundInList(rules, d); found {
 				return MatchAllow, list, ruleString
 			}
 		}
+		return MatchNone, nil, ""
+	})
+
+	if MatchNone != match {
+		return match, list, rule
 	}
 
-	for _, list := range blockLists {
+	match, list, rule = store.matchForEachOfTypeIn(config.BLOCK, lists, func(listType config.ListType, list *config.GudgeonList) (Match, *config.GudgeonList, string) {
 		rules, found := store.rules[list.CanonicalName()]
 		if !found {
-			continue
+			return MatchNone, nil, ""
 		}
 		for _, d := range domains {
 			if found, ruleString := store.foundInList(rules, d); found {
 				return MatchBlock, list, ruleString
 			}
 		}
-	}
+		return MatchNone, nil, ""
+	})
 
-	return MatchNone, nil, ""
+	return match, list, rule
 }
 
 func (store *memoryStore) Close() {

@@ -20,10 +20,18 @@ const _insertStmt = "INSERT OR IGNORE INTO rules (ListRowId, Rule) VALUES ((SELE
 const _deleteStmt = "DELETE FROM rules WHERE ListRowId = (SELECT Id FROM lists WHERE ShortName = ? LIMIT 1)"
 
 type sqlStore struct {
+	// list handling from base store
+	baseStore
+
+	// path to storage
 	path string
+
+	// db management
 	db   *sql.DB
 	stmt *sql.Stmt
 	tx   *sql.Tx
+
+
 }
 
 func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
@@ -100,10 +108,16 @@ func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonL
 	}
 	// start with a fresh transaction on the next operation
 	store.tx = nil
+
+	// clear base store
+	store.removeList(list)
 }
 
 func (store *sqlStore) Load(list *config.GudgeonList, rule string) {
 	var err error
+
+	// add list to base store
+	store.addList(list)
 
 	if store.tx == nil {
 		store.tx, err = store.db.Begin()
@@ -160,30 +174,41 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 	}
 }
 
-func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []string) (bool, string, string) {
+func sliceAppend(slice *[]interface{}, value interface{}) {
+	*slice = append(*slice, value)
+}
+
+func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.GudgeonList, domains []string) (bool, string, string) {
 	// with no lists and no domain we can't test found function
 	if len(lists) < 1 || len(domains) < 1 {
 		return false, "", ""
 	}
 
-	shortNames := make([]string, 0, len(lists))
-	for _, list := range lists {
-		shortNames = append(shortNames, list.ShortName())
+	builder := strings.Builder{}
+
+	vars := make([]interface{}, 0, len(lists) + len(domains))
+	store.forEachOfTypeIn(listType, lists, func(listType config.ListType, list *config.GudgeonList) {
+		sliceAppend(&vars, list.ShortName())
+	})
+
+	// no lists selected
+	if len(vars) < 1 {
+		return false, "", ""
 	}
 
 	// build query statement
-	stmt := "SELECT l.ShortName, r.Rule FROM rules R LEFT JOIN lists L ON R.ListRowId = L.rowid WHERE l.ShortName in (?" + strings.Repeat(", ?", len(shortNames)-1) + ") AND r.Rule in (?" + strings.Repeat(", ?", len(domains)-1) + ");"
+	builder.WriteString("SELECT l.ShortName, r.Rule FROM rules R LEFT JOIN lists L ON R.ListRowId = L.rowid WHERE l.ShortName in (?")
+	builder.WriteString(strings.Repeat(", ?", len(vars)-1))
+	builder.WriteString(") AND r.Rule in (?")
+	builder.WriteString(strings.Repeat(", ?", len(domains)-1) + ");")
 
 	// build parameters
-	vars := make([]interface{}, 0, len(shortNames)+len(domains))
-	for _, sn := range shortNames {
-		vars = append(vars, sn)
-	}
 	for _, dm := range domains {
 		vars = append(vars, dm)
 	}
 
-	rows, err := store.db.Query(stmt, vars...)
+	log.Tracef("(type: %d) query: %s (vars: %v)", listType, builder.String(), vars)
+	rows, err := store.db.Query(builder.String(), vars...)
 	if err != nil {
 		log.Errorf("Executing rule storage query: %s", err)
 	}
@@ -217,30 +242,14 @@ func (store *sqlStore) FindMatch(lists []*config.GudgeonList, domain string) (Ma
 		return MatchNone, nil, ""
 	}
 
-	// allow and block split
-	listmap := make(map[string]*config.GudgeonList)
-	allowLists := make([]*config.GudgeonList, 0)
-	blockLists := make([]*config.GudgeonList, 0)
-	for _, l := range lists {
-		if l == nil {
-			continue
-		}
-		if ParseType(l.Type) == ALLOW {
-			allowLists = append(allowLists, l)
-		} else {
-			blockLists = append(blockLists, l)
-		}
-		listmap[l.ShortName()] = l
-	}
-
 	// get domains
 	domains := util.DomainList(domain)
 
-	if found, listName, rule := store.foundInLists(allowLists, domains); found {
-		return MatchAllow, listmap[listName], rule
+	if found, listName, rule := store.foundInLists(config.ALLOW, lists, domains); found {
+		return MatchAllow, store.getList(listName), rule
 	}
-	if found, listName, rule := store.foundInLists(blockLists, domains); found {
-		return MatchBlock, listmap[listName], rule
+	if found, listName, rule := store.foundInLists(config.BLOCK, lists, domains); found {
+		return MatchBlock, store.getList(listName), rule
 	}
 
 	return MatchNone, nil, ""
