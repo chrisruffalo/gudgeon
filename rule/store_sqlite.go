@@ -179,6 +179,10 @@ func sliceAppend(slice *[]interface{}, value interface{}) {
 }
 
 func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.GudgeonList, domains []string) (bool, string, string) {
+	if store.db == nil {
+		return false, "", ""
+	}
+
 	// with no lists and no domain we can't test found function
 	if len(lists) < 1 || len(domains) < 1 {
 		return false, "", ""
@@ -261,5 +265,6 @@ func (store *sqlStore) Close() {
 		if err != nil {
 			log.Errorf("Error closing database: %s", err)
 		}
+		store.db = nil
 	}
 }
