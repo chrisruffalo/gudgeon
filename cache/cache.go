@@ -65,15 +65,15 @@ func minTTL(currentMin uint32, records []dns.RR) uint32 {
 func (gocache *gocache) key(questions []dns.Question) string {
 	var builder strings.Builder
 	if len(questions) > 0 {
-		for _, question := range questions {
-			builder.WriteString(question.Name)
+		for idx := 0; idx < len(questions); idx++ {
+			builder.WriteString(strings.ToLower(questions[idx].Name))
 			builder.WriteString(delimeter)
-			builder.WriteString(dns.Class(question.Qclass).String())
+			builder.WriteString(dns.Class(questions[idx].Qclass).String())
 			builder.WriteString(delimeter)
-			builder.WriteString(dns.Type(question.Qtype).String())
+			builder.WriteString(dns.Type(questions[idx].Qtype).String())
 		}
 	}
-	return strings.ToLower(builder.String())
+	return builder.String()
 }
 
 func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.Msg) bool {

@@ -30,13 +30,13 @@ func IsEmptyResponse(response *dns.Msg) bool {
 	for _, parts := range [][]dns.RR{response.Answer, response.Ns, response.Extra} {
 		if len(parts) > 0 {
 			for _, rr := range parts {
-				if rr != nil && rr.Header() != nil && len(strings.TrimSpace(rr.Header().String())) < len(strings.TrimSpace(rr.String())) {
+				if rr != nil && rr.Header() != nil && rr.Header().Rrtype != dns.TypeNone && !IsRecordEmpty(rr) {
 					return false
 				}
 			}
 			// all parts must have some content or the response is empty (content/answers but no actual content inside it)
 			// this is mainly because sometimes you'll get an empty A/AAAA answer wwith an SOA attached in the NS which
-			// as far as we're concerend isn't really an answer to anything
+			// as far as we're concerned isn't really an answer to anything
 			return true
 		}
 	}
@@ -122,4 +122,36 @@ func GetRecordValue(record interface{}) string {
 	}
 
 	return output
+}
+
+func IsRecordEmpty(record interface{}) bool {
+	switch typed := record.(type) {
+	// A
+	case *dns.A:
+		return IsRecordEmpty(*typed)
+	case dns.A:
+		return typed.A == nil
+	// AAAA
+	case *dns.AAAA:
+		return IsRecordEmpty(*typed)
+	case dns.AAAA:
+		return typed.AAAA == nil
+	// PTR
+	case *dns.PTR:
+		return IsRecordEmpty(*typed)
+	case dns.PTR:
+		return typed.Ptr == ""
+	// TXT
+	case *dns.TXT:
+		return IsRecordEmpty(*typed)
+	case dns.TXT:
+		return len(typed.Txt) == 0
+	// generic catch-all for RR
+	case dns.RR:
+		return len(typed.Header().String()) >= len(typed.String())
+	default:
+		// no-op because "" is already the default string
+	}
+
+	return true
 }

@@ -178,6 +178,10 @@ func sliceAppend(slice *[]interface{}, value interface{}) {
 	*slice = append(*slice, value)
 }
 
+const (
+	queryStartFragment = "SELECT l.ShortName, r.Rule FROM rules R LEFT JOIN lists L ON R.ListRowId = L.rowid WHERE l.ShortName in (?"
+	queryMidFragment = ") AND r.Rule in (?"
+)
 func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.GudgeonList, domains []string) (bool, string, string) {
 	if store.db == nil {
 		return false, "", ""
@@ -201,9 +205,9 @@ func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.Gu
 	}
 
 	// build query statement
-	builder.WriteString("SELECT l.ShortName, r.Rule FROM rules R LEFT JOIN lists L ON R.ListRowId = L.rowid WHERE l.ShortName in (?")
+	builder.WriteString(queryStartFragment)
 	builder.WriteString(strings.Repeat(", ?", len(vars)-1))
-	builder.WriteString(") AND r.Rule in (?")
+	builder.WriteString(queryMidFragment)
 	builder.WriteString(strings.Repeat(", ?", len(domains)-1) + ");")
 
 	// build parameters
@@ -211,7 +215,6 @@ func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.Gu
 		vars = append(vars, dm)
 	}
 
-	log.Tracef("(type: %d) query: %s (vars: %v)", listType, builder.String(), vars)
 	rows, err := store.db.Query(builder.String(), vars...)
 	if err != nil {
 		log.Errorf("Executing rule storage query: %s", err)
