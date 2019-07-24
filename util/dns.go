@@ -92,26 +92,30 @@ func GetRecordValue(record interface{}) string {
 	switch typed := record.(type) {
 	// A
 	case *dns.A:
-		output = GetRecordValue(*typed)
+		if typed.A != nil {
+			output = typed.A.String()
+		}
 	case dns.A:
 		if typed.A != nil {
 			output = typed.A.String()
 		}
 	// AAAA
 	case *dns.AAAA:
-		output = GetRecordValue(*typed)
+		if typed.AAAA != nil {
+			output = typed.AAAA.String()
+		}
 	case dns.AAAA:
 		if typed.AAAA != nil {
 			output = typed.AAAA.String()
 		}
 	// PTR
 	case *dns.PTR:
-		output = GetRecordValue(*typed)
+		output = typed.Ptr
 	case dns.PTR:
 		output = typed.Ptr
 	// TXT
 	case *dns.TXT:
-		output = GetRecordValue(*typed)
+		output = strings.Join(typed.Txt, " ")
 	case dns.TXT:
 		output = strings.Join(typed.Txt, " ")
 	// generic catch-all for RR

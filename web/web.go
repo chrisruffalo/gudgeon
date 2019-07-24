@@ -35,6 +35,11 @@ func New() Web {
 	return &web{}
 }
 
+type listEntry struct {
+	name  string
+	short string
+}
+
 // get metrics counter named in query
 func (web *web) GetMetrics(c *gin.Context) {
 	if web.engine.Metrics() == nil {
@@ -42,12 +47,12 @@ func (web *web) GetMetrics(c *gin.Context) {
 		return
 	}
 
-	lists := make([]map[string]string, 0, len(web.conf.Lists))
+	lists := make([]*listEntry, 0, len(web.conf.Lists))
 	for _, list := range web.conf.Lists {
-		listEntry := make(map[string]string)
-		listEntry["short"] = list.ShortName()
-		listEntry["name"] = list.CanonicalName()
-		lists = append(lists, listEntry)
+		lists = append(lists, &listEntry{
+			name: list.CanonicalName(),
+			short: list.ShortName(),
+		})
 	}
 
 	var metrics map[string]*engine.Metric
