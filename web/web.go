@@ -36,8 +36,8 @@ func New() Web {
 }
 
 type listEntry struct {
-	name  string
-	short string
+	Name  string `json:"name"`
+	Short string `json:"short"`
 }
 
 // get metrics counter named in query
@@ -50,8 +50,8 @@ func (web *web) GetMetrics(c *gin.Context) {
 	lists := make([]*listEntry, 0, len(web.conf.Lists))
 	for _, list := range web.conf.Lists {
 		lists = append(lists, &listEntry{
-			name: list.CanonicalName(),
-			short: list.ShortName(),
+			Name: list.CanonicalName(),
+			Short: list.ShortName(),
 		})
 	}
 
