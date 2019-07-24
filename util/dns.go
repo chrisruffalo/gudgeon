@@ -128,24 +128,34 @@ func IsRecordEmpty(record interface{}) bool {
 	switch typed := record.(type) {
 	// A
 	case *dns.A:
-		return IsRecordEmpty(*typed)
+		return typed.A == nil
 	case dns.A:
 		return typed.A == nil
 	// AAAA
 	case *dns.AAAA:
-		return IsRecordEmpty(*typed)
+		return typed.AAAA == nil
 	case dns.AAAA:
 		return typed.AAAA == nil
 	// PTR
 	case *dns.PTR:
-		return IsRecordEmpty(*typed)
+		return typed.Ptr == ""
 	case dns.PTR:
 		return typed.Ptr == ""
 	// TXT
 	case *dns.TXT:
-		return IsRecordEmpty(*typed)
+		return len(typed.Txt) == 0
 	case dns.TXT:
 		return len(typed.Txt) == 0
+	// CNAME
+	case *dns.CNAME:
+		return "" == typed.Target
+	case dns.CNAME:
+		return "" == typed.Target
+	// SOA
+	case *dns.SOA:
+		return "" == typed.Ns
+	case dns.SOA:
+		return "" == typed.Ns
 	// generic catch-all for RR
 	case dns.RR:
 		return len(typed.Header().String()) >= len(typed.String())

@@ -219,12 +219,11 @@ func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.Gu
 	if err != nil {
 		log.Errorf("Executing rule storage query: %s", err)
 	}
-	defer rows.Close()
-
 	// check for rows
 	if rows == nil || err != nil {
 		return false, "", ""
 	}
+	defer rows.Close()
 
 	// scan rows for rules
 	var list string
