@@ -2,11 +2,15 @@ package rule
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/GeertJohan/go.rice"
+	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -15,6 +19,7 @@ import (
 )
 
 // the static names of the rules database
+const defaultVarSize = 10
 const sqlDbName = "rules.db"
 const _insertStmt = "INSERT OR IGNORE INTO rules (ListRowId, Rule) VALUES ((SELECT Id FROM lists WHERE ShortName = ? LIMIT 1), ?)"
 const _deleteStmt = "DELETE FROM rules WHERE ListRowId = (SELECT Id FROM lists WHERE ShortName = ? LIMIT 1)"
@@ -31,7 +36,14 @@ type sqlStore struct {
 	stmt *sql.Stmt
 	tx   *sql.Tx
 
+	// insert var pooling
+	varPool sync.Pool
 
+	// statement caching
+	// map of number of lists -> number of domains -> query with appropriate number of variable slots
+	// seems like overkill but easily paid off by the sheer number of queries that are performed and
+	// how often the cache should "hit"
+	stmtCache *cache.Cache
 }
 
 func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
@@ -69,6 +81,23 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 			log.Errorf("Inserting list: %s", err)
 		}
 	}
+
+	// create var pool
+	store.varPool = sync.Pool{
+		New: func() interface{} {
+			return make([]interface{}, 0, defaultVarSize)
+		},
+	}
+
+	// set up cache
+	store.stmtCache = cache.New(time.Minute * 5, time.Minute)
+	// and evict items on close
+	store.stmtCache.OnEvicted(func(s string, i interface{}) {
+		if stmt, ok := i.(*sql.Stmt); ok {
+			stmt.Close()
+		}
+	})
+
 }
 
 func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
@@ -192,30 +221,57 @@ func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.Gu
 		return false, "", ""
 	}
 
-	builder := strings.Builder{}
+	numDomains := len(domains)
 
-	vars := make([]interface{}, 0, len(lists) + len(domains))
-	store.forEachOfTypeIn(listType, lists, func(listType config.ListType, list *config.GudgeonList) {
+	vars := store.varPool.Get().([]interface{})
+	defer store.varPool.Put(vars)
+	numLists := store.forEachOfTypeIn(listType, lists, func(listType config.ListType, list *config.GudgeonList) {
 		sliceAppend(&vars, list.ShortName())
 	})
 
 	// no lists selected
-	if len(vars) < 1 {
+	if numLists < 1 {
 		return false, "", ""
 	}
 
-	// build query statement
-	builder.WriteString(queryStartFragment)
-	builder.WriteString(strings.Repeat(", ?", len(vars)-1))
-	builder.WriteString(queryMidFragment)
-	builder.WriteString(strings.Repeat(", ?", len(domains)-1) + ");")
+	var stmt *sql.Stmt
+	key := fmt.Sprintf("%d|%d", numLists, numDomains)
+	if i, found := store.stmtCache.Get(key); found {
+		if v, ok := i.(*sql.Stmt); ok {
+			// get itme
+			stmt = v
+			// overwrite duration (so timer restarts)
+			store.stmtCache.SetDefault(key, stmt)
+		}
+	}
+
+	if nil == stmt {
+		// build query statement
+		builder := strings.Builder{}
+		builder.WriteString(queryStartFragment)
+		builder.WriteString(strings.Repeat(", ?", numLists - 1))
+		builder.WriteString(queryMidFragment)
+		builder.WriteString(strings.Repeat(", ?", numDomains - 1) + ");")
+
+		// prepare statement
+		var err error
+		// save to cache
+		stmt, err = store.db.Prepare(builder.String())
+		if err != nil {
+			log.Errorf("Preparing cached query statement: %s", err)
+			return false, "", ""
+		}
+
+		// set with default expiration
+		store.stmtCache.SetDefault(key, stmt)
+	}
 
 	// build parameters
 	for _, dm := range domains {
 		vars = append(vars, dm)
 	}
 
-	rows, err := store.db.Query(builder.String(), vars...)
+	rows, err := stmt.Query(vars[:numLists+numDomains]...)
 	if err != nil {
 		log.Errorf("Executing rule storage query: %s", err)
 	}
@@ -263,6 +319,16 @@ func (store *sqlStore) FindMatch(lists []*config.GudgeonList, domain string) (Ma
 
 func (store *sqlStore) Close() {
 	if store.db != nil {
+		// close prepared statements
+		for _, i := range store.stmtCache.Items() {
+			if stmt, ok := i.Object.(*sql.Stmt); ok {
+				err := stmt.Close()
+				if err != nil {
+					log.Errorf("Closing databse/statement: %s", err)
+				}
+			}
+		}
+
 		err := store.db.Close()
 		if err != nil {
 			log.Errorf("Error closing database: %s", err)

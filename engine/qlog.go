@@ -57,6 +57,8 @@ type qlog struct {
 	qlConf *config.GudgeonQueryLog
 	db     *sql.DB
 
+	duration   time.Duration
+
 	fileLogger *log.Logger
 	stdLogger  *log.Logger
 }
@@ -88,6 +90,9 @@ func NewQueryLog(conf *config.GudgeonConfig, db *sql.DB) (QueryLog, error) {
 	if *(qlConf.Persist) {
 		qlog.db = db
 	}
+
+	// parse duration
+	qlog.duration, _ = util.ParseDuration(qlog.qlConf.Duration)
 
 	// create distinct loggers for query output
 	if qlConf.File != "" {
@@ -128,8 +133,7 @@ func NewQueryLog(conf *config.GudgeonConfig, db *sql.DB) (QueryLog, error) {
 }
 
 func (qlog *qlog) prune(tx *sql.Tx) {
-	duration, _ := util.ParseDuration(qlog.qlConf.Duration)
-	_, err := tx.Exec("DELETE FROM qlog WHERE Created <= ?", time.Now().Add(-1*duration))
+	_, err := tx.Exec("DELETE FROM qlog WHERE Created <= ?", time.Now().Add(-1*qlog.duration))
 	if err != nil {
 		log.Errorf("Error pruning query log data: %s", err)
 	}
@@ -166,7 +170,7 @@ func (qlog *qlog) log(info *InfoRecord) {
 	builder.WriteString("[")
 	if info.ClientName != "" {
 		builder.WriteString(info.ClientName)
-		if qlog.fileLogger != nil {
+		if fields != nil {
 			fields["clientName"] = info.ClientName
 		}
 		builder.WriteString("|")

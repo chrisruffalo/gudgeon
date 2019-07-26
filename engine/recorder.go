@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -37,11 +38,12 @@ type recorder struct {
 	// db access
 	db *sql.DB
 	tx *sql.Tx
+	stmt *sql.Stmt
 
-	// statement cache for keeping statements for repeated inserts
-	stmts map[string]*sql.Stmt
+	// pool for creating records
+	recordPool sync.Pool
 
-	// cache lookup info
+    // cache lookup info
 	cache     *cache.Cache
 	mdnsCache *cache.Cache
 
@@ -96,16 +98,49 @@ type InfoRecord struct {
 	ServiceMilliseconds int64
 }
 
+func (record *InfoRecord) clear() {
+	// not set/overwritten and so need to be forced/cleared here
+	record.Consumer = ""
+	record.ConnectionType = ""
+	record.RequestDomain = ""
+	record.RequestType = ""
+	record.ResponseText = ""
+	record.Rcode = ""
+	record.Blocked = false
+	record.Match = rule.MatchNone
+	record.MatchList = ""
+	record.MatchListShort = ""
+	record.MatchRule = ""
+	record.Cached = false
+	// unconditionally set when received or conditioned, no need to overwrite here
+	//record.Address
+	//record.Request
+	//record.Response
+	//record.Result
+	//record.RequestContext
+	//record.ClientName
+	//record.Created
+	//record.Finished
+	//record.ServiceMilliseconds
+}
+
+func newRecord() interface{} {
+	return &InfoRecord{}
+}
+
 // created from raw engine
 func NewRecorder(conf *config.GudgeonConfig, engine Engine, db *sql.DB, metrics Metrics, qlog QueryLog) (*recorder, error) {
 	recorder := &recorder{
-		conf:      conf,
-		engine:    engine,
-		db:        db,
-		qlog:      qlog,
-		metrics:   metrics,
-		infoQueue: make(chan *InfoRecord, recordQueueSize),
-		doneChan:  make(chan bool),
+		conf:       conf,
+		engine:     engine,
+		db:         db,
+		qlog:       qlog,
+		metrics:    metrics,
+		infoQueue:  make(chan *InfoRecord, recordQueueSize),
+		doneChan:   make(chan bool),
+		recordPool: sync.Pool{
+			New: newRecord,
+		},
 	}
 
 	// create reverse lookup cache with given ttl and given reap interval
@@ -140,14 +175,14 @@ func NewRecorder(conf *config.GudgeonConfig, engine Engine, db *sql.DB, metrics 
 // to the engine that will transfer as an async
 // entry point to the worker
 func (recorder *recorder) queue(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult, finishedTime *time.Time) {
-	// create message for sending to various endpoints
-	msg := &InfoRecord{
-		Address:        address.String(),
-		Request:        request,
-		Response:       response,
-		Result:         result,
-		RequestContext: rCon,
-	}
+	// get info record from pool
+	msg := recorder.recordPool.Get().(*InfoRecord)
+	msg.clear()
+	msg.Address = address.String()
+	msg.Request = request
+	msg.Response = response
+	msg.Result = result
+	msg.RequestContext = rCon
 
 	// use the start time to get started/created info
 	if rCon != nil {
@@ -347,6 +382,9 @@ func (recorder *recorder) worker() {
 			if recorder.metrics != nil {
 				recorder.metrics.record(info)
 			}
+
+			// return to pool
+			recorder.recordPool.Put(info)
 		case <-mdnsQueryTimer.C:
 			// make query
 			MulticastMdnsQuery()
@@ -380,6 +418,12 @@ func (recorder *recorder) worker() {
 
 // generic method to flush transaction and then perform transaction-related function
 func (recorder *recorder) doWithIsolatedTransaction(next func(tx *sql.Tx)) {
+	// close any existing statements
+	if recorder.stmt != nil {
+		_ = recorder.stmt.Close()
+		recorder.stmt = nil
+	}
+
 	if recorder.tx != nil {
 		err := recorder.tx.Commit()
 		recorder.tx = nil
@@ -423,19 +467,15 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 
 	var err error
 
-	// start transaction if it doesn't exist
-	if recorder.tx == nil {
-		recorder.tx, err = recorder.db.Begin()
+	if recorder.stmt == nil {
+		recorder.stmt, err = recorder.db.Prepare(bufferInsertStatement)
 		if err != nil {
-			recorder.tx = nil
-			log.Errorf("Starting buffer transaction: %s", err)
-			return
+			log.Errorf("Creating buffer insert prepared statement: %s", err)
 		}
 	}
 
-	// insert into buffer table
-	_, err = recorder.tx.Exec(
-		bufferInsertStatement,
+	 // insert into buffer table
+	_, err = recorder.stmt.Exec(
 		info.Address,
 		info.ClientName,
 		info.Consumer,
@@ -520,6 +560,9 @@ func (recorder *recorder) prune() {
 }
 
 func (recorder *recorder) shutdown() {
+	// error
+	var err error
+
 	// stop accepting new entries
 	infoQueue := recorder.infoQueue
 	recorder.infoQueue = nil
@@ -539,6 +582,14 @@ func (recorder *recorder) shutdown() {
 	close(infoQueue)
 	close(recorder.doneChan)
 
+	// close stmt
+	if recorder.stmt != nil {
+		err = recorder.stmt.Close()
+		if err != nil {
+			log.Errorf("Closing database/statement: %s", err)
+		}
+	}
+
 	// prune and flush records
 	if recorder.db != nil {
 		recorder.flush()
@@ -553,14 +604,6 @@ func (recorder *recorder) shutdown() {
 	// stop/shutdown metrics
 	if nil != recorder.metrics {
 		recorder.metrics.Stop()
-	}
-
-	// close all outstanding statements
-	for _, stmt := range recorder.stmts {
-		if nil == stmt {
-			continue
-		}
-		stmt.Close()
 	}
 
 	// log shutdown

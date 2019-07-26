@@ -83,18 +83,21 @@ func (baseStore *baseStore) getList(name string) *config.GudgeonList{
 	return nil
 }
 
-func (baseStore *baseStore) forEachOfTypeIn(listType config.ListType, lists []*config.GudgeonList, listAction eachListAction) {
+func (baseStore *baseStore) forEachOfTypeIn(listType config.ListType, lists []*config.GudgeonList, listAction eachListAction) int {
 	if len(lists) < 1 || listAction == nil {
-		return
+		return 0
 	}
 	if _, found := baseStore.lists[listType]; !found {
-		return
+		return 0
 	}
+	actionedListCount := 0
 	for _, v := range lists {
 		if list, found := baseStore.lists[listType][v.ShortName()]; found {
 			listAction(listType, list)
+			actionedListCount++
 		}
 	}
+	return actionedListCount
 }
 
 func (baseStore *baseStore) matchForEachOfTypeIn(listType config.ListType, lists []*config.GudgeonList, matchAction matchListAction) (Match, *config.GudgeonList, string) {

@@ -3,10 +3,9 @@ package resolver
 import (
 	"fmt"
 	"github.com/chrisruffalo/gudgeon/events"
-	"strings"
-
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
+	"strings"
 
 	"github.com/chrisruffalo/gudgeon/cache"
 	"github.com/chrisruffalo/gudgeon/config"
@@ -16,8 +15,13 @@ import (
 
 // a group of resolvers
 type resolverMap struct {
+	// all-resolver response cache
 	cache         cache.Cache
+
+	// resolver name -> resolver instance map
 	resolvers     map[string]Resolver
+
+	// the handler for resolver events
 	sourceHandler *events.Handle
 }
 
@@ -44,17 +48,6 @@ type ResolutionResult struct {
 	Match     rule.Match          // allowed or blocked
 	MatchList *config.GudgeonList // name of blocked list
 	MatchRule string              // name of actual rule
-}
-
-func result(context *ResolutionContext) *ResolutionResult {
-	if context == nil {
-		return nil
-	}
-	result := new(ResolutionResult)
-	result.Cached = context.Cached
-	result.Source = context.SourceUsed
-	result.Resolver = context.ResolverUsed
-	return result
 }
 
 // returns a map of resolvers with name->resolver mapping
@@ -101,6 +94,19 @@ func NewResolverMap(config *config.GudgeonConfig, configuredResolvers []*config.
 	return resolverMap
 }
 
+func (resolverMap *resolverMap) result(context *ResolutionContext) *ResolutionResult {
+	if context == nil {
+		return nil
+	}
+	result := &ResolutionResult{
+		Cached: context.Cached,
+		Source: context.SourceUsed,
+		Resolver: context.ResolverUsed,
+	}
+
+	return result
+}
+
 // base answer function for full resolver map
 func (resolverMap *resolverMap) answerWithContext(rCon *RequestContext, resolverName string, context *ResolutionContext, request *dns.Msg) (*dns.Msg, *ResolutionResult, error) {
 	// if no named resolver in map, return
@@ -123,7 +129,7 @@ func (resolverMap *resolverMap) answerWithContext(rCon *RequestContext, resolver
 	}
 
 	// return with nil error
-	return response, result(context), nil
+	return response, resolverMap.result(context), nil
 }
 
 // base answer function for full resolver map
