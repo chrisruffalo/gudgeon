@@ -71,7 +71,7 @@ func (baseStore *baseStore) removeList(list *config.GudgeonList) {
 	delete(baseStore.lists[list.ParsedType()], list.ShortName())
 }
 
-func (baseStore *baseStore) getList(name string) *config.GudgeonList{
+func (baseStore *baseStore) getList(name string) *config.GudgeonList {
 	if "" == name {
 		return nil
 	}

@@ -2,15 +2,13 @@ package web
 
 import (
 	rice "github.com/GeertJohan/go.rice"
+	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"html/template"
 	"io/ioutil"
 	"mime"
 	"net/http"
 	"strings"
-	"time"
-
-	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/version"
 )
@@ -19,17 +17,6 @@ const (
 	templateFileExtension = ".tmpl"
 	gzipFileExtension     = ".gz"
 )
-
-// anti-cache from...
-// https://stackoverflow.com/a/33881296
-var epoch = time.Unix(0, 0).Format(time.RFC1123)
-
-var noCacheHeaders = map[string]string{
-	"Expires":         epoch,
-	"Cache-Control":   "no-cache, private, max-age=0",
-	"Pragma":          "no-cache",
-	"X-Accel-Expires": "0",
-}
 
 func (web *web) ServeStatic(fs *rice.Box) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -116,9 +103,6 @@ func (web *web) ServeStatic(fs *rice.Box) gin.HandlerFunc {
 				if err != nil {
 					c.Status(http.StatusInternalServerError)
 					log.Errorf("Error executing template: %s", err)
-				} else {
-					// only return if no error encountered
-					return
 				}
 			}
 			return
@@ -139,7 +123,7 @@ func (web *web) ServeStatic(fs *rice.Box) gin.HandlerFunc {
 		}
 
 		// write file
-		c.DataFromReader(http.StatusOK, stat.Size(), contentType, file, noCacheHeaders)
+		c.DataFromReader(http.StatusOK, stat.Size(), contentType, file, nil)
 
 		// close file
 		_ = file.Close()

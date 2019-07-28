@@ -16,10 +16,10 @@ import (
 // a group of resolvers
 type resolverMap struct {
 	// all-resolver response cache
-	cache         cache.Cache
+	cache cache.Cache
 
 	// resolver name -> resolver instance map
-	resolvers     map[string]Resolver
+	resolvers map[string]Resolver
 
 	// the handler for resolver events
 	sourceHandler *events.Handle
@@ -99,8 +99,8 @@ func (resolverMap *resolverMap) result(context *ResolutionContext) *ResolutionRe
 		return nil
 	}
 	result := &ResolutionResult{
-		Cached: context.Cached,
-		Source: context.SourceUsed,
+		Cached:   context.Cached,
+		Source:   context.SourceUsed,
 		Resolver: context.ResolverUsed,
 	}
 

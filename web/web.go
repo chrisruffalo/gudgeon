@@ -50,7 +50,7 @@ func (web *web) GetMetrics(c *gin.Context) {
 	lists := make([]*listEntry, 0, len(web.conf.Lists))
 	for _, list := range web.conf.Lists {
 		lists = append(lists, &listEntry{
-			Name: list.CanonicalName(),
+			Name:  list.CanonicalName(),
 			Short: list.ShortName(),
 		})
 	}

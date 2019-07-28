@@ -36,14 +36,14 @@ type recorder struct {
 	conf   *config.GudgeonConfig
 
 	// db access
-	db *sql.DB
-	tx *sql.Tx
+	db   *sql.DB
+	tx   *sql.Tx
 	stmt *sql.Stmt
 
 	// pool for creating records
 	recordPool sync.Pool
 
-    // cache lookup info
+	// cache lookup info
 	cache     *cache.Cache
 	mdnsCache *cache.Cache
 
@@ -131,13 +131,13 @@ func newRecord() interface{} {
 // created from raw engine
 func NewRecorder(conf *config.GudgeonConfig, engine Engine, db *sql.DB, metrics Metrics, qlog QueryLog) (*recorder, error) {
 	recorder := &recorder{
-		conf:       conf,
-		engine:     engine,
-		db:         db,
-		qlog:       qlog,
-		metrics:    metrics,
-		infoQueue:  make(chan *InfoRecord, recordQueueSize),
-		doneChan:   make(chan bool),
+		conf:      conf,
+		engine:    engine,
+		db:        db,
+		qlog:      qlog,
+		metrics:   metrics,
+		infoQueue: make(chan *InfoRecord, recordQueueSize),
+		doneChan:  make(chan bool),
 		recordPool: sync.Pool{
 			New: newRecord,
 		},
@@ -474,7 +474,7 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 		}
 	}
 
-	 // insert into buffer table
+	// insert into buffer table
 	_, err = recorder.stmt.Exec(
 		info.Address,
 		info.ClientName,

@@ -90,7 +90,7 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	}
 
 	// set up cache
-	store.stmtCache = cache.New(time.Minute * 5, time.Minute)
+	store.stmtCache = cache.New(time.Minute*5, time.Minute)
 	// and evict items on close
 	store.stmtCache.OnEvicted(func(s string, i interface{}) {
 		if stmt, ok := i.(*sql.Stmt); ok {
@@ -209,8 +209,9 @@ func sliceAppend(slice *[]interface{}, value interface{}) {
 
 const (
 	queryStartFragment = "SELECT l.ShortName, r.Rule FROM rules R LEFT JOIN lists L ON R.ListRowId = L.rowid WHERE l.ShortName in (?"
-	queryMidFragment = ") AND r.Rule in (?"
+	queryMidFragment   = ") AND r.Rule in (?"
 )
+
 func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.GudgeonList, domains []string) (bool, string, string) {
 	if store.db == nil {
 		return false, "", ""
@@ -249,9 +250,9 @@ func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.Gu
 		// build query statement
 		builder := strings.Builder{}
 		builder.WriteString(queryStartFragment)
-		builder.WriteString(strings.Repeat(", ?", numLists - 1))
+		builder.WriteString(strings.Repeat(", ?", numLists-1))
 		builder.WriteString(queryMidFragment)
-		builder.WriteString(strings.Repeat(", ?", numDomains - 1) + ");")
+		builder.WriteString(strings.Repeat(", ?", numDomains-1) + ");")
 
 		// prepare statement
 		var err error
@@ -328,7 +329,6 @@ func (store *sqlStore) Close() {
 				}
 			}
 		}
-
 		err := store.db.Close()
 		if err != nil {
 			log.Errorf("Error closing database: %s", err)

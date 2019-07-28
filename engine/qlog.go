@@ -57,7 +57,7 @@ type qlog struct {
 	qlConf *config.GudgeonQueryLog
 	db     *sql.DB
 
-	duration   time.Duration
+	duration time.Duration
 
 	fileLogger *log.Logger
 	stdLogger  *log.Logger

@@ -150,7 +150,7 @@ type GudgeonList struct {
 	Name      string `yaml:"name"`
 	shortName string `yaml:"-"`
 	// the type of the list, requires "allow" or "block", defaults to "block"
-	Type string `yaml:"type"`
+	Type       string   `yaml:"type"`
 	parsedType ListType `yaml:"-"`
 	// should items in the list be interpreted as **regex only**
 	Regex *bool `yaml:"regex"`
