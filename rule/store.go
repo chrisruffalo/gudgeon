@@ -83,10 +83,16 @@ func (baseStore *baseStore) getList(name string) *config.GudgeonList {
 	return nil
 }
 
+/**
+ * For each list of the given type in the base store that also appears in the list that was given
+ * perform an action.
+ */
 func (baseStore *baseStore) forEachOfTypeIn(listType config.ListType, lists []*config.GudgeonList, listAction eachListAction) int {
+	// lists that have no elements or nil functions can't match anything
 	if len(lists) < 1 || listAction == nil {
 		return 0
 	}
+	// if no lists of the given type exist in the base store then no matches will be found
 	if _, found := baseStore.lists[listType]; !found {
 		return 0
 	}
@@ -100,10 +106,16 @@ func (baseStore *baseStore) forEachOfTypeIn(listType config.ListType, lists []*c
 	return actionedListCount
 }
 
+/**
+ * For each list of the given type in the base store that also appears in the list that was given
+ * perform an action that can return a match
+ */
 func (baseStore *baseStore) matchForEachOfTypeIn(listType config.ListType, lists []*config.GudgeonList, matchAction matchListAction) (Match, *config.GudgeonList, string) {
+	// if there are no actions no match can happen anyway
 	if len(lists) < 1 || matchAction == nil {
 		return MatchNone, nil, ""
 	}
+	// if no lists of the given type exist in the base then no matches can be found for any of the lists
 	if _, found := baseStore.lists[listType]; !found {
 		return MatchNone, nil, ""
 	}

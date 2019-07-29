@@ -12,7 +12,6 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/patrickmn/go-cache"
-	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/process"
 	log "github.com/sirupsen/logrus"
 
@@ -45,8 +44,6 @@ const (
 	Threads            = "process-threads"
 	CurrentlyAllocated = "allocated-bytes"    // heap allocation in go runtime stats
 	UsedMemory         = "process-used-bytes" // from the process api
-	FreeMemory         = "free-memory-bytes"
-	SystemMemory       = "system-memory-bytes"
 	// cpu metrics
 	CPUHundredsPercent = "cpu-hundreds-percent" // 17 == 0.17 percent, expressed in integer terms
 )
@@ -62,7 +59,7 @@ type metricsInfo struct {
 type MetricsEntry struct {
 	FromTime        time.Time
 	AtTime          time.Time
-	JsonString      string             `json:"-"`
+	JsonBytes       []byte             `json:"-"`
 	Values          map[string]*Metric `json:"Values,omitempty"`
 	IntervalSeconds int
 }
@@ -134,7 +131,7 @@ type Metrics interface {
 
 	// Query metrics from db
 	Query(start time.Time, end time.Time) ([]*MetricsEntry, error)
-	QueryFunc(accumulatorFunction MetricsAccumulator, filter string, start time.Time, end time.Time) error
+	QueryFunc(accumulatorFunction MetricsAccumulator, filter string, unmarshall bool, start time.Time, end time.Time) error
 
 	// top information
 	TopClients(limit int) []*TopInfo
@@ -253,10 +250,6 @@ func (metrics *metrics) update() {
 		if threads, err := metrics.proc.NumThreads(); err == nil {
 			metrics.Get(Threads).Set(int64(threads))
 		}
-		if vmem, err := mem.VirtualMemory(); err == nil {
-			metrics.Get(FreeMemory).Set(int64(vmem.Free))
-			metrics.Get(SystemMemory).Set(int64(vmem.Total))
-		}
 	}
 
 	// capture goroutines
@@ -331,7 +324,7 @@ func (metrics *metrics) prune(tx *sql.Tx) {
 }
 
 // allows custom accumulation for either streaming or custom marshalling
-func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter string, start time.Time, end time.Time) error {
+func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter string, unmarshall bool, start time.Time, end time.Time) error {
 	// don't do anything with nil accumulator
 	if accumulatorFunction == nil {
 		return nil
@@ -402,16 +395,17 @@ func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter
 	defer rows.Close()
 
 	me := metrics.entryPool.Get().(*MetricsEntry)
-	var jsonString []byte
 	for rows.Next() {
-		err = rows.Scan(&me.AtTime, &me.FromTime, &jsonString, &me.IntervalSeconds)
+		err = rows.Scan(&me.AtTime, &me.FromTime, &me.JsonBytes, &me.IntervalSeconds)
 		if err != nil {
 			log.Errorf("Error scanning for metrics query: %s", err)
 			continue
 		}
 
-		// unmarshal data
-		_ = util.Json.Unmarshal(jsonString, &me.Values)
+		// unmarshal data if requested
+		if unmarshall {
+			_ = util.Json.Unmarshal(me.JsonBytes, &me.Values)
+		}
 
 		// call accumulator function
 		accumulatorFunction(me)
@@ -436,7 +430,7 @@ func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, 
 		}
 		entries = append(entries, entry)
 	}
-	err := metrics.QueryFunc(acc, "", start, end)
+	err := metrics.QueryFunc(acc, "", true, start, end)
 	return entries, err
 }
 

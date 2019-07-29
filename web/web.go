@@ -110,8 +110,19 @@ func (web *web) QueryMetrics(c *gin.Context) {
 			c.String(http.StatusOK, ",")
 		}
 		firstEntry = false
-		c.JSON(http.StatusOK, entry)
-	}, c.GetString("filter"), *queryStart, *queryEnd)
+		// custom marshalling that might be done better another way but
+		// it prevents the core metrics values from being unmarshalled and then
+		// remarshalled within the same request
+		c.String(http.StatusOK, "{ \"AtTime\": ")
+		c.JSON(http.StatusOK, entry.AtTime)
+		c.String(http.StatusOK, ", \"FromTime\": ")
+		c.JSON(http.StatusOK, entry.FromTime)
+		c.String(http.StatusOK, ", \"IntervalSeconds\": ")
+		c.JSON(http.StatusOK, entry.IntervalSeconds)
+		c.String(http.StatusOK, ", \"Values\": ")
+		_, _ = c.Writer.Write(entry.JsonBytes)
+		c.String(http.StatusOK, "}")
+	}, c.GetString("filter"), false, *queryStart, *queryEnd)
 
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Could not fetch metrics")

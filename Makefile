@@ -85,7 +85,7 @@ FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration "$(RELEASE)" 
 FPMSCRIPTS=$(FPMCOMMON) --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh
 
 all: test build
-.PHONY: all announce prepare test build clean minimize package rpm deb docker tar npm webpack
+.PHONY: all announce prepare test build clean minimize package rpm deb docker tar npm webpack bench
 
 announce: ## Debugging versions mainly for build and travis-ci
 		@echo "$(BINARY_NAME)"
@@ -128,6 +128,10 @@ buildxgo: announce ## Use xgo to build arm targets with sqlite installed, this o
 test: ## Do Unit Tests
 		$(GODOWN)
 		$(GOTEST) -v ./...
+
+bench: ## Do tests and benchmarks
+		$(GODOWN)
+		$(GOTEST) -v ./... -bench .
 
 clean: ## Remove build artifacts
 		# do go clean steps
