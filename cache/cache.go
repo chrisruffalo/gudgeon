@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -38,7 +37,7 @@ type Cache interface {
 // each key entry. (this optimization may be overkill)
 type gocache struct {
 	backers      map[string]*backer.Cache
-	partitionMux sync.Mutex
+	partitionMux sync.RWMutex
 }
 
 func min(a uint32, b uint32) uint32 {
@@ -171,18 +170,19 @@ func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, boo
 
 func (gocache *gocache) Size() uint32 {
 	count := uint32(0)
-	keys := reflect.ValueOf(gocache.backers).MapKeys()
-	for _, k := range keys {
-		count += uint32(gocache.backers[k.String()].ItemCount())
+	gocache.partitionMux.RLock()
+	for _, v := range gocache.backers {
+		count += uint32(v.ItemCount())
 	}
+	gocache.partitionMux.RUnlock()
 	return count
 }
 
 // delete all items from the cache
 func (gocache *gocache) Clear() {
-	// prevents concurrent access issues
-	keys := reflect.ValueOf(gocache.backers).MapKeys()
-	for _, k := range keys {
-		gocache.backers[k.String()].Flush()
+	gocache.partitionMux.Lock()
+	for _, v := range gocache.backers {
+		v.Flush()
 	}
+	gocache.partitionMux.Unlock()
 }

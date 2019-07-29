@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
+	"github.com/patrickmn/go-cache"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/process"
 	log "github.com/sirupsen/logrus"
@@ -111,6 +112,12 @@ type metrics struct {
 	// time management for interval insert
 	lastInsert time.Time
 	ticker     *time.Ticker
+
+	// pool
+	entryPool sync.Pool
+
+	// metrics query cache
+	queryCache *cache.Cache
 }
 
 type CacheSizeFunction = func() int64
@@ -127,7 +134,7 @@ type Metrics interface {
 
 	// Query metrics from db
 	Query(start time.Time, end time.Time) ([]*MetricsEntry, error)
-	QueryFunc(accumulatorFunction MetricsAccumulator, filter []string, start time.Time, end time.Time) error
+	QueryFunc(accumulatorFunction MetricsAccumulator, filter string, start time.Time, end time.Time) error
 
 	// top information
 	TopClients(limit int) []*TopInfo
@@ -181,6 +188,22 @@ func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 
 	// start metrics insert worker
 	metrics.lastInsert = time.Now()
+
+	// create entry pool
+	metrics.entryPool = sync.Pool{
+		New: func() interface{} {
+			return &MetricsEntry{}
+		},
+	}
+
+	// create stmt cache
+	metrics.queryCache = cache.New(time.Minute*5, time.Minute)
+	// and evict items on close
+	metrics.queryCache.OnEvicted(func(s string, i interface{}) {
+		if stmt, ok := i.(*sql.Stmt); ok {
+			stmt.Close()
+		}
+	})
 
 	return metrics
 }
@@ -285,7 +308,7 @@ func (metrics *metrics) insert(tx *sql.Tx, currentTime time.Time) {
 	}
 
 	stmt := "INSERT INTO metrics (FromTime, AtTime, MetricsJson, IntervalSeconds) VALUES (?, ?, ?, ?)"
-	_, err = tx.Exec(stmt, metrics.lastInsert, currentTime, string(bytes), int(math.Round(currentTime.Sub(metrics.lastInsert).Seconds())))
+	_, err = tx.Exec(stmt, metrics.lastInsert, currentTime, &bytes, int(math.Round(currentTime.Sub(metrics.lastInsert).Seconds())))
 	if err != nil {
 		log.Errorf("Error executing metrics statement: %s", err)
 		return
@@ -308,44 +331,78 @@ func (metrics *metrics) prune(tx *sql.Tx) {
 }
 
 // allows custom accumulation for either streaming or custom marshalling
-func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter []string, start time.Time, end time.Time) error {
+func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter string, start time.Time, end time.Time) error {
 	// don't do anything with nil accumulator
 	if accumulatorFunction == nil {
 		return nil
 	}
 
-	var builder strings.Builder
-	builder.WriteString("SELECT FromTime, AtTime, ")
-	// todo: probably want to do some sort of sql-injection protection
-	//       either here or in the web layer
-	if len(filter) > 0 {
-		first := true
-		builder.WriteString("json_set('{}', ")
-		for _, value := range filter {
-			if !first {
-				builder.WriteString(", ")
-			}
-			first = false
-			builder.WriteString("'$.")
-			builder.WriteString(value)
-			builder.WriteString("', json_extract(MetricsJson, '$.")
-			builder.WriteString(value)
-			builder.WriteString("')")
-		}
-		builder.WriteString(")")
-	} else {
-		builder.WriteString("MetricsJson")
-	}
-	builder.WriteString(", IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime ASC")
+	var err error
+	var query *sql.Stmt
 
-	rows, err := metrics.db.Query(builder.String(), start, end)
+	// try and get query from prepared cache
+	if value, found := metrics.queryCache.Get(filter); found {
+		if q, ok := value.(*sql.Stmt); ok {
+			query = q
+			// re-set expiration
+			metrics.queryCache.Set(filter, query, cache.DefaultExpiration)
+		}
+	}
+
+	// if no query found then make one from scratch
+	if nil == query {
+		var builder strings.Builder
+		builder.WriteString("SELECT FromTime, AtTime, ")
+		if len(filter) > 0 {
+			first := true
+			filtered := false
+
+			keepMetrics := strings.Split(filter, ",")
+			builder.WriteString("json_set('{}', ")
+
+			for _, value := range keepMetrics {
+				// if the filter value is not in the metrics map then skip it
+				if _, in := metrics.metricsMap[value]; !in {
+					continue
+				}
+				filtered = true
+
+				if !first {
+					builder.WriteString(", ")
+				}
+				first = false
+				builder.WriteString("'$.")
+				builder.WriteString(value)
+				builder.WriteString("', json_extract(MetricsJson, '$.")
+				builder.WriteString(value)
+				builder.WriteString("')")
+			}
+
+			// if not filtered (meaning no keepable metrics were found) then just select MetricsJson
+			if !filtered {
+				builder.WriteString("MetricsJson")
+			} else {
+				builder.WriteString(")")
+			}
+		} else {
+			builder.WriteString("MetricsJson")
+		}
+		builder.WriteString(", IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime ASC")
+		query, err = metrics.db.Prepare(builder.String())
+		if err != nil {
+			return err
+		}
+		metrics.queryCache.Set(filter, query, cache.DefaultExpiration)
+	}
+
+	rows, err := query.Query(start, end)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
-	me := &MetricsEntry{}
-	var jsonString string
+	me := metrics.entryPool.Get().(*MetricsEntry)
+	var jsonString []byte
 	for rows.Next() {
 		err = rows.Scan(&me.AtTime, &me.FromTime, &jsonString, &me.IntervalSeconds)
 		if err != nil {
@@ -354,11 +411,12 @@ func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter
 		}
 
 		// unmarshal data
-		_ = util.Json.Unmarshal([]byte(jsonString), &me.Values)
+		_ = util.Json.Unmarshal(jsonString, &me.Values)
 
 		// call accumulator function
 		accumulatorFunction(me)
 	}
+	metrics.entryPool.Put(me)
 
 	return nil
 }
@@ -378,7 +436,7 @@ func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, 
 		}
 		entries = append(entries, entry)
 	}
-	err := metrics.QueryFunc(acc, []string{}, start, end)
+	err := metrics.QueryFunc(acc, "", start, end)
 	return entries, err
 }
 
@@ -426,5 +484,13 @@ func (metrics *metrics) UseCacheSizeFunction(function CacheSizeFunction) {
 }
 
 func (metrics *metrics) Stop() {
-
+	// close prepared statements
+	for _, i := range metrics.queryCache.Items() {
+		if stmt, ok := i.Object.(*sql.Stmt); ok {
+			err := stmt.Close()
+			if err != nil {
+				log.Errorf("Closing metrics query database/statement: %s", err)
+			}
+		}
+	}
 }

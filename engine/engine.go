@@ -7,6 +7,7 @@ import (
 	"github.com/chrisruffalo/gudgeon/events"
 	"net"
 	"path"
+	"reflect"
 	"strings"
 	"time"
 
@@ -38,6 +39,12 @@ type group struct {
 	configGroup *config.GudgeonGroup
 
 	lists []*config.GudgeonList
+}
+
+// represents a short/name combination for a list
+type ListEntry struct {
+	Name  string `json:"name"`
+	Short string `json:"short"`
 }
 
 // represents a parsed "consumer" type that
@@ -81,7 +88,9 @@ type engine struct {
 	config *config.GudgeonConfig
 
 	// consumers that have been parsed
-	consumers []*consumer
+	consumers     []*consumer
+	consumerNames *[]string
+
 	// map for out-of-order consumer getting
 	consumerMap map[string]*consumer
 
@@ -95,10 +104,15 @@ type engine struct {
 	store rule.Store
 
 	// the resolution structure
-	resolvers resolver.ResolverMap
+	resolvers     resolver.ResolverMap
+	resolverNames *[]string
 
 	// map of group names to processed/configured engine groups
-	groups map[string]*group
+	groups     map[string]*group
+	groupNames *[]string
+
+	// list entries
+	listEntries *[]*ListEntry
 
 	// list of handles
 	handles []*events.Handle
@@ -123,6 +137,12 @@ type Engine interface {
 	HandleWithConsumer(consumer *consumer, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
 	HandleWithGroups(groups []string, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
 	HandleWithResolvers(resolvers []string, rCon *resolver.RequestContext, request *dns.Msg) (*dns.Msg, *resolver.RequestContext, *resolver.ResolutionResult)
+
+	// info, things by name
+	Consumers() *[]string
+	Groups() *[]string
+	Resolvers() *[]string
+	Lists() *[]*ListEntry
 
 	// stats
 	CacheSize() int64
@@ -632,4 +652,48 @@ func (engine *engine) Shutdown() {
 
 	// finish by closing engine
 	engine.Close()
+}
+
+func (engine *engine) Consumers() *[]string {
+	if engine.consumerNames == nil {
+		names := make([]string, 0, len(engine.consumerMap))
+		for _, n := range reflect.ValueOf(engine.consumerMap).MapKeys() {
+			names = append(names, n.String())
+		}
+		engine.consumerNames = &names
+	}
+	return engine.consumerNames
+}
+
+func (engine *engine) Groups() *[]string {
+	if engine.groupNames == nil {
+		names := make([]string, 0, len(engine.groups))
+		for _, g := range engine.groups {
+			names = append(names, g.configGroup.Name)
+		}
+		engine.groupNames = &names
+	}
+	return engine.groupNames
+}
+
+func (engine *engine) Resolvers() *[]string {
+	if engine.resolverNames == nil {
+		names := make([]string, 0, len(engine.config.Resolvers))
+		for _, n := range engine.config.Resolvers {
+			names = append(names, n.Name)
+		}
+		engine.resolverNames = &names
+	}
+	return engine.resolverNames
+}
+
+func (engine *engine) Lists() *[]*ListEntry {
+	if engine.listEntries == nil {
+		entries := make([]*ListEntry, 0, len(engine.config.Lists))
+		for _, l := range engine.config.Lists {
+			entries = append(entries, &ListEntry{Name: l.CanonicalName(), Short: l.ShortName()})
+		}
+		engine.listEntries = &entries
+	}
+	return engine.listEntries
 }

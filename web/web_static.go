@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"mime"
 	"net/http"
@@ -108,9 +109,6 @@ func (web *web) ServeStatic(fs *rice.Box) gin.HandlerFunc {
 			return
 		}
 
-		// done with file at this point
-		stat, _ := file.Stat()
-
 		// get mime type from extension
 		var contentType string
 		if strings.Contains(path, ".") {
@@ -123,7 +121,11 @@ func (web *web) ServeStatic(fs *rice.Box) gin.HandlerFunc {
 		}
 
 		// write file
-		c.DataFromReader(http.StatusOK, stat.Size(), contentType, file, nil)
+		c.Status(http.StatusOK)
+		_, err = io.Copy(c.Writer, file)
+		if err != nil {
+			log.Errorf("Writing static output: %s", err)
+		}
 
 		// close file
 		_ = file.Close()

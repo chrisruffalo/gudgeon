@@ -325,7 +325,7 @@ func (store *sqlStore) Close() {
 			if stmt, ok := i.Object.(*sql.Stmt); ok {
 				err := stmt.Close()
 				if err != nil {
-					log.Errorf("Closing databse/statement: %s", err)
+					log.Errorf("Closing sql rule query database/statement: %s", err)
 				}
 			}
 		}

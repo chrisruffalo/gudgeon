@@ -216,3 +216,39 @@ func (engine *reloadingEngine) Shutdown() {
 		}
 	}
 }
+
+func (engine *reloadingEngine) Consumers() *[]string {
+	if engine.current != nil {
+		engine.mux.RLock()
+		defer engine.mux.RUnlock()
+		return engine.current.Consumers()
+	}
+	return nil
+}
+
+func (engine *reloadingEngine) Groups() *[]string {
+	if engine.current != nil {
+		engine.mux.RLock()
+		defer engine.mux.RUnlock()
+		return engine.current.Groups()
+	}
+	return nil
+}
+
+func (engine *reloadingEngine) Resolvers() *[]string {
+	if engine.current != nil {
+		engine.mux.RLock()
+		defer engine.mux.RUnlock()
+		return engine.current.Resolvers()
+	}
+	return nil
+}
+
+func (engine *reloadingEngine) Lists() *[]*ListEntry {
+	if engine.current != nil {
+		engine.mux.RLock()
+		defer engine.mux.RUnlock()
+		return engine.current.Lists()
+	}
+	return nil
+}

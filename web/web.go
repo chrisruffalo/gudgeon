@@ -35,24 +35,11 @@ func New() Web {
 	return &web{}
 }
 
-type listEntry struct {
-	Name  string `json:"name"`
-	Short string `json:"short"`
-}
-
 // get metrics counter named in query
 func (web *web) GetMetrics(c *gin.Context) {
 	if web.engine.Metrics() == nil {
 		c.String(http.StatusNotFound, "Metrics not enabled)")
 		return
-	}
-
-	lists := make([]*listEntry, 0, len(web.conf.Lists))
-	for _, list := range web.conf.Lists {
-		lists = append(lists, &listEntry{
-			Name:  list.CanonicalName(),
-			Short: list.ShortName(),
-		})
 	}
 
 	var metrics map[string]*engine.Metric
@@ -68,7 +55,7 @@ func (web *web) GetMetrics(c *gin.Context) {
 
 	c.JSON(http.StatusOK, &gin.H{
 		"metrics": metrics,
-		"lists":   lists,
+		"lists":   web.engine.Lists(),
 	})
 }
 
@@ -111,23 +98,20 @@ func (web *web) QueryMetrics(c *gin.Context) {
 		queryEnd = &endTime
 	}
 
-	keepMetrics := make([]string, 0)
-	if filterStrings := c.Query("metrics"); len(filterStrings) > 0 {
-		keepMetrics = strings.Split(filterStrings, ",")
-	}
-
 	// when on the first entry the output is slightly different
 	firstEntry := true
 
-	// start empty array
+	// status is ok
 	c.String(http.StatusOK, "[")
+
+	// call and accumulate responses directly to stream
 	err := web.engine.Metrics().QueryFunc(func(entry *engine.MetricsEntry) {
 		if !firstEntry {
 			c.String(http.StatusOK, ",")
 		}
 		firstEntry = false
 		c.JSON(http.StatusOK, entry)
-	}, keepMetrics, *queryStart, *queryEnd)
+	}, c.GetString("filter"), *queryStart, *queryEnd)
 
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Could not fetch metrics")
@@ -249,38 +233,14 @@ func (web *web) GetQueryLogInfo(c *gin.Context) {
 }
 
 func (web *web) GetTestComponents(c *gin.Context) {
-	consumers := make([]string, 0, len(web.conf.Consumers))
-	for _, c := range web.conf.Consumers {
-		if c == nil || c.Name == "" {
-			continue
-		}
-		consumers = append(consumers, c.Name)
-	}
-
-	groups := make([]string, 0, len(web.conf.Groups))
-	for _, g := range web.conf.Groups {
-		if g == nil || g.Name == "" {
-			continue
-		}
-		groups = append(groups, g.Name)
-	}
-
-	resolvers := make([]string, 0, len(web.conf.Resolvers))
-	for _, r := range web.conf.Resolvers {
-		if r == nil || r.Name == "" {
-			continue
-		}
-		resolvers = append(resolvers, r.Name)
-	}
-
 	// calling it "consumer" here is because we can only
 	// accept singular consumers at the api endpoint and
 	// this is consistent with that and the naming of the
 	// option in the drop down list
 	c.JSON(http.StatusOK, &gin.H{
-		"consumer":  consumers,
-		"groups":    groups,
-		"resolvers": resolvers,
+		"consumer":  web.engine.Consumers(),
+		"groups":    web.engine.Groups(),
+		"resolvers": web.engine.Resolvers(),
 	})
 }
 
