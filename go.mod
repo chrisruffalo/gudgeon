@@ -3,16 +3,16 @@ module github.com/chrisruffalo/gudgeon
 require (
 	github.com/GeertJohan/go.rice v1.0.0
 	github.com/akutz/sortfold v0.2.1
-	github.com/atrox/go-migrate-rice v1.0.0
+	github.com/atrox/go-migrate-rice v1.0.1
 	github.com/cavaliercoder/grab v2.0.0+incompatible
 	github.com/coreos/go-systemd v0.0.0-20181031085051-9002847aa142
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/gin-gonic/gin v1.4.0
-	github.com/golang-migrate/migrate/v4 v4.4.0
+	github.com/golang-migrate/migrate/v4 v4.5.0
 	github.com/google/uuid v1.0.0
 	github.com/jessevdk/go-flags v1.4.0
-	github.com/json-iterator/go v1.1.6
+	github.com/json-iterator/go v1.1.7
 	github.com/miekg/dns v1.1.15
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
