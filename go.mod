@@ -1,7 +1,7 @@
 module github.com/chrisruffalo/gudgeon
 
 require (
-	github.com/GeertJohan/go.rice v1.0.0
+	github.com/GeertJohan/go.rice v1.0.1-0.20190430230923-c880e3cd4dd8
 	github.com/akutz/sortfold v0.2.1
 	github.com/atrox/go-migrate-rice v1.0.1
 	github.com/cavaliercoder/grab v2.0.0+incompatible
