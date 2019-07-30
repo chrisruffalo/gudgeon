@@ -94,10 +94,12 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 	// and evict items on close
 	store.stmtCache.OnEvicted(func(s string, i interface{}) {
 		if stmt, ok := i.(*sql.Stmt); ok {
-			stmt.Close()
+			err := stmt.Close()
+			if err != nil {
+				log.Errorf("During close/evict: %s", err)
+			}
 		}
 	})
-
 }
 
 func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
@@ -329,6 +331,8 @@ func (store *sqlStore) Close() {
 				}
 			}
 		}
+		store.stmtCache.Flush()
+
 		err := store.db.Close()
 		if err != nil {
 			log.Errorf("Error closing database: %s", err)

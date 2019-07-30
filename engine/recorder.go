@@ -175,6 +175,11 @@ func NewRecorder(conf *config.GudgeonConfig, engine Engine, db *sql.DB, metrics 
 // to the engine that will transfer as an async
 // entry point to the worker
 func (recorder *recorder) queue(address *net.IP, request *dns.Msg, response *dns.Msg, rCon *resolver.RequestContext, result *resolver.ResolutionResult, finishedTime *time.Time) {
+	// don't submit if info queue is nil
+	if recorder.infoQueue == nil {
+		return
+	}
+
 	// get info record from pool
 	msg := recorder.recordPool.Get().(*InfoRecord)
 	msg.clear()
@@ -201,10 +206,8 @@ func (recorder *recorder) queue(address *net.IP, request *dns.Msg, response *dns
 	// calculate how many milliseconds from float seconds so that we have a single-place duration
 	msg.ServiceMilliseconds = int64(msg.Finished.Sub(msg.Created).Seconds() * 1000)
 
-	// put on channel if channel is available
-	if recorder.infoQueue != nil {
-		recorder.infoQueue <- msg
-	}
+	// put on queue
+	recorder.infoQueue <- msg
 }
 
 func (recorder *recorder) reverseLookup(info *InfoRecord) string {

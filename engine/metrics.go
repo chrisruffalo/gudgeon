@@ -198,7 +198,10 @@ func NewMetrics(config *config.GudgeonConfig, db *sql.DB) Metrics {
 	// and evict items on close
 	metrics.queryCache.OnEvicted(func(s string, i interface{}) {
 		if stmt, ok := i.(*sql.Stmt); ok {
-			stmt.Close()
+			err := stmt.Close()
+			if err != nil {
+				log.Errorf("During close/evict: %s", err)
+			}
 		}
 	})
 
@@ -487,4 +490,7 @@ func (metrics *metrics) Stop() {
 			}
 		}
 	}
+
+	// evict all from cache
+	metrics.queryCache.Flush()
 }

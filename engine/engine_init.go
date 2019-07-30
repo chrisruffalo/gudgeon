@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"runtime/debug"
 	"strings"
 
 	"github.com/GeertJohan/go.rice"
@@ -367,6 +368,9 @@ func (engine *engine) bootstrap() error {
 	engine.groups = groupMap
 	engine.consumers = consumers
 	engine.consumerMap = consumerMap
+
+	// try and free memory
+	debug.FreeOSMemory()
 
 	// done bootstrapping without errors
 	return nil
