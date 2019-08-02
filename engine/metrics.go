@@ -464,7 +464,9 @@ func (metrics *metrics) load() {
 	var data map[string]*Metric
 	err = util.Json.Unmarshal(metricsJSONString, &data)
 	if err != nil {
-		log.Error("Error marshalling metrics data from database %s", err)
+		// if the database is empty this is what happens
+		// if the database has unmodified data, then this _shouldn't_ happen
+		log.Tracef("Error marshalling metrics data from database %s", err)
 		return
 	}
 
