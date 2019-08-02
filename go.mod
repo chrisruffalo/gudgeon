@@ -6,6 +6,7 @@ require (
 	github.com/atrox/go-migrate-rice v1.0.1
 	github.com/cavaliercoder/grab v2.0.0+incompatible
 	github.com/coreos/go-systemd v0.0.0-20181031085051-9002847aa142
+	github.com/couchbase/go-slab v0.0.0-20150629231827-1f5f7f282713
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/gin-gonic/gin v1.4.0

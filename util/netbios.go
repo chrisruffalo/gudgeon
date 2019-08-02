@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/couchbase/go-slab"
 	"github.com/miekg/dns"
 )
 
@@ -18,9 +18,7 @@ const _byteBufferSize = 512
 var netBiosContextTime = 10 * time.Second
 var netBiosDeadlineTime = 5 * time.Second
 
-var bytesPool = sync.Pool{New: func() interface{} {
-	return make([]byte, _byteBufferSize)
-}}
+var bytesSlab = slab.NewArena(_byteBufferSize, _byteBufferSize, 2, nil)
 
 // this is an experimental feature
 // pulled from: https://github.com/jpillora/icmpscan
@@ -67,9 +65,9 @@ func LookupNetBIOSName(address string) (string, error) {
 	// after read is done extend the deadline again
 	conn.SetDeadline(time.Now().Add(netBiosDeadlineTime))
 
-	// get response byte buffer from pool
-	rbytes := bytesPool.Get().([]byte)
-	defer bytesPool.Put(rbytes)
+	// release bytes from slab
+	rbytes := bytesSlab.Alloc(_byteBufferSize)
+	defer bytesSlab.DecRef(rbytes)
 
 	_, err = conn.Read(rbytes)
 	if err != nil {

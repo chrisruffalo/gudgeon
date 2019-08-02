@@ -7,7 +7,8 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync"
+
+	"github.com/couchbase/go-slab"
 )
 
 func GetFileAsArray(inputfile string) ([]string, error) {
@@ -33,9 +34,7 @@ const _lineBufferByteSize = 32 * 1024
 
 var _lineSep = []byte{'\n'}
 
-var lineCountPool = sync.Pool{New: func() interface{} {
-	return make([]byte, _lineBufferByteSize)
-}}
+var lineCountSlab = slab.NewArena(_lineBufferByteSize, _lineBufferByteSize, 2, nil)
 
 // count file lines
 // from: https://stackoverflow.com/a/24563853
@@ -46,8 +45,8 @@ func LineCount(inputfile string) (uint, error) {
 	}
 	defer r.Close()
 
-	buf := lineCountPool.Get().([]byte)
-	defer lineCountPool.Put(buf)
+	buf := lineCountSlab.Alloc(_lineBufferByteSize)
+	defer lineCountSlab.DecRef(buf)
 
 	count := uint(0)
 
