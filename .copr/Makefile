@@ -13,9 +13,12 @@ RELEASE?=$$(echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*
 .PHONY: srpm
 srpm:
 	mkdir -p $(outdir)
-	dnf install -y epel-release || sudo dnf install -y epel-release
+	# update server
 	dnf update -y || sudo dnf update -y
-	dnf install -y git python2-rpkg rpkg || sudo dnf install -y git python2-rpkg rpkg
+	# install git
+	dnf install -y git || sudo dnf install -y git
+	# install python2/3 rkpg
+	dnf install -y python2-rpkg rpkg || dnf install -y python3-rpkg rpkg || sudo dnf install -y python2-rpkg rpkg || sudo dnf install -y python3-rpkg rpkg
 	@echo "=============================="
 	@echo "=============================="
 	@echo "longversion = $(LONGVERSION)"
