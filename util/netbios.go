@@ -6,17 +6,25 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
 )
 
+// response is set at 512 bytes
+const _byteBufferSize = 512
+
 var netBiosContextTime = 10 * time.Second
 var netBiosDeadlineTime = 5 * time.Second
 
+var bytesPool = sync.Pool{New: func() interface{} {
+	return make([]byte, _byteBufferSize)
+}}
+
 // this is an experimental feature
 // pulled from: https://github.com/jpillora/icmpscan
-// i made some changes to make it a litte more readable
+// i made some changes to make it a little more readable
 // and, more importantly, to set the outbound dns flags
 // to 0 so this would work
 func LookupNetBIOSName(address string) (string, error) {
@@ -28,7 +36,7 @@ func LookupNetBIOSName(address string) (string, error) {
 	m := &dns.Msg{}
 	m.SetQuestion("CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.", 33)
 
-	// forcibly set the flags to 0, for some reaon I couldn't figure a way
+	// forcibly set the flags to 0, for some reason I couldn't figure a way
 	// to do this in the dns library and this seems to be the best other shot
 	// for doing it
 	bytes, err := m.Pack()
@@ -59,8 +67,10 @@ func LookupNetBIOSName(address string) (string, error) {
 	// after read is done extend the deadline again
 	conn.SetDeadline(time.Now().Add(netBiosDeadlineTime))
 
-	// response is 512 bytes
-	rbytes := make([]byte, 512)
+	// get response byte buffer from pool
+	rbytes := bytesPool.Get().([]byte)
+	defer bytesPool.Put(rbytes)
+
 	_, err = conn.Read(rbytes)
 	if err != nil {
 		return "", fmt.Errorf("Reading: %s", err)

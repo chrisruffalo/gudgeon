@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 )
 
 func GetFileAsArray(inputfile string) ([]string, error) {
@@ -28,6 +29,14 @@ func ClearDirectory(inputdir string) {
 	}
 }
 
+const _lineBufferByteSize = 32 * 1024
+
+var _lineSep = []byte{'\n'}
+
+var lineCountPool = sync.Pool{New: func() interface{} {
+	return make([]byte, _lineBufferByteSize)
+}}
+
 // count file lines
 // from: https://stackoverflow.com/a/24563853
 func LineCount(inputfile string) (uint, error) {
@@ -37,13 +46,14 @@ func LineCount(inputfile string) (uint, error) {
 	}
 	defer r.Close()
 
-	buf := make([]byte, 32*1024)
+	buf := lineCountPool.Get().([]byte)
+	defer lineCountPool.Put(buf)
+
 	count := uint(0)
-	lineSep := []byte{'\n'}
 
 	for {
 		c, err := r.Read(buf)
-		count += uint(bytes.Count(buf[:c], lineSep))
+		count += uint(bytes.Count(buf[:c], _lineSep))
 
 		switch {
 		case err == io.EOF:

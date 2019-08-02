@@ -85,7 +85,7 @@ FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration "$(RELEASE)" 
 FPMSCRIPTS=$(FPMCOMMON) --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh
 
 all: test build
-.PHONY: all announce prepare test build clean minimize package rpm deb docker tar npm webpack bench
+.PHONY: all announce prepare test build clean minimize package rpm deb docker tar npm webpack bench hash
 
 announce: ## Debugging versions mainly for build and travis-ci
 		@echo "$(BINARY_NAME)"
@@ -194,3 +194,9 @@ install:
 		install -m 0644 $(MKFILE_DIR)/resources/gudgeon.socket $(DESTDIR)/lib/systemd/system/gudgeon.socket
 		install -m 0644 $(MKFILE_DIR)/resources/gudgeon.service $(DESTDIR)/lib/systemd/system/gudgeon.service
 		mkdir -p $(DESTDIR)/var/log/gudgeon
+
+# build sha files for release artifacts
+hash:
+		# make hashes for all files in build directory
+		find $(BUILD_DIR) -type f ! -name "*.sha*" -exec sh -c 'sha256sum $$0 > $$0.sha256' {} \;
+		find $(BUILD_DIR) -type f ! -name "*.sha*" -exec sh -c 'sha512sum $$0 > $$0.sha512' {} \;

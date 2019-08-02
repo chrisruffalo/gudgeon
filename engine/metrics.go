@@ -39,7 +39,7 @@ const (
 	QueryTimeAvg           = "query-time-avg"
 	// cache entries
 	CurrentCacheEntries = "cache-entries"
-	// rutnime metrics
+	// runtime metrics
 	GoRoutines         = "goroutines"
 	Threads            = "process-threads"
 	CurrentlyAllocated = "allocated-bytes"    // heap allocation in go runtime stats
@@ -420,18 +420,23 @@ func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter
 
 // traditional query that returns an array of metrics entries, good for testing, small queries
 func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, error) {
-	entries := make([]*MetricsEntry, 0, 100)
+	// no sub-second metrics
+	if end.Sub(start).Seconds() < 1 {
+		return []*MetricsEntry{}, nil
+	}
+
+	// this is a bit of a neat trick because we can find the size of the array by the number of intervals in it
+	entries := make([]*MetricsEntry, 0, int(end.Sub(start).Seconds()/metrics.interval.Seconds())+1)
 	acc := func(me *MetricsEntry) {
 		if me == nil {
 			return
 		}
-		entry := &MetricsEntry{
+		entries = append(entries, &MetricsEntry{
 			FromTime:        me.FromTime,
 			AtTime:          me.AtTime,
 			IntervalSeconds: me.IntervalSeconds,
 			Values:          me.Values,
-		}
-		entries = append(entries, entry)
+		})
 	}
 	err := metrics.QueryFunc(acc, "", true, start, end)
 	return entries, err

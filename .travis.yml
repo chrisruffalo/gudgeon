@@ -93,6 +93,8 @@ before_deploy:
   - docker login --username="$DOCKER_USERNAME" --password="$DOCKER_PASSWORD"
   - make dockerpush
   - DOCKER_TAG=latest make dockerpush
+  # hash resources for greater confidence in distribution on github
+  - make hash
 
 deploy:
   provider: releases
