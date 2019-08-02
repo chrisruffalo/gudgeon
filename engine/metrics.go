@@ -450,26 +450,23 @@ func (metrics *metrics) load() {
 	}
 	defer rows.Close()
 
-	var metricsJSONString string
+	var metricsJSONString []byte
 	for rows.Next() {
 		err = rows.Scan(&metricsJSONString)
 		if err != nil {
 			log.Errorf("Error scanning for metrics results: %s", err)
 			continue
 		}
-		if "" != metricsJSONString {
-			break
-		}
-	}
-	// can't do anything with empty string, set, or object
-	metricsJSONString = strings.TrimSpace(metricsJSONString)
-	if "" == metricsJSONString || "{}" == metricsJSONString || "[]" == metricsJSONString {
-		return
+		break
 	}
 
 	// unmarshal object
 	var data map[string]*Metric
-	_ = util.Json.Unmarshal([]byte(metricsJSONString), &data)
+	err = util.Json.Unmarshal(metricsJSONString, &data)
+	if err != nil {
+		log.Error("Error marshalling metrics data from database %s", err)
+		return
+	}
 
 	// load any metric that has "lifetime" in the key
 	// from the database so that we can manage rules
