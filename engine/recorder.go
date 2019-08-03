@@ -18,10 +18,12 @@ import (
 )
 
 const (
-	// might be bad to set this too high but
-	// it is pretty much the only thing that
-	// causes issues under load
-	recordQueueSize = 100000
+	// setting this higher doesn't really provide
+	// any benefits, tried as high as 10,000 and increases
+	// are only marginal after 100 if at all.
+	// (keep in mind that incoming requests are all in channels
+	// due to how the dns server works)
+	recordQueueSize = 100
 
 	// single instance of insert statement used for inserting into the "buffer"
 	bufferInsertStatement = "INSERT INTO buffer (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Rcode, Blocked, Match, MatchList, MatchListShort, MatchRule, Cached, ServiceTime, Created, EndTime) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
