@@ -124,10 +124,6 @@ func (record *InfoRecord) clear() {
 	//record.ServiceMilliseconds
 }
 
-func newRecord() interface{} {
-	return &InfoRecord{}
-}
-
 // created from raw engine
 func NewRecorder(conf *config.GudgeonConfig, engine Engine, db *sql.DB, metrics Metrics, qlog QueryLog) (*recorder, error) {
 	recorder := &recorder{
@@ -139,7 +135,9 @@ func NewRecorder(conf *config.GudgeonConfig, engine Engine, db *sql.DB, metrics 
 		infoQueue: make(chan *InfoRecord, recordQueueSize),
 		doneChan:  make(chan bool),
 		recordPool: sync.Pool{
-			New: newRecord,
+			New: func() interface{} {
+				return &InfoRecord{}
+			},
 		},
 	}
 
@@ -470,8 +468,22 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 
 	var err error
 
+	if recorder.tx == nil && recorder.stmt != nil {
+		err = recorder.stmt.Close()
+		if err != nil {
+			log.Errorf("Closing statement: %s", err)
+		}
+	}
+
+	if recorder.tx == nil {
+		recorder.tx, err = recorder.db.Begin()
+		if err != nil {
+			log.Errorf("Starting transaction: %s", err)
+		}
+	}
+
 	if recorder.stmt == nil {
-		recorder.stmt, err = recorder.db.Prepare(bufferInsertStatement)
+		recorder.stmt, err = recorder.tx.Prepare(bufferInsertStatement)
 		if err != nil {
 			log.Errorf("Creating buffer insert prepared statement: %s", err)
 		}

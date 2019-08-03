@@ -17,14 +17,18 @@ const (
 
 var hostnameReadPriority = []string{"txt:fn", "txt:f", "txt:md", "name", "name6", "hostname", "hostname6"}
 
-func MulticastMdnsQuery() {
-	m := &dns.Msg{}
-	m.Question = []dns.Question{
+// single declaration
+var multicastQuery = &dns.Msg{
+	MsgHdr: dns.MsgHdr{
+		RecursionDesired: false,
+	},
+	Question: []dns.Question{
 		{Name: questionString, Qtype: dns.TypeSRV, Qclass: dns.ClassINET},
 		{Name: questionString, Qtype: dns.TypeTXT, Qclass: dns.ClassINET},
-	}
-	m.RecursionDesired = false
+	},
+}
 
+func MulticastMdnsQuery() {
 	var err error
 
 	co := new(dns.Conn)
@@ -33,7 +37,10 @@ func MulticastMdnsQuery() {
 	}
 	defer co.Close()
 
-	co.WriteMsg(m)
+	err = co.WriteMsg(multicastQuery)
+	if err != nil {
+		log.Errorf("Sending multicast query: %s", err)
+	}
 	log.Debug("Sent mDNS Multicast Query")
 }
 
@@ -55,7 +62,7 @@ func MulticastMdnsListen(msgChan chan *dns.Msg, closeChan chan bool) {
 	MulticastMdnsQuery()
 
 	// keep running after error?
-	keeprunning := true
+	keepRunning := true
 
 	// pipe messages to internal stop/start switch
 	internalChan := make(chan *dns.Msg)
@@ -63,7 +70,7 @@ func MulticastMdnsListen(msgChan chan *dns.Msg, closeChan chan bool) {
 		for {
 			msg, err := co.ReadMsg()
 			if err != nil {
-				if keeprunning {
+				if keepRunning {
 					log.Debugf("Reading mDNS message: %s", err)
 					continue
 				} else {
@@ -80,7 +87,7 @@ func MulticastMdnsListen(msgChan chan *dns.Msg, closeChan chan bool) {
 	for {
 		select {
 		case <-closeChan:
-			keeprunning = false
+			keepRunning = false
 			err := co.Close()
 			if err != nil {
 				log.Errorf("Could not close mDNS listener")

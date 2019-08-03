@@ -36,6 +36,7 @@ type Cache interface {
 // group -> int mappings that saves several bytes for
 // each key entry. (this optimization may be overkill)
 type gocache struct {
+	builderPool  sync.Pool
 	backers      map[string]*backer.Cache
 	partitionMux sync.RWMutex
 }
@@ -48,9 +49,14 @@ func min(a uint32, b uint32) uint32 {
 }
 
 func New() Cache {
-	gocache := &gocache{}
-	gocache.backers = make(map[string]*backer.Cache)
-	return gocache
+	return &gocache{
+		builderPool: sync.Pool{
+			New: func() interface{} {
+				return &strings.Builder{}
+			},
+		},
+		backers: make(map[string]*backer.Cache),
+	}
 }
 
 func minTTL(currentMin uint32, records []dns.RR) uint32 {
@@ -62,7 +68,13 @@ func minTTL(currentMin uint32, records []dns.RR) uint32 {
 
 // make string key from partition + message
 func (gocache *gocache) key(questions []dns.Question) string {
-	var builder strings.Builder
+	// get pooled string builder and prepare to return to pool after reset
+	builder := gocache.builderPool.Get().(*strings.Builder)
+	defer func() {
+		builder.Reset()
+		gocache.builderPool.Put(builder)
+	}()
+
 	if len(questions) > 0 {
 		for idx := 0; idx < len(questions); idx++ {
 			builder.WriteString(strings.ToLower(questions[idx].Name))

@@ -74,8 +74,9 @@ func GetAnswerValues(response *dns.Msg) []string {
 
 	values := make([]string, 0, len(response.Answer))
 
-	for _, rr := range response.Answer {
-		value := GetRecordValue(rr)
+	var value string
+	for i := 0; i < len(response.Answer); i++ {
+		value = GetRecordValue(response.Answer[i])
 		if "" != value {
 			values = append(values, value)
 		}
