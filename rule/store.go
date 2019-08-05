@@ -21,6 +21,9 @@ const (
 	MatchAllow Match = 2
 	MatchBlock Match = 1
 	MatchNone  Match = 0
+
+	// decent size buffer
+	_loadBufferSize = 32 * 1024
 )
 
 type Store interface {
@@ -183,8 +186,11 @@ func CreateStore(storeRoot string, conf *config.GudgeonConfig) (Store, []uint64)
 	// load files into stores based on complexity
 	outputCount := make([]uint64, 0, len(conf.Lists))
 
+	// buffer for reading files
+	var buffer = make([]byte, _loadBufferSize)
+
 	for _, list := range conf.Lists {
-		listCounter := loadList(store, conf, list)
+		listCounter := loadList(store, conf, list, buffer)
 
 		// locally scoped variable for list watching
 		watchList := list
@@ -194,7 +200,7 @@ func CreateStore(storeRoot string, conf *config.GudgeonConfig) (Store, []uint64)
 		// save handle so it can later be used to close watchers
 		handle := events.Listen("file:"+conf.PathToList(watchList), func(message *events.Message) {
 			store.Clear(conf, watchList)
-			newRuleCount := loadList(store, conf, watchList)
+			newRuleCount := loadList(store, conf, watchList, buffer)
 			store.Finalize(conf.SessionRoot(), []*config.GudgeonList{watchList})
 			// send message that a list value changed
 			events.Send("store:list:changed", &events.Message{
@@ -220,7 +226,8 @@ func CreateStore(storeRoot string, conf *config.GudgeonConfig) (Store, []uint64)
 	return store, outputCount
 }
 
-func loadList(store Store, config *config.GudgeonConfig, list *config.GudgeonList) uint64 {
+// load list with a reusable buffer
+func loadList(store Store, config *config.GudgeonConfig, list *config.GudgeonList, buffer []byte) uint64 {
 	// open file and scan
 	data, err := os.Open(config.PathToList(list))
 	if err != nil {
@@ -232,6 +239,7 @@ func loadList(store Store, config *config.GudgeonConfig, list *config.GudgeonLis
 
 	// scan through file
 	scanner := bufio.NewScanner(data)
+	scanner.Buffer(buffer, len(buffer))
 	for scanner.Scan() {
 		text := ParseLine(scanner.Text())
 		if "" != text {
