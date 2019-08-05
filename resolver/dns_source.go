@@ -3,12 +3,16 @@ package resolver
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/miekg/dns"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/util"
 )
@@ -20,11 +24,29 @@ const (
 	protoDelimeter = "/"
 )
 
+// how many workers to spawn
+const workers = 2
+
+// how many requests to buffer
+const requestBuffer = 10
+
 // how long to wait before source is active again
-var backoffInterval = 3 * time.Second
-var defaultTimeout = 1 * time.Second
+var backoffInterval = 500 * time.Millisecond
+
+// how long to wait before timing out the connection
+var defaultDeadline = 1 * time.Second
 
 var validProtocols = []string{"udp", "tcp", "tcp-tls"}
+
+type dnsWork struct {
+	message      *dns.Msg
+	responseChan chan *dnsWorkResponse
+}
+
+type dnsWorkResponse struct {
+	err      error
+	response *dns.Msg
+}
 
 type dnsSource struct {
 	dnsServer     string
@@ -37,6 +59,13 @@ type dnsSource struct {
 
 	backoffTime *time.Time
 	tlsConfig   *tls.Config
+
+	questionChan chan *dnsWork
+	closeChan    chan bool
+
+	workerGroup sync.WaitGroup
+
+	sourceChanMtx sync.RWMutex
 }
 
 func (dnsSource *dnsSource) Name() string {
@@ -104,8 +133,24 @@ func (dnsSource *dnsSource) Load(specification string) {
 	}
 
 	// keep dialer for reuse
-	dnsSource.dialer = net.Dialer{
-		Timeout: defaultTimeout,
+	dnsSource.dialer = net.Dialer{}
+	// set tcp dialer properties
+	if dnsSource.network == "tcp" {
+		dnsSource.dialer.KeepAlive = 0
+		dnsSource.dialer.Timeout = 0
+	}
+
+	// create com channels
+	dnsSource.questionChan = make(chan *dnsWork, requestBuffer)
+	dnsSource.closeChan = make(chan bool, workers)
+
+	// spawn workers
+	for i := 0; i < workers; i++ {
+		if dnsSource.protocol == "udp" {
+			go dnsSource.udpWorker()
+		} else {
+			go dnsSource.tcpWorker()
+		}
 	}
 }
 
@@ -120,15 +165,9 @@ func (dnsSource *dnsSource) connect() (*dns.Conn, error) {
 	return &dns.Conn{Conn: conn}, nil
 }
 
-func (dnsSource *dnsSource) query(request *dns.Msg) (*dns.Msg, error) {
-	co, err := dnsSource.connect()
-	if err != nil {
-		return nil, err
-	}
-	defer co.Close()
-
+func (dnsSource *dnsSource) handle(co *dns.Conn, request *dns.Msg) (*dns.Msg, error) {
 	// update deadline waiting for write to succeed
-	_ = co.SetDeadline(time.Now().Add(defaultTimeout))
+	_ = co.SetDeadline(time.Now().Add(defaultDeadline))
 
 	// write message
 	if err := co.WriteMsg(request); err != nil {
@@ -136,13 +175,108 @@ func (dnsSource *dnsSource) query(request *dns.Msg) (*dns.Msg, error) {
 	}
 
 	// read response with deadline
-	_ = co.SetDeadline(time.Now().Add(2 * defaultTimeout))
+	_ = co.SetDeadline(time.Now().Add(2 * defaultDeadline))
 	response, err := co.ReadMsg()
 	if err != nil {
 		return nil, err
 	}
 
 	return response, nil
+}
+
+func (dnsSource *dnsSource) udpWorker() {
+	dnsSource.workerGroup.Add(1)
+	for true {
+		select {
+		case <-dnsSource.closeChan:
+			log.Tracef("Closing '%s' udp worker", dnsSource.Name())
+			dnsSource.workerGroup.Done()
+			return
+		case work := <-dnsSource.questionChan:
+			co, err := dnsSource.connect()
+			if err != nil {
+				work.responseChan <- &dnsWorkResponse{err, nil}
+			} else {
+				response, err := dnsSource.handle(co, work.message)
+				work.responseChan <- &dnsWorkResponse{err, response}
+			}
+		}
+	}
+}
+
+func (dnsSource *dnsSource) tcpWorker() {
+	// add to wait group
+	dnsSource.workerGroup.Add(1)
+
+	co, err := dnsSource.connect()
+	if err != nil {
+		log.Errorf("Could not establish %s connection: %s", dnsSource.protocol, err)
+	}
+
+	for true {
+		select {
+		case <-dnsSource.closeChan:
+			if co != nil {
+				err = co.Close()
+				if err != nil {
+					// this means something was in flight as the connection was being
+					// closed and there is very little we can do at that point
+					log.Debugf("Could not close connection: %s", err)
+				}
+			}
+			log.Tracef("Closing '%s' tcp worker", dnsSource.Name())
+			dnsSource.workerGroup.Done()
+			return
+		case work := <-dnsSource.questionChan:
+			if co == nil {
+				log.Tracef("opening new tcp connection in worker")
+				co, err = dnsSource.connect()
+				if err != nil {
+					work.responseChan <- &dnsWorkResponse{err, nil}
+					if co != nil {
+						_ = co.Close()
+					}
+					co = nil
+				}
+			}
+			if co != nil {
+				response, err := dnsSource.handle(co, work.message)
+				// reopen connection on error
+				if err != nil {
+					_ = co.Close()
+					co = nil
+					// if eof or broken pipe it probably just means we held on to the connection too long
+					// and we can just reopen it and try again
+					if nErr, ok := err.(*net.OpError); (ok && nErr.Err == syscall.EPIPE) || err == io.EOF {
+						co, err = dnsSource.connect()
+						if err != nil {
+							// reset connection we can't make anyway and keep error for returning over channel
+							co = nil
+						} else {
+							response, err = dnsSource.handle(co, work.message)
+						}
+					}
+				}
+				// regardless of response just return
+				work.responseChan <- &dnsWorkResponse{err, response}
+			}
+		}
+	}
+}
+
+func (dnsSource *dnsSource) query(request *dns.Msg) (*dns.Msg, error) {
+	dnsSource.sourceChanMtx.RLock()
+	if dnsSource.questionChan == nil {
+		defer dnsSource.sourceChanMtx.RUnlock()
+		return nil, fmt.Errorf("Resolver source '%s' closed", dnsSource.Name())
+	}
+	dnsSource.sourceChanMtx.RUnlock()
+
+	responseChan := make(chan *dnsWorkResponse)
+	dnsSource.questionChan <- &dnsWork{request, responseChan}
+	answer := <-responseChan
+	close(responseChan)
+	return answer.response, answer.err
 }
 
 func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
@@ -180,5 +314,19 @@ func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionCont
 }
 
 func (dnsSource *dnsSource) Close() {
+	// send enough messages to stop workers
+	for i := 0; i < workers; i++ {
+		dnsSource.closeChan <- true
+	}
 
+	// close input channel
+	dnsSource.sourceChanMtx.Lock()
+	close(dnsSource.questionChan)
+	dnsSource.questionChan = nil
+	dnsSource.sourceChanMtx.Unlock()
+
+	// wait for workers to close
+	dnsSource.workerGroup.Wait()
+	// close response chan
+	close(dnsSource.closeChan)
 }

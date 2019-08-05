@@ -122,12 +122,6 @@ func (provider *provider) handle(writer dns.ResponseWriter, request *dns.Msg) {
 	if recovery := recover(); recovery != nil {
 		log.Errorf("recovered from error: %s", recovery)
 	}
-
-	// explicitly close the writer since it's done
-	err = writer.Close()
-	if err != nil {
-		log.Errorf("Closing response: %s", err)
-	}
 }
 
 func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engine) error {

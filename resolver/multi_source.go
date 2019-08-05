@@ -44,5 +44,7 @@ func (ms *multiSource) Name() string {
 }
 
 func (ms *multiSource) Close() {
-
+	for idx := 0; idx < len(ms.sources); idx++ {
+		ms.sources[idx].Close()
+	}
 }

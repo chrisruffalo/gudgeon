@@ -95,20 +95,19 @@ func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, configu
 	}
 
 	// make new resolver
-	resolver := new(resolver)
-	resolver.name = configuredResolver.Name
-	resolver.domains = configuredResolver.Domains
-	resolver.skip = configuredResolver.SkipDomains
-	resolver.search = configuredResolver.Search
-	resolver.sources = make([]Source, 0)
+	resolver := &resolver{
+		name:    configuredResolver.Name,
+		domains: configuredResolver.Domains,
+		skip:    configuredResolver.SkipDomains,
+		search:  configuredResolver.Search,
+		sources: make([]Source, 0, len(configuredResolver.Sources)),
+	}
 
 	// add literal hostfile source first source if hosts is configured
 	if len(configuredResolver.Hosts) > 0 {
 		hostfileSource := &hostFileSource{}
 		hostfileSource.LoadArray(configuredResolver.Hosts)
-		if hostfileSource != nil {
-			resolver.sources = append(resolver.sources, hostfileSource)
-		}
+		resolver.sources = append(resolver.sources, hostfileSource)
 	}
 
 	// add sources
@@ -203,13 +202,8 @@ func (resolver *resolver) searchDomains(rCon *RequestContext, context *Resolutio
 			continue
 		}
 
-		// if the search domain doesn't end with a "." then add it before adding the suffix
-		searchDomain := dns.Fqdn(originalDomain)
-		// extend search domain with search suffix
-		searchDomain = dns.Fqdn(searchDomain + sDomain)
-
 		// update question in the request to match the searched domain
-		searchRequest.Question[0].Name = searchDomain
+		searchRequest.Question[0].Name = dns.Fqdn(dns.Fqdn(originalDomain) + sDomain)
 
 		// ask new question
 		searchResponse, err := resolver.answer(rCon, context, searchRequest)
@@ -321,6 +315,7 @@ func (resolver *resolver) Answer(rCon *RequestContext, context *ResolutionContex
 func (resolver *resolver) Close() {
 	for _, source := range resolver.sources {
 		if source != nil {
+			log.Debugf("Closing source: %s", source.Name())
 			source.Close()
 		}
 	}

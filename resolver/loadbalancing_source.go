@@ -78,4 +78,8 @@ func (lb *lbSource) Close() {
 	<-lb.closeChan
 	close(lb.askChan)
 	close(lb.chosenChan)
+
+	for idx := 0; idx < len(lb.sources); idx++ {
+		lb.sources[idx].Close()
+	}
 }

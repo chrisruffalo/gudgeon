@@ -25,6 +25,12 @@ const (
 	// due to how the dns server works)
 	recordQueueSize = 100
 
+	// query to flush buffer
+	_flushQuery = "DELETE FROM buffer WHERE true"
+
+	// query to force memory shrink
+	_shrinkPragma = "PRAGMA shrink_memory;"
+
 	// single instance of insert statement used for inserting into the "buffer"
 	bufferInsertStatement = "INSERT INTO buffer (Address, ClientName, Consumer, RequestDomain, RequestType, ResponseText, Rcode, Blocked, Match, MatchList, MatchListShort, MatchRule, Cached, ServiceTime, Created, EndTime) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
@@ -421,12 +427,6 @@ func (recorder *recorder) worker() {
 
 // generic method to flush transaction and then perform transaction-related function
 func (recorder *recorder) doWithIsolatedTransaction(next func(tx *sql.Tx)) {
-	// close any existing statements
-	if recorder.stmt != nil {
-		_ = recorder.stmt.Close()
-		recorder.stmt = nil
-	}
-
 	if recorder.tx != nil {
 		err := recorder.tx.Commit()
 		recorder.tx = nil
@@ -470,13 +470,6 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 
 	var err error
 
-	if recorder.tx == nil && recorder.stmt != nil {
-		err = recorder.stmt.Close()
-		if err != nil {
-			log.Errorf("Closing statement: %s", err)
-		}
-	}
-
 	if recorder.tx == nil {
 		recorder.tx, err = recorder.db.Begin()
 		if err != nil {
@@ -492,7 +485,7 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 	}
 
 	// insert into buffer table
-	_, err = recorder.stmt.Exec(
+	_, err = recorder.tx.Stmt(recorder.stmt).Exec(
 		info.Address,
 		info.ClientName,
 		info.Consumer,
@@ -536,13 +529,13 @@ func (recorder *recorder) flush() {
 		}
 
 		// empty buffer table
-		_, err := tx.Exec("DELETE FROM buffer WHERE true")
+		_, err := tx.Exec(_flushQuery)
 		if err != nil {
 			log.Errorf("Could not delete from buffer: %s", err)
 		}
 
 		// free memory
-		_, err = tx.Exec(`PRAGMA shrink_memory;`)
+		_, err = tx.Exec(_shrinkPragma)
 		if err != nil {
 			log.Errorf("Could not shrink memory after recorder flush: %s", err)
 		}
@@ -569,7 +562,7 @@ func (recorder *recorder) prune() {
 		}
 
 		// free memory
-		_, err := tx.Exec(`PRAGMA shrink_memory;`)
+		_, err := tx.Exec(_shrinkPragma)
 		if err != nil {
 			log.Errorf("Could not shrink memory after recorder prune: %s", err)
 		}

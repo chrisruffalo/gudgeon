@@ -62,17 +62,6 @@ func (store *complexStore) Finalize(sessionRoot string, lists []*config.GudgeonL
 }
 
 func (store *complexStore) FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string) {
-	// allow and block split
-	allowLists := make([]*config.GudgeonList, 0)
-	blockLists := make([]*config.GudgeonList, 0)
-	for _, l := range lists {
-		if l.ParsedType() == config.ALLOW {
-			allowLists = append(allowLists, l)
-		} else {
-			blockLists = append(blockLists, l)
-		}
-	}
-
 	match, list, rule := store.matchForEachOfTypeIn(config.ALLOW, lists, func(listType config.ListType, list *config.GudgeonList) (Match, *config.GudgeonList, string) {
 		rules, found := store.complexRules[list.CanonicalName()]
 		if !found {

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"github.com/mina86/unsafeConvert"
 	"strings"
 )
 
@@ -47,4 +48,13 @@ func TrimComments(line string, commentPrefixes ...string) string {
 	}
 
 	return line
+}
+
+var emptyByte = make([]byte, 0)
+
+func SaferBytes(input string) []byte {
+	if "" == input {
+		return emptyByte
+	}
+	return unsafeConvert.Bytes(input)
 }
