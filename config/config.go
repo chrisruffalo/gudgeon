@@ -123,7 +123,7 @@ type GudgeonSource struct {
 	// specs of children resolvers (same as a simple source spec)
 	Specs []string `yaml:"spec"`
 	// should the entries in the spec list be load balanced (default: false)
-	LoadBalance bool `yaml:"load_balance"`
+	LoadBalance bool `yaml:"balance"`
 	// source specific options to allow further configuration of sources
 	Options map[string]interface{} `yaml:"options"`
 }

@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -12,19 +13,43 @@ import (
 	"github.com/chrisruffalo/gudgeon/util"
 )
 
+var requestContextPool = sync.Pool{
+	New: func() interface{} {
+		return &RequestContext{}
+	},
+}
+
 // additional information passed along with the request
 type RequestContext struct {
 	Started  time.Time // when the request starts
 	Protocol string    // the protocol that the request came in with
 	Groups   []string  // the groups that belong to the original requester
+
+	// pool reference for returning
+	pool *sync.Pool
 }
 
 func DefaultRequestContext() *RequestContext {
-	reqCon := &RequestContext{
-		Started:  time.Now(), // start time
-		Protocol: "udp",      // default to udp
-	}
+	reqCon := requestContextPool.Get().(*RequestContext)
+	reqCon.Started = time.Now()
+	reqCon.Protocol = "udp"
+	reqCon.pool = &requestContextPool
 	return reqCon
+}
+
+func (context *RequestContext) Put() {
+	// clear values that won't be set
+	context.Groups = make([]string, 0)
+	// return to pool for reuse
+	if context.pool != nil {
+		context.pool.Put(context)
+	}
+}
+
+var resolutionContextPool = sync.Pool{
+	New: func() interface{} {
+		return &ResolutionContext{}
+	},
 }
 
 // information relevant to the process of resolution
@@ -33,18 +58,23 @@ type ResolutionContext struct {
 	ResolverMap ResolverMap // pointer to the resolvermap that started resolution, can be nil
 	Visited     []string    // list of visited resolver names
 	Stored      bool        // has the result been stored already
+
 	// reporting on actual resolver/source
 	ResolverUsed string // the resolver that did the work
 	SourceUsed   string // actual source that did the resolution
 	Cached       bool   // was the result found by querying the Cache
-	// reporting on blocks
+
+	// reporting on blocks/block status (todo: make Match not block)
 	Blocked     bool
 	BlockedList *config.GudgeonList // pointer to blocked list
 	BlockedRule string              // name of actual rule
+
+	// pool reference for returning
+	pool *sync.Pool
 }
 
 func DefaultResolutionContext() *ResolutionContext {
-	context := new(ResolutionContext)
+	context := resolutionContextPool.Get().(*ResolutionContext)
 	context.Visited = make([]string, 0)
 	context.Stored = false
 	context.ResolverUsed = ""
@@ -52,6 +82,8 @@ func DefaultResolutionContext() *ResolutionContext {
 	context.Cached = false
 	context.Blocked = false
 	context.BlockedRule = ""
+
+	context.pool = &resolutionContextPool
 	return context
 }
 
@@ -59,6 +91,12 @@ func DefaultResolutionContextWithMap(resolverMap ResolverMap) *ResolutionContext
 	context := DefaultResolutionContext()
 	context.ResolverMap = resolverMap
 	return context
+}
+
+func (context *ResolutionContext) Put() {
+	if context.pool != nil {
+		context.pool.Put(context)
+	}
 }
 
 // a single resolver

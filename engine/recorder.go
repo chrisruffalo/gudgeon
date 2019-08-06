@@ -446,7 +446,6 @@ func (recorder *recorder) doWithIsolatedTransaction(next func(tx *sql.Tx)) {
 		log.Errorf("Creating buffer flush transaction: %s", err)
 		return
 	}
-	defer tx.Rollback()
 
 	// do function
 	next(tx)
@@ -503,6 +502,8 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 		info.Created,
 		info.Finished,
 	)
+
+	// show error
 	if err != nil {
 		log.Errorf("Insert into buffer: %s", err)
 	}

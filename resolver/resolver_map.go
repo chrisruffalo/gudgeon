@@ -6,6 +6,7 @@ import (
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 	"strings"
+	"sync"
 
 	"github.com/chrisruffalo/gudgeon/cache"
 	"github.com/chrisruffalo/gudgeon/config"
@@ -23,6 +24,9 @@ type resolverMap struct {
 
 	// the handler for resolver events
 	sourceHandler *events.Handle
+
+	// pool for resolvers
+	pool *sync.Pool
 }
 
 type ResolverMap interface {
@@ -48,11 +52,19 @@ type ResolutionResult struct {
 	Match     rule.Match          // allowed or blocked
 	MatchList *config.GudgeonList // name of blocked list
 	MatchRule string              // name of actual rule
+
+	// object reuse
+	pool *sync.Pool
+}
+
+func (result *ResolutionResult) Put() {
+	if nil != result.pool {
+		result.pool.Put(result)
+	}
 }
 
 // returns a map of resolvers with name->resolver mapping
 func NewResolverMap(config *config.GudgeonConfig, configuredResolvers []*config.GudgeonResolver) ResolverMap {
-
 	// make a new map resolver
 	resolverMap := &resolverMap{
 		resolvers: make(map[string]Resolver, 0),
@@ -60,6 +72,13 @@ func NewResolverMap(config *config.GudgeonConfig, configuredResolvers []*config.
 	// add cache if configured
 	if *(config.Storage.CacheEnabled) {
 		resolverMap.cache = cache.New()
+	}
+
+	// add a pool for new results
+	resolverMap.pool = &sync.Pool{
+		New: func() interface{} {
+			return &ResolutionResult{}
+		},
 	}
 
 	// create sources from specs
@@ -98,11 +117,15 @@ func (resolverMap *resolverMap) result(context *ResolutionContext) *ResolutionRe
 	if context == nil {
 		return nil
 	}
-	result := &ResolutionResult{
-		Cached:   context.Cached,
-		Source:   context.SourceUsed,
-		Resolver: context.ResolverUsed,
-	}
+
+	// set results
+	result := resolverMap.pool.Get().(*ResolutionResult)
+	result.Cached = context.Cached
+	result.Source = context.SourceUsed
+	result.Resolver = context.ResolverUsed
+
+	// set pool
+	result.pool = resolverMap.pool
 
 	return result
 }
@@ -118,6 +141,7 @@ func (resolverMap *resolverMap) answerWithContext(rCon *RequestContext, resolver
 	// create context
 	if context == nil {
 		context = DefaultResolutionContextWithMap(resolverMap)
+		defer context.Put()
 	} else if util.StringIn(resolverName, context.Visited) { // but if context shows already visisted outright skip the resolver
 		return nil, nil, nil
 	}
@@ -144,6 +168,8 @@ func (resolverMap *resolverMap) AnswerMultiResolvers(rCon *RequestContext, resol
 	if rCon == nil {
 		rCon = DefaultRequestContext()
 	}
+	// after using context, put it back
+	defer context.Put()
 
 	errors := make([]string, 0)
 

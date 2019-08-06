@@ -199,4 +199,3 @@ install:
 hash:
 		# make hashes for all files in build directory
 		find $(BUILD_DIR) -type f ! -name "*.sha*" -exec sh -c 'sha256sum $$0 > $$0.sha256' {} \;
-		find $(BUILD_DIR) -type f ! -name "*.sha*" -exec sh -c 'sha512sum $$0 > $$0.sha512' {} \;

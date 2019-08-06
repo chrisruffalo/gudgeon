@@ -130,6 +130,11 @@ func main() {
 	log.Infof("Gudgeon %s", version.GetLongVersion())
 	log.Info(divider)
 
+	// set debug logging if requested
+	if opts.DebugOptions.Debug {
+		log.SetLevel(log.DebugLevel)
+	}
+
 	// start profiling if enabled
 	if opts.DebugOptions.Profile {
 		// start profile http endpoint on given port

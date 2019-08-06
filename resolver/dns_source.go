@@ -25,10 +25,13 @@ const (
 )
 
 // how many workers to spawn
-const workers = 2
+const startingWorkers = 1
+
+// max workers to allow
+const maxWorkers = 20
 
 // how many requests to buffer
-const requestBuffer = 10
+const requestBuffer = 100
 
 // how long to wait before source is active again
 var backoffInterval = 500 * time.Millisecond
@@ -60,29 +63,36 @@ type dnsSource struct {
 	backoffTime *time.Time
 	tlsConfig   *tls.Config
 
+	// are we closing?
+	closing bool
+	// used to buffer  incoming requests (work)
 	questionChan chan *dnsWork
-	closeChan    chan bool
+	// used to close individual workers
+	closeChan chan bool
+	// used to stop the monitoring routine
+	stopChan chan bool
 
+	workers     int
 	workerGroup sync.WaitGroup
 
 	sourceChanMtx sync.RWMutex
 }
 
-func (dnsSource *dnsSource) Name() string {
-	return dnsSource.remoteAddress + "/" + dnsSource.protocol
+func (source *dnsSource) Name() string {
+	return source.remoteAddress + "/" + source.protocol
 }
 
-func (dnsSource *dnsSource) Load(specification string) {
-	dnsSource.port = 0
-	dnsSource.dnsServer = ""
-	dnsSource.protocol = ""
+func (source *dnsSource) Load(specification string) {
+	source.port = 0
+	source.dnsServer = ""
+	source.protocol = ""
 
 	// determine first if there is an attached protocol
 	if strings.Contains(specification, protoDelimeter) {
 		split := strings.Split(specification, protoDelimeter)
 		if len(split) > 1 && util.StringIn(strings.ToLower(split[1]), validProtocols) {
 			specification = split[0]
-			dnsSource.protocol = strings.ToLower(split[1])
+			source.protocol = strings.ToLower(split[1])
 		}
 	}
 
@@ -90,82 +100,99 @@ func (dnsSource *dnsSource) Load(specification string) {
 	if strings.Contains(specification, portDelimeter) {
 		split := strings.Split(specification, portDelimeter)
 		if len(split) > 1 {
-			dnsSource.dnsServer = split[0]
+			source.dnsServer = split[0]
 			var err error
 			parsePort, err := strconv.ParseUint(split[1], 10, 32)
 			// recover from error
 			if err != nil {
-				dnsSource.port = 0
+				source.port = 0
 			} else {
-				dnsSource.port = uint(parsePort)
+				source.port = uint(parsePort)
 			}
 		}
 	} else {
-		dnsSource.dnsServer = specification
+		source.dnsServer = specification
 	}
 
 	// set defaults if missing
-	if "" == dnsSource.protocol {
-		dnsSource.protocol = "udp"
+	if "" == source.protocol {
+		source.protocol = "udp"
 	}
 	// the network should be just tcp, really
-	dnsSource.network = dnsSource.protocol
-	if "tcp-tls" == dnsSource.protocol {
-		dnsSource.network = "tcp"
+	source.network = source.protocol
+	if "tcp-tls" == source.protocol {
+		source.network = "tcp"
 	}
 
 	// recover from parse errors or use default port in event port wasn't set
-	if dnsSource.port == 0 {
-		if "tcp-tls" == dnsSource.protocol {
-			dnsSource.port = defaultTLSPort
+	if source.port == 0 {
+		if "tcp-tls" == source.protocol {
+			source.port = defaultTLSPort
 		} else {
-			dnsSource.port = defaultPort
+			source.port = defaultPort
 		}
 	}
 
 	// set up tls config
-	dnsSource.tlsConfig = &tls.Config{InsecureSkipVerify: true}
+	source.tlsConfig = &tls.Config{InsecureSkipVerify: true}
 
 	// check final output
-	if ip := net.ParseIP(dnsSource.dnsServer); ip != nil {
+	if ip := net.ParseIP(source.dnsServer); ip != nil {
 		// save/parse remote address once
-		dnsSource.remoteAddress = fmt.Sprintf("%s%s%d", dnsSource.dnsServer, portDelimeter, dnsSource.port)
+		source.remoteAddress = fmt.Sprintf("%s%s%d", source.dnsServer, portDelimeter, source.port)
 	}
 
 	// keep dialer for reuse
-	dnsSource.dialer = net.Dialer{}
+	source.dialer = net.Dialer{}
 	// set tcp dialer properties
-	if dnsSource.network == "tcp" {
-		dnsSource.dialer.KeepAlive = 0
-		dnsSource.dialer.Timeout = 0
+	if source.network == "tcp" {
+		source.dialer.KeepAlive = 0
+		source.dialer.Timeout = 0
 	}
 
 	// create com channels
-	dnsSource.questionChan = make(chan *dnsWork, requestBuffer)
-	dnsSource.closeChan = make(chan bool, workers)
+	source.workers = startingWorkers
+	source.questionChan = make(chan *dnsWork, requestBuffer)
+	source.closeChan = make(chan bool, source.workers)
+	source.stopChan = make(chan bool)
 
 	// spawn workers
-	for i := 0; i < workers; i++ {
-		if dnsSource.protocol == "udp" {
-			go dnsSource.udpWorker()
-		} else {
-			go dnsSource.tcpWorker()
-		}
+	for i := 0; i < source.workers; i++ {
+		go source.worker()
 	}
+
+	// spawn a timer to check on and decrease workers when there is not enough message
+	// pressure in the queue
+	go func(source *dnsSource) {
+		monitorTimer := time.NewTimer(10 * time.Second)
+		defer monitorTimer.Stop()
+		for true {
+			select {
+			// on timer try and decrease workers
+			case <-monitorTimer.C:
+				source.decreaseWorkers()
+			// on stop shutdown timer
+			case <-source.stopChan:
+				// respond stopping
+				source.stopChan <- true
+				return
+			}
+		}
+	}(source)
 }
 
-func (dnsSource *dnsSource) connect() (*dns.Conn, error) {
-	conn, err := dnsSource.dialer.Dial(dnsSource.network, dnsSource.remoteAddress)
+func (source *dnsSource) connect() (*dns.Conn, error) {
+	conn, err := source.dialer.Dial(source.network, source.remoteAddress)
 	if err != nil {
 		return nil, err
 	}
-	if dnsSource.protocol == "tcp-tls" {
-		conn = tls.Client(conn, dnsSource.tlsConfig)
+	if source.protocol == "tcp-tls" {
+		conn = tls.Client(conn, source.tlsConfig)
 	}
 	return &dns.Conn{Conn: conn}, nil
 }
 
-func (dnsSource *dnsSource) handle(co *dns.Conn, request *dns.Msg) (*dns.Msg, error) {
+func (source *dnsSource) handle(co *dns.Conn, request *dns.Msg) (*dns.Msg, error) {
 	// update deadline waiting for write to succeed
 	_ = co.SetDeadline(time.Now().Add(defaultDeadline))
 
@@ -184,38 +211,35 @@ func (dnsSource *dnsSource) handle(co *dns.Conn, request *dns.Msg) (*dns.Msg, er
 	return response, nil
 }
 
-func (dnsSource *dnsSource) udpWorker() {
-	dnsSource.workerGroup.Add(1)
+func (source *dnsSource) udpWorker() {
 	for true {
 		select {
-		case <-dnsSource.closeChan:
-			log.Tracef("Closing '%s' udp worker", dnsSource.Name())
-			dnsSource.workerGroup.Done()
+		case <-source.closeChan:
+			log.Tracef("Closing '%s' udp worker", source.Name())
 			return
-		case work := <-dnsSource.questionChan:
-			co, err := dnsSource.connect()
-			if err != nil {
-				work.responseChan <- &dnsWorkResponse{err, nil}
-			} else {
-				response, err := dnsSource.handle(co, work.message)
-				work.responseChan <- &dnsWorkResponse{err, response}
+		case work := <-source.questionChan:
+			if !source.closing {
+				co, err := source.connect()
+				if err != nil {
+					work.responseChan <- &dnsWorkResponse{err, nil}
+				} else {
+					response, err := source.handle(co, work.message)
+					work.responseChan <- &dnsWorkResponse{err, response}
+				}
 			}
 		}
 	}
 }
 
-func (dnsSource *dnsSource) tcpWorker() {
-	// add to wait group
-	dnsSource.workerGroup.Add(1)
-
-	co, err := dnsSource.connect()
+func (source *dnsSource) tcpWorker() {
+	co, err := source.connect()
 	if err != nil {
-		log.Errorf("Could not establish %s connection: %s", dnsSource.protocol, err)
+		log.Errorf("Could not establish %s connection: %s", source.protocol, err)
 	}
 
 	for true {
 		select {
-		case <-dnsSource.closeChan:
+		case <-source.closeChan:
 			if co != nil {
 				err = co.Close()
 				if err != nil {
@@ -224,109 +248,163 @@ func (dnsSource *dnsSource) tcpWorker() {
 					log.Debugf("Could not close connection: %s", err)
 				}
 			}
-			log.Tracef("Closing '%s' tcp worker", dnsSource.Name())
-			dnsSource.workerGroup.Done()
+			log.Tracef("Closing '%s' tcp worker", source.Name())
 			return
-		case work := <-dnsSource.questionChan:
-			if co == nil {
-				log.Tracef("opening new tcp connection in worker")
-				co, err = dnsSource.connect()
-				if err != nil {
-					work.responseChan <- &dnsWorkResponse{err, nil}
-					if co != nil {
-						_ = co.Close()
+		case work := <-source.questionChan:
+			if source.closing {
+				_ = co.Close()
+			} else {
+				if co == nil {
+					log.Tracef("opening new tcp connection in worker")
+					co, err = source.connect()
+					if err != nil {
+						work.responseChan <- &dnsWorkResponse{err, nil}
+						if co != nil {
+							_ = co.Close()
+						}
+						co = nil
 					}
-					co = nil
 				}
-			}
-			if co != nil {
-				response, err := dnsSource.handle(co, work.message)
-				// reopen connection on error
-				if err != nil {
-					_ = co.Close()
-					co = nil
-					// if eof or broken pipe it probably just means we held on to the connection too long
-					// and we can just reopen it and try again
-					if nErr, ok := err.(*net.OpError); (ok && nErr.Err == syscall.EPIPE) || err == io.EOF {
-						co, err = dnsSource.connect()
-						if err != nil {
-							// reset connection we can't make anyway and keep error for returning over channel
-							co = nil
-						} else {
-							response, err = dnsSource.handle(co, work.message)
+				if co != nil {
+					response, err := source.handle(co, work.message)
+					// reopen connection on error
+					if err != nil {
+						_ = co.Close()
+						co = nil
+						// if eof or broken pipe it probably just means we held on to the connection too long
+						// and we can just reopen it and try again
+						if nErr, ok := err.(*net.OpError); (ok && nErr.Err == syscall.EPIPE) || err == io.EOF {
+							co, err = source.connect()
+							if err != nil {
+								// reset connection we can't make anyway and keep error for returning over channel
+								co = nil
+							} else {
+								response, err = source.handle(co, work.message)
+							}
 						}
 					}
+					// regardless of response just return
+					work.responseChan <- &dnsWorkResponse{err, response}
 				}
-				// regardless of response just return
-				work.responseChan <- &dnsWorkResponse{err, response}
 			}
 		}
 	}
 }
 
-func (dnsSource *dnsSource) query(request *dns.Msg) (*dns.Msg, error) {
-	dnsSource.sourceChanMtx.RLock()
-	if dnsSource.questionChan == nil {
-		defer dnsSource.sourceChanMtx.RUnlock()
-		return nil, fmt.Errorf("Resolver source '%s' closed", dnsSource.Name())
+func (source *dnsSource) worker() {
+	// add to wait group
+	source.workerGroup.Add(1)
+
+	// spawn appropriate worker
+	if source.protocol == "udp" {
+		source.udpWorker()
+	} else {
+		source.tcpWorker()
 	}
-	dnsSource.sourceChanMtx.RUnlock()
+
+	// done
+	source.workerGroup.Done()
+}
+
+func (source *dnsSource) increaseWorkers() {
+	// use pressure to decide to spawn more workers if the request buffer is more than half
+	// full and the workers is less than the number of max allowed workers
+	if source.workers < maxWorkers && len(source.questionChan) > requestBuffer/2 {
+		source.workers++
+		go source.worker()
+	}
+}
+
+func (source *dnsSource) decreaseWorkers() {
+	// attempt to use the same pressure concept to reduce the number of workers if the queue length is
+	// less than half
+	if source.workers > startingWorkers && len(source.questionChan) < requestBuffer/2 {
+		source.closeChan <- true
+		source.workers--
+	}
+}
+
+func (source *dnsSource) query(request *dns.Msg) (*dns.Msg, error) {
+	source.sourceChanMtx.RLock()
+	if source.questionChan == nil {
+		defer source.sourceChanMtx.RUnlock()
+		return nil, fmt.Errorf("Resolver source '%s' closed", source.Name())
+	}
+	source.sourceChanMtx.RUnlock()
 
 	responseChan := make(chan *dnsWorkResponse)
-	dnsSource.questionChan <- &dnsWork{request, responseChan}
+	source.questionChan <- &dnsWork{request, responseChan}
 	answer := <-responseChan
 	close(responseChan)
 	return answer.response, answer.err
 }
 
-func (dnsSource *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+func (source *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
 	now := time.Now()
-	if dnsSource.backoffTime != nil && now.Before(*dnsSource.backoffTime) {
+	if source.backoffTime != nil && now.Before(*source.backoffTime) {
 		// "asleep" during backoff interval
 		return nil, nil
 	}
 	// the backoff time is irrelevant now
-	dnsSource.backoffTime = nil
+	source.backoffTime = nil
 
 	// this is considered a recursive query so don't if recursion was not requested
 	if request == nil || !request.MsgHdr.RecursionDesired {
 		return nil, nil
 	}
 
+	// check and increase pressure before submitting, this is an async call so
+	// it will not slow things down, however reducing pressure in this thread
+	// would have to wait for the "close" message to be received which is sync
+	// so not done in the main execution path and is instead delegated to a monitor
+	// thread with a timer
+	source.increaseWorkers()
+
 	// forward message without interference
-	response, err := dnsSource.query(request)
+	response, err := source.query(request)
+
+	// now respond to error after deciding what to do about the number of routines
 	if err != nil {
 		backoff := time.Now().Add(backoffInterval)
-		dnsSource.backoffTime = &backoff
+		source.backoffTime = &backoff
 		return nil, err
 	}
-
 	// do not set reply here (doesn't seem to matter, leaving this comment so nobody decides to do it in the future without cause)
 	// response.SetReply(request)
 
 	// set source as answering source
 	if context != nil && !util.IsEmptyResponse(response) && context.SourceUsed == "" {
-		context.SourceUsed = dnsSource.Name()
+		context.SourceUsed = source.Name()
 	}
 
 	// otherwise just return
 	return response, nil
 }
 
-func (dnsSource *dnsSource) Close() {
+func (source *dnsSource) Close() {
+	// start by setting closing to true
+	source.closing = true
+
+	// stop pressure modifier and wait for thread to close
+	log.Debugf("Closing dns source: %s", source.Name())
+	source.stopChan <- true
+	<-source.stopChan
+	close(source.stopChan)
+
 	// send enough messages to stop workers
-	for i := 0; i < workers; i++ {
-		dnsSource.closeChan <- true
+	for i := 0; i < source.workers; i++ {
+		source.closeChan <- true
 	}
 
 	// close input channel
-	dnsSource.sourceChanMtx.Lock()
-	close(dnsSource.questionChan)
-	dnsSource.questionChan = nil
-	dnsSource.sourceChanMtx.Unlock()
+	source.sourceChanMtx.Lock()
+	close(source.questionChan)
+	source.questionChan = nil
+	source.sourceChanMtx.Unlock()
 
 	// wait for workers to close
-	dnsSource.workerGroup.Wait()
+	source.workerGroup.Wait()
 	// close response chan
-	close(dnsSource.closeChan)
+	close(source.closeChan)
+
 }

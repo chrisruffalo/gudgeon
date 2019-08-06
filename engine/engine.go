@@ -524,14 +524,13 @@ func (engine *engine) Resolve(domainName string) (string, error) {
 	// ensure the domain name is fully qualified
 	domainName = dns.Fqdn(domainName)
 
-	// make question parts
-	m.Question = make([]dns.Question, 1)
-	m.Question[0] = dns.Question{Name: domainName, Qtype: dns.TypeA, Qclass: dns.ClassINET}
+	// set question part
+	m.Question = []dns.Question{{Name: domainName, Qtype: dns.TypeA, Qclass: dns.ClassINET}}
 
 	// get just response from default consumer
 	response, _, _ := engine.HandleWithConsumer(engine.defaultConsumer, &resolver.RequestContext{Protocol: "udp"}, m)
 
-	// return answer
+	// return (first) answer
 	return util.GetFirstIPResponse(response), nil
 }
 
@@ -597,6 +596,14 @@ func (engine *engine) Handle(address *net.IP, protocol string, request *dns.Msg)
 		engine.recorder.queue(address, request, response, rCon, result, &finishedTime)
 	}
 
+	// return items to the pools they came from
+	if rCon != nil {
+		rCon.Put()
+	}
+	if result != nil {
+		result.Put()
+	}
+
 	// return only the result
 	return response, rCon, result
 }
@@ -625,8 +632,10 @@ func (engine *engine) Close() {
 		}
 	}
 	// close sources
+	log.Debugf("Closing resolvers...")
 	engine.resolvers.Close()
 	// close rule store
+	log.Debugf("Closing database store...")
 	engine.store.Close()
 	// clear references
 	engine.db = nil

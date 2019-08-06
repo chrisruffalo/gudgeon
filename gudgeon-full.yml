@@ -75,7 +75,7 @@ gudgeon:
     spec:
     - 8.8.8.8/tcp-tls
     - 8.8.4.4/tcp-tls
-    load_balance: true
+    balance: true
 
   resolvers:
   # resolvers specify what dns sources to use. the default resolver

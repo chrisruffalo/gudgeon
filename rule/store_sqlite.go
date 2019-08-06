@@ -276,7 +276,7 @@ func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.Gu
 
 	rows, err := stmt.Query(vars[:numLists+numDomains]...)
 	if err != nil {
-		log.Errorf("Executing rule storage query: %s", err)
+		log.Errorf("Executing rule check query: %s", err)
 	}
 	// check for rows
 	if rows == nil || err != nil {

@@ -14,7 +14,7 @@ type event struct {
 
 type bus struct {
 	mtx       sync.RWMutex
-	topicMap  map[string]*map[uint32]Listener
+	topicMap  map[string]map[uint32]Listener
 	busChan   chan *event
 	closeChan chan bool
 }
@@ -31,7 +31,7 @@ type Handle struct {
 const _queueSize = 10
 
 var ebus = &bus{
-	topicMap:  make(map[string]*map[uint32]Listener),
+	topicMap:  make(map[string]map[uint32]Listener),
 	busChan:   make(chan *event, _queueSize),
 	closeChan: make(chan bool),
 }
@@ -46,7 +46,7 @@ func service() {
 		// get events from channel for incoming events
 		case event := <-ebus.busChan:
 			if event.topic != "" {
-				var listeners *map[uint32]Listener
+				var listeners map[uint32]Listener
 
 				ebus.mtx.RLock()
 				if foundListeners, found := ebus.topicMap[event.topic]; found {
@@ -55,7 +55,7 @@ func service() {
 				ebus.mtx.RUnlock()
 
 				if listeners != nil {
-					for id, listen := range *listeners {
+					for id, listen := range listeners {
 						log.Tracef("Dispatched event message{%v} on topic %s to listener %d", event.message, event.topic, id)
 						if listen != nil {
 							listen(event.message)
@@ -103,17 +103,15 @@ func Listen(topic string, listener Listener) *Handle {
 	if _, found := ebus.topicMap[topic]; !found {
 		ebus.mtx.Lock()
 		if _, found := ebus.topicMap[topic]; !found {
-			newMap := make(map[uint32]Listener)
-			ebus.topicMap[topic] = &newMap
+			ebus.topicMap[topic] = make(map[uint32]Listener)
 		}
 		ebus.mtx.Unlock()
 	}
-	listeners := ebus.topicMap[topic]
 
-	// create new id
+	// create new id and keep listener
 	id := uuid.New().ID()
 	ebus.mtx.Lock()
-	(*listeners)[id] = listener
+	ebus.topicMap[topic][id] = listener
 	ebus.mtx.Unlock()
 
 	return &Handle{
@@ -130,7 +128,7 @@ func unsubscribe(handle *Handle) {
 	if _, found := ebus.topicMap[handle.topic]; found {
 		ebus.mtx.Lock()
 		if _, found := ebus.topicMap[handle.topic]; found && ebus.topicMap[handle.topic] != nil {
-			delete(*ebus.topicMap[handle.topic], handle.id)
+			delete(ebus.topicMap[handle.topic], handle.id)
 		}
 		ebus.mtx.Unlock()
 	}
