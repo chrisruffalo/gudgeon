@@ -46,6 +46,8 @@ const (
 	UsedMemory         = "process-used-bytes" // from the process api
 	// cpu metrics
 	CPUHundredsPercent = "cpu-hundreds-percent" // 17 == 0.17 percent, expressed in integer terms
+	// worker metrics (should be qualified with -workertype, ie: "gudgeon-workers-tcp")
+	Workers = "workers"
 )
 
 type metricsInfo struct {

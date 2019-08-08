@@ -21,3 +21,11 @@ span of handling normal traffic.
 In June (2019) Gudgeon gained the ability to reload on source file changes. This feature allows reduced
 downtime when updating sources and serves as a prototype of other, similar, reload mechanisms.
 
+In late July and early August (2019) a huge review was performed of allocations and many, many many 
+unnecessary allocations were removed which kept Gudgeon at a consistent ~24MB resident on
+my router while serving less than three queries per second. Prior to this review the memory
+would slowly inflate to upwards of 55MB of the course of a week. As a side effect of these changes
+the engine-reload (when the root config file is changed) no longer takes quite as much memory and is
+a much more reasonable option than it used to be.
+
+Also in this same timeframe Gudgeon served it's six millionth query on my network.

@@ -18,20 +18,24 @@ import (
 )
 
 const (
+	// default ports
 	defaultPort    = uint(53)
 	defaultTLSPort = uint(853)
-	portDelimeter  = ":"
-	protoDelimeter = "/"
+
+	// string checking
+	portDelimiter  = ":"
+	protoDelimiter = "/"
+
+	// how many workers to spawn
+	minWorkers = 0
+	// max workers to allow
+	maxWorkers = 25
+	// how many requests to buffer
+	requestBuffer = 100
 )
 
-// how many workers to spawn
-const startingWorkers = 1
-
-// max workers to allow
-const maxWorkers = 20
-
-// how many requests to buffer
-const requestBuffer = 100
+// how long a worker should stay up without work to do
+var workerIdleTime = 10 * time.Second
 
 // how long to wait before source is active again
 var backoffInterval = 500 * time.Millisecond
@@ -69,8 +73,6 @@ type dnsSource struct {
 	questionChan chan *dnsWork
 	// used to close individual workers
 	closeChan chan bool
-	// used to stop the monitoring routine
-	stopChan chan bool
 
 	workers     int
 	workerGroup sync.WaitGroup
@@ -88,8 +90,8 @@ func (source *dnsSource) Load(specification string) {
 	source.protocol = ""
 
 	// determine first if there is an attached protocol
-	if strings.Contains(specification, protoDelimeter) {
-		split := strings.Split(specification, protoDelimeter)
+	if strings.Contains(specification, protoDelimiter) {
+		split := strings.Split(specification, protoDelimiter)
 		if len(split) > 1 && util.StringIn(strings.ToLower(split[1]), validProtocols) {
 			specification = split[0]
 			source.protocol = strings.ToLower(split[1])
@@ -97,8 +99,8 @@ func (source *dnsSource) Load(specification string) {
 	}
 
 	// need to determine if a port comes along with the address and parse it out once
-	if strings.Contains(specification, portDelimeter) {
-		split := strings.Split(specification, portDelimeter)
+	if strings.Contains(specification, portDelimiter) {
+		split := strings.Split(specification, portDelimiter)
 		if len(split) > 1 {
 			source.dnsServer = split[0]
 			var err error
@@ -139,7 +141,7 @@ func (source *dnsSource) Load(specification string) {
 	// check final output
 	if ip := net.ParseIP(source.dnsServer); ip != nil {
 		// save/parse remote address once
-		source.remoteAddress = fmt.Sprintf("%s%s%d", source.dnsServer, portDelimeter, source.port)
+		source.remoteAddress = fmt.Sprintf("%s%s%d", source.dnsServer, portDelimiter, source.port)
 	}
 
 	// keep dialer for reuse
@@ -151,34 +153,14 @@ func (source *dnsSource) Load(specification string) {
 	}
 
 	// create com channels
-	source.workers = startingWorkers
+	source.workers = minWorkers
 	source.questionChan = make(chan *dnsWork, requestBuffer)
-	source.closeChan = make(chan bool, source.workers)
-	source.stopChan = make(chan bool)
+	source.closeChan = make(chan bool, maxWorkers)
 
 	// spawn workers
 	for i := 0; i < source.workers; i++ {
 		go source.worker()
 	}
-
-	// spawn a timer to check on and decrease workers when there is not enough message
-	// pressure in the queue
-	go func(source *dnsSource) {
-		monitorTimer := time.NewTimer(10 * time.Second)
-		defer monitorTimer.Stop()
-		for true {
-			select {
-			// on timer try and decrease workers
-			case <-monitorTimer.C:
-				source.decreaseWorkers()
-			// on stop shutdown timer
-			case <-source.stopChan:
-				// respond stopping
-				source.stopChan <- true
-				return
-			}
-		}
-	}(source)
 }
 
 func (source *dnsSource) connect() (*dns.Conn, error) {
@@ -211,7 +193,7 @@ func (source *dnsSource) handle(co *dns.Conn, request *dns.Msg) (*dns.Msg, error
 	return response, nil
 }
 
-func (source *dnsSource) udpWorker() {
+func (source *dnsSource) udpWorker(idleTimer *time.Timer) {
 	for true {
 		select {
 		case <-source.closeChan:
@@ -219,6 +201,10 @@ func (source *dnsSource) udpWorker() {
 			return
 		case work := <-source.questionChan:
 			if !source.closing {
+				// activity means reset timer, even if there are later errors
+				// the thread itself was needed to service a request
+				idleTimer.Reset(workerIdleTime)
+
 				co, err := source.connect()
 				if err != nil {
 					work.responseChan <- &dnsWorkResponse{err, nil}
@@ -226,12 +212,15 @@ func (source *dnsSource) udpWorker() {
 					response, err := source.handle(co, work.message)
 					work.responseChan <- &dnsWorkResponse{err, response}
 				}
+			} else {
+				work.responseChan <- &dnsWorkResponse{nil, nil}
+				return
 			}
 		}
 	}
 }
 
-func (source *dnsSource) tcpWorker() {
+func (source *dnsSource) tcpWorker(idleTimer *time.Timer) {
 	co, err := source.connect()
 	if err != nil {
 		log.Errorf("Could not establish %s connection: %s", source.protocol, err)
@@ -239,6 +228,7 @@ func (source *dnsSource) tcpWorker() {
 
 	for true {
 		select {
+		// closed by source closing
 		case <-source.closeChan:
 			if co != nil {
 				err = co.Close()
@@ -250,10 +240,28 @@ func (source *dnsSource) tcpWorker() {
 			}
 			log.Tracef("Closing '%s' tcp worker", source.Name())
 			return
+		// closed by expiring timer
+		case <-idleTimer.C:
+			if co != nil {
+				err = co.Close()
+				if err != nil {
+					// this shouldn't really be the case as only one thread
+					// can use the connection at a time through the virtue
+					// of the channel selector so it'd be hard for something
+					// to be "in the pipe" when it closes
+					log.Debugf("Could not close connection: %s", err)
+				}
+			}
+			return
 		case work := <-source.questionChan:
 			if source.closing {
 				_ = co.Close()
+				work.responseChan <- &dnsWorkResponse{nil, nil}
+				return
 			} else {
+				// in the event of any activity the idle timer gets reset
+				idleTimer.Reset(workerIdleTime)
+				// if the connection is nil create a new one
 				if co == nil {
 					log.Tracef("opening new tcp connection in worker")
 					co, err = source.connect()
@@ -265,6 +273,7 @@ func (source *dnsSource) tcpWorker() {
 						co = nil
 					}
 				}
+				// if we have a connection then use it
 				if co != nil {
 					response, err := source.handle(co, work.message)
 					// reopen connection on error
@@ -279,11 +288,13 @@ func (source *dnsSource) tcpWorker() {
 								// reset connection we can't make anyway and keep error for returning over channel
 								co = nil
 							} else {
+								// actually handle the request with the given connection
+								// and then use the response and/or error in output
 								response, err = source.handle(co, work.message)
 							}
 						}
 					}
-					// regardless of response just return
+					// if no response was given or the error is not nil we can still return it
 					work.responseChan <- &dnsWorkResponse{err, response}
 				}
 			}
@@ -295,30 +306,37 @@ func (source *dnsSource) worker() {
 	// add to wait group
 	source.workerGroup.Add(1)
 
+	// create timer
+	idleTimer := time.NewTimer(workerIdleTime)
+
 	// spawn appropriate worker
 	if source.protocol == "udp" {
-		source.udpWorker()
+		source.udpWorker(idleTimer)
 	} else {
-		source.tcpWorker()
+		source.tcpWorker(idleTimer)
 	}
+
+	// stop timer
+	idleTimer.Stop()
 
 	// done
 	source.workerGroup.Done()
 }
 
 func (source *dnsSource) increaseWorkers() {
-	// use pressure to decide to spawn more workers if the request buffer is more than half
+	// if there are no workers, spawn one, otherwise...
+	// use pressure to decide to spawn more workers if the request buffer is more than the fraction
 	// full and the workers is less than the number of max allowed workers
-	if source.workers < maxWorkers && len(source.questionChan) > requestBuffer/2 {
-		source.workers++
+	if source.workers <= minWorkers || (source.workers <= maxWorkers && len(source.questionChan) > requestBuffer/2) {
 		go source.worker()
+		source.workers++
 	}
 }
 
 func (source *dnsSource) decreaseWorkers() {
 	// attempt to use the same pressure concept to reduce the number of workers if the queue length is
-	// less than half
-	if source.workers > startingWorkers && len(source.questionChan) < requestBuffer/2 {
+	// less than the fraction
+	if source.workers > minWorkers && len(source.questionChan) < requestBuffer/2 {
 		source.closeChan <- true
 		source.workers--
 	}
@@ -387,10 +405,6 @@ func (source *dnsSource) Close() {
 
 	// stop pressure modifier and wait for thread to close
 	log.Debugf("Closing dns source: %s", source.Name())
-	source.stopChan <- true
-	<-source.stopChan
-	close(source.stopChan)
-
 	// send enough messages to stop workers
 	for i := 0; i < source.workers; i++ {
 		source.closeChan <- true
