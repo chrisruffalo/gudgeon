@@ -19,6 +19,24 @@ const (
 	gzipFileExtension     = ".gz"
 )
 
+func getContentType(filepath string, defaultType string) string {
+	var contentType string
+	if strings.Contains(filepath, ".") {
+		ext := filepath[strings.LastIndex(filepath, "."):]
+		contentType = mime.TypeByExtension(ext)
+	}
+	// default if no content type is computed from the extension
+	if contentType == "" {
+		contentType = defaultType
+	}
+
+	// trace logging for mimetype verification, usually commented
+	// out unless troubleshooting this code path
+	// log.Tracef("%s (mimetype = %s)", filepath, contentType)
+
+	return contentType
+}
+
 func (web *web) ServeStatic(fs *rice.Box) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		url := c.Request.URL
@@ -47,22 +65,11 @@ func (web *web) ServeStatic(fs *rice.Box) gin.HandlerFunc {
 				// set gzip output header
 				c.Header("Content-Encoding", "gzip")
 
-				// get mime type from extension
-				var contentType string
-				if strings.Contains(path, ".") {
-					ext := path[strings.LastIndex(path, "."):]
-					contentType = mime.TypeByExtension(ext)
-				}
-				// default to x-gzip if no content type is computed from the extension
-				if contentType == "" {
-					contentType = "application/x-gzip"
-				}
-
 				// get stat for size
 				stat, _ := gzipped.Stat()
 
-				// write output
-				c.DataFromReader(http.StatusOK, stat.Size(), contentType, gzipped, map[string]string{})
+				// write output with calculated mime type
+				c.DataFromReader(http.StatusOK, stat.Size(), getContentType(path, "application/x-gzip"), gzipped, map[string]string{})
 
 				// close gzipped source
 				_ = gzipped.Close()
@@ -110,15 +117,7 @@ func (web *web) ServeStatic(fs *rice.Box) gin.HandlerFunc {
 		}
 
 		// get mime type from extension
-		var contentType string
-		if strings.Contains(path, ".") {
-			ext := path[strings.LastIndex(path, "."):]
-			contentType = mime.TypeByExtension(ext)
-		}
-		// default to application/octet-stream
-		if contentType == "" {
-			contentType = "application/octet-stream"
-		}
+		c.Header("Content-Type", getContentType(path, "application/octet-stream"))
 
 		// write file
 		c.Status(http.StatusOK)
