@@ -14,7 +14,7 @@ For all of these reasons Gudgeon has been created to allow more flexibility in h
 
 ![Dashboard Screenshot](docs/screenshots/dashboard.png "Dashboard")
 
-## Contents
+## Documentation
 * [History](docs/HISTORY.md)
 * [Acknowledgements](docs/ACK.md)
 * [Concept of Operations](docs/OPERATIONS.md)
@@ -89,6 +89,9 @@ With the prerequisites installed you can build Gudgeon by...
 * Building the binary for your target platform with `[]$ make build`
 
 The `npm` target is used to download new dependencies when needed. The `prepare` target is only needed if the required Go tools change. The output of the process is a statically compiled for a few different platforms. The binary is statically compiled to make it easily portable to platforms and other systems that do not have libc, recent Golang compilers, or other required libraries.
+
+## Code of Conduct
+Gudgeon falls under the [Contributor Covenant](https://www.contributor-covenant.org/version/1/4/code-of-conduct).
 
 ## License
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon?ref=badge_large)
