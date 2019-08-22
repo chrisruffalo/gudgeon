@@ -147,20 +147,13 @@ func (source *dnsSource) Load(specification string) {
 	// keep dialer for reuse
 	source.dialer = net.Dialer{}
 	// set tcp dialer properties
-	if source.network == "tcp" {
-		source.dialer.KeepAlive = 0
-		source.dialer.Timeout = 0
-	}
+	source.dialer.Timeout = time.Second * 2
+	source.dialer.KeepAlive = 0
 
-	// create com channels
-	source.workers = minWorkers
+	// create com channels and start (empty) worker pool
+	source.workers = 0
 	source.questionChan = make(chan *dnsWork, requestBuffer)
-	source.closeChan = make(chan bool, maxWorkers)
-
-	// spawn workers
-	for i := 0; i < source.workers; i++ {
-		go source.worker()
-	}
+	source.closeChan = make(chan bool, maxWorkers*2) // max workers udp + tcp
 }
 
 func (source *dnsSource) connect() (*dns.Conn, error) {
@@ -199,6 +192,9 @@ func (source *dnsSource) udpWorker(idleTimer *time.Timer) {
 		case <-source.closeChan:
 			log.Tracef("Closing '%s' udp worker", source.Name())
 			return
+		case <-idleTimer.C:
+			// since udp doesn't keep connections just break free here
+			return
 		case work := <-source.questionChan:
 			if !source.closing {
 				// activity means reset timer, even if there are later errors
@@ -213,7 +209,9 @@ func (source *dnsSource) udpWorker(idleTimer *time.Timer) {
 					work.responseChan <- &dnsWorkResponse{err, response}
 				}
 			} else {
-				work.responseChan <- &dnsWorkResponse{nil, nil}
+				if work != nil && work.responseChan != nil {
+					work.responseChan <- &dnsWorkResponse{nil, nil}
+				}
 				return
 			}
 		}
@@ -295,7 +293,9 @@ func (source *dnsSource) tcpWorker(idleTimer *time.Timer) {
 						}
 					}
 					// if no response was given or the error is not nil we can still return it
-					work.responseChan <- &dnsWorkResponse{err, response}
+					if work != nil && work.responseChan != nil {
+						work.responseChan <- &dnsWorkResponse{err, response}
+					}
 				}
 			}
 		}
@@ -406,7 +406,7 @@ func (source *dnsSource) Close() {
 	// stop pressure modifier and wait for thread to close
 	log.Debugf("Closing dns source: %s", source.Name())
 	// send enough messages to stop workers
-	for i := 0; i < source.workers; i++ {
+	for i := 0; i < maxWorkers; i++ {
 		source.closeChan <- true
 	}
 
@@ -418,7 +418,7 @@ func (source *dnsSource) Close() {
 
 	// wait for workers to close
 	source.workerGroup.Wait()
+
 	// close response chan
 	close(source.closeChan)
-
 }
