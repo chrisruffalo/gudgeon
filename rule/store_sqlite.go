@@ -44,6 +44,10 @@ type sqlStore struct {
 	// seems like overkill but easily paid off by the sheer number of queries that are performed and
 	// how often the cache should "hit"
 	stmtCache *cache.Cache
+
+	// mutex and variable that stops allowing queries when the db is "closing"
+	closing bool
+	closingMutex sync.RWMutex
 }
 
 func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
@@ -100,6 +104,9 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 			}
 		}
 	})
+
+	// explicitly start outside the "closing" state
+	store.closing = false
 }
 
 func (store *sqlStore) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
@@ -215,9 +222,14 @@ const (
 )
 
 func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.GudgeonList, domains []string) (bool, string, string) {
-	if store.db == nil {
+	// this is a mess but maybe there is a better/faster way, the unlock could
+	// be deferred here but that is just as messy
+	store.closingMutex.RLock()
+	if store.closing {
+		store.closingMutex.RUnlock()
 		return false, "", ""
 	}
+	store.closingMutex.RUnlock()
 
 	// with no lists and no domain we can't test found function
 	if len(lists) < 1 || len(domains) < 1 {
@@ -321,6 +333,10 @@ func (store *sqlStore) FindMatch(lists []*config.GudgeonList, domain string) (Ma
 }
 
 func (store *sqlStore) Close() {
+	store.closingMutex.Lock()
+	store.closing = true
+	store.closingMutex.Unlock()
+
 	if store.db != nil {
 		// close prepared statements
 		for _, i := range store.stmtCache.Items() {

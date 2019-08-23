@@ -26,12 +26,12 @@ const (
 	portDelimiter  = ":"
 	protoDelimiter = "/"
 
-	// how many workers to spawn
+	// how many workers to spawn/allow idle
 	minWorkers = 0
 	// max workers to allow
 	maxWorkers = 25
 	// how many requests to buffer
-	requestBuffer = 100
+	requestBuffer = 150
 )
 
 // how long a worker should stay up without work to do
@@ -73,6 +73,9 @@ type dnsSource struct {
 	questionChan chan *dnsWork
 	// used to close individual workers
 	closeChan chan bool
+
+	// channel pool
+	responseChanPool *sync.Pool
 
 	workers     int
 	workerGroup sync.WaitGroup
@@ -147,13 +150,19 @@ func (source *dnsSource) Load(specification string) {
 	// keep dialer for reuse
 	source.dialer = net.Dialer{}
 	// set tcp dialer properties
-	source.dialer.Timeout = time.Second * 2
+	source.dialer.Timeout = 0
 	source.dialer.KeepAlive = 0
 
 	// create com channels and start (empty) worker pool
 	source.workers = 0
 	source.questionChan = make(chan *dnsWork, requestBuffer)
-	source.closeChan = make(chan bool, maxWorkers*2) // max workers udp + tcp
+	source.closeChan = make(chan bool, maxWorkers * 2) // max workers udp + tcp
+
+	source.responseChanPool = &sync.Pool{
+		New: func() interface{} {
+			return make(chan *dnsWorkResponse)
+		},
+	}
 }
 
 func (source *dnsSource) connect() (*dns.Conn, error) {
@@ -191,11 +200,17 @@ func (source *dnsSource) udpWorker(idleTimer *time.Timer) {
 		select {
 		case <-source.closeChan:
 			log.Tracef("Closing '%s' udp worker", source.Name())
+			// re-add this message so that other recipients can get it
+			source.closeChan <- true
 			return
 		case <-idleTimer.C:
 			// since udp doesn't keep connections just break free here
 			return
 		case work := <-source.questionChan:
+			// this is probably voodoo but we are having issues with null work and null work response channels
+			if work == nil || work.responseChan == nil {
+				return
+			}
 			if !source.closing {
 				// activity means reset timer, even if there are later errors
 				// the thread itself was needed to service a request
@@ -209,9 +224,7 @@ func (source *dnsSource) udpWorker(idleTimer *time.Timer) {
 					work.responseChan <- &dnsWorkResponse{err, response}
 				}
 			} else {
-				if work != nil && work.responseChan != nil {
-					work.responseChan <- &dnsWorkResponse{nil, nil}
-				}
+				work.responseChan <- &dnsWorkResponse{nil, nil}
 				return
 			}
 		}
@@ -237,6 +250,8 @@ func (source *dnsSource) tcpWorker(idleTimer *time.Timer) {
 				}
 			}
 			log.Tracef("Closing '%s' tcp worker", source.Name())
+			// re-add this message so that other recipients can get it
+			source.closeChan <- true
 			return
 		// closed by expiring timer
 		case <-idleTimer.C:
@@ -251,7 +266,15 @@ func (source *dnsSource) tcpWorker(idleTimer *time.Timer) {
 				}
 			}
 			return
-		case work := <-source.questionChan:
+		case work, ok := <-source.questionChan:
+			// this is probably voodoo
+			if !ok {
+				return
+			}
+			// this is probably more voodoo but we are having issues with null work and null work response channels
+			if work == nil || work.responseChan == nil {
+				return
+			}
 			if source.closing {
 				_ = co.Close()
 				work.responseChan <- &dnsWorkResponse{nil, nil}
@@ -293,9 +316,7 @@ func (source *dnsSource) tcpWorker(idleTimer *time.Timer) {
 						}
 					}
 					// if no response was given or the error is not nil we can still return it
-					if work != nil && work.responseChan != nil {
-						work.responseChan <- &dnsWorkResponse{err, response}
-					}
+					work.responseChan <- &dnsWorkResponse{err, response}
 				}
 			}
 		}
@@ -350,14 +371,50 @@ func (source *dnsSource) query(request *dns.Msg) (*dns.Msg, error) {
 	}
 	source.sourceChanMtx.RUnlock()
 
-	responseChan := make(chan *dnsWorkResponse)
+	// pretend this is a worker since it can close and since
+	// technically it descends from the listener thread for
+	// the dns listener
+	source.workerGroup.Add(1)
+	defer source.workerGroup.Done()
+
+	// return no response if it is closing
+	if source.closing {
+		return nil, nil
+	}
+
+	// wait for response
+	responseChan := source.responseChanPool.Get().(chan *dnsWorkResponse)
+
+	// take work off of queue
 	source.questionChan <- &dnsWork{request, responseChan}
-	answer := <-responseChan
-	close(responseChan)
-	return answer.response, answer.err
+
+	// return the response  channel to the pool
+	defer source.responseChanPool.Put(responseChan)
+
+	// wait for answer or for close
+	select {
+	case answer, ok := <-responseChan:
+		if !ok {
+			return nil, fmt.Errorf("Could not wait for response to %s request", source.protocol)
+		}
+		return answer.response, answer.err
+	case <- source.closeChan:
+		// re-add this message so that original recipient can get it
+		log.Infof("Got close signal for waiting response on protocol: %s", source.protocol)
+		source.closeChan <- true
+	}
+	log.Infof("Closed with nil: %s", source.protocol)
+
+	return nil, nil
 }
 
 func (source *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext, request *dns.Msg) (*dns.Msg, error) {
+	// this is considered a recursive query so don't if recursion was not requested
+	if request == nil || !request.MsgHdr.RecursionDesired {
+		return nil, nil
+	}
+
+	// check time to see if we need to lock out the source for the time being
 	now := time.Now()
 	if source.backoffTime != nil && now.Before(*source.backoffTime) {
 		// "asleep" during backoff interval
@@ -366,11 +423,6 @@ func (source *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext
 	// the backoff time is irrelevant now
 	source.backoffTime = nil
 
-	// this is considered a recursive query so don't if recursion was not requested
-	if request == nil || !request.MsgHdr.RecursionDesired {
-		return nil, nil
-	}
-
 	// check and increase pressure before submitting, this is an async call so
 	// it will not slow things down, however reducing pressure in this thread
 	// would have to wait for the "close" message to be received which is sync
@@ -378,12 +430,13 @@ func (source *dnsSource) Answer(rCon *RequestContext, context *ResolutionContext
 	// thread with a timer
 	source.increaseWorkers()
 
-	// forward message without interference
+	// forward message to connection created from spec
 	response, err := source.query(request)
 
 	// now respond to error after deciding what to do about the number of routines
 	if err != nil {
-		backoff := time.Now().Add(backoffInterval)
+		// reuse now value even though it could be a little longer, prevent multiple calls to Now()
+		backoff := now.Add(backoffInterval)
 		source.backoffTime = &backoff
 		return nil, err
 	}
@@ -406,7 +459,7 @@ func (source *dnsSource) Close() {
 	// stop pressure modifier and wait for thread to close
 	log.Debugf("Closing dns source: %s", source.Name())
 	// send enough messages to stop workers
-	for i := 0; i < maxWorkers; i++ {
+	for i := 0; i < cap(source.closeChan) - 1; i++ {
 		source.closeChan <- true
 	}
 
