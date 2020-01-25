@@ -124,4 +124,9 @@ func TestProviderLocalResolution(t *testing.T) {
 	if err != nil {
 		t.Errorf("Shutting down test provider: %s", err)
 	}
+
+	// close sources
+	for _, source := range sources {
+		source.Close()
+	}
 }

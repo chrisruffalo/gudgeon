@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -58,6 +59,9 @@ type qlog struct {
 	db     *sql.DB
 
 	duration time.Duration
+
+	stringBuilderPool *sync.Pool
+
 
 	fileLogger *log.Logger
 	stdLogger  *log.Logger
@@ -129,6 +133,13 @@ func NewQueryLog(conf *config.GudgeonConfig, db *sql.DB) (QueryLog, error) {
 		})
 	}
 
+	// string builder pool
+	qlog.stringBuilderPool = &sync.Pool{
+		New: func() interface{} {
+			return strings.Builder{}
+		},
+	}
+
 	return qlog, nil
 }
 
@@ -158,34 +169,15 @@ func (qlog *qlog) log(info *InfoRecord) {
 	result := info.Result
 	rCon := info.RequestContext
 
-	// create builder
-	var builder strings.Builder
+	var answerValues []string
+	if response != nil && len(response.Answer) > 0 {
+		answerValues = util.GetAnswerValues(response)
+	}
 
 	var fields log.Fields
 	if qlog.fileLogger != nil {
 		fields = log.Fields{}
-	}
-
-	// log result if found
-	builder.WriteString("[")
-	if info.ClientName != "" {
-		builder.WriteString(info.ClientName)
-		if fields != nil {
-			fields["clientName"] = info.ClientName
-		}
-		builder.WriteString("|")
-	}
-	builder.WriteString(info.Address)
-	builder.WriteString("/")
-	builder.WriteString(rCon.Protocol)
-	builder.WriteString("|")
-	builder.WriteString(info.Consumer)
-	builder.WriteString("] q:[")
-	builder.WriteString(info.RequestDomain)
-	builder.WriteString("|")
-	builder.WriteString(info.RequestType)
-	builder.WriteString("]->")
-	if fields != nil {
+		fields["clientName"] = info.ClientName
 		fields["address"] = info.Address
 		fields["protocol"] = rCon.Protocol
 		fields["consumer"] = info.Consumer
@@ -193,107 +185,155 @@ func (qlog *qlog) log(info *InfoRecord) {
 		fields["requestType"] = info.RequestType
 		fields["cached"] = false
 		fields["rcode"] = info.Rcode
-	}
 
-	if response.Rcode == dns.RcodeServerFailure {
-		// write as error and return
-		if qlog.fileLogger != nil {
+		if response != nil && response.Rcode == dns.RcodeServerFailure {
 			qlog.fileLogger.WithFields(fields).Error(fmt.Sprintf("SERVFAIL:[%s]", result.Message))
-		}
-		if qlog.stdLogger != nil {
-			builder.WriteString(fmt.Sprintf("SERVFAIL:[%s]", result.Message))
-			qlog.stdLogger.Error(builder.String())
-		}
-
-		return
-	} else if result != nil && response.Rcode != dns.RcodeNameError {
-		if result.Blocked {
-			builder.WriteString("BLOCKED")
-		} else if result.Match == rule.MatchBlock {
-			builder.WriteString("RULE BLOCKED")
-			if fields != nil {
-				fields["match"] = result.Match
-				fields["matchType"] = "BLOCKED"
-			}
-			if result.MatchList != nil {
-				builder.WriteString("[")
-				builder.WriteString(result.MatchList.CanonicalName())
-				if fields != nil {
-					fields["matchList"] = result.MatchList.CanonicalName()
+		} else {
+			if result != nil && response != nil && response.Rcode != dns.RcodeNameError {
+				if result.Match == rule.MatchBlock {
+					fields["match"] = result.Match
+					fields["matchType"] = "BLOCKED"
 				}
-				if result.MatchRule != "" {
-					builder.WriteString("|")
-					builder.WriteString(result.MatchRule)
-					if fields != nil {
+
+				if result.MatchList != nil {
+					fields["matchList"] = result.MatchList.CanonicalName()
+					if result.MatchRule != "" {
 						fields["matchRule"] = result.MatchRule
 					}
 				}
-				builder.WriteString("]")
-			}
-		} else {
-			if result.Match == rule.MatchAllow {
-				if fields != nil {
+
+				if result.Match == rule.MatchAllow {
 					fields["match"] = result.Match
 					fields["matchType"] = "ALLOWED"
 				}
-			}
-			if result.Cached {
-				builder.WriteString("c:[")
-				builder.WriteString(result.Resolver)
-				builder.WriteString("]")
-				if fields != nil {
+
+				if result.Cached {
 					fields["resolver"] = result.Resolver
 					fields["cached"] = "true"
-				}
-			} else {
-				builder.WriteString("r:[")
-				builder.WriteString(result.Resolver)
-				builder.WriteString("]")
-				builder.WriteString("->")
-				builder.WriteString("s:[")
-				builder.WriteString(result.Source)
-				builder.WriteString("]")
-				if fields != nil {
+				} else {
 					fields["resolver"] = result.Resolver
 					fields["source"] = result.Source
 				}
 			}
 
-			builder.WriteString("->")
-
-			if len(response.Answer) > 0 {
-				answerValues := util.GetAnswerValues(response)
+			if len(answerValues) > 0 {
 				if len(answerValues) > 0 {
-					builder.WriteString(answerValues[0])
-					if fields != nil {
-						fields["answer"] = answerValues[0]
-					}
-					if len(answerValues) > 1 {
-						builder.WriteString(fmt.Sprintf(" (+%d)", len(answerValues)-1))
-					}
+					fields["answer"] = answerValues[0]
 				} else {
-					builder.WriteString("(EMPTY RESPONSE)")
-					if fields != nil {
-						fields["answer"] = "<< EMPTY >>"
-					}
+					fields["answer"] = "<< EMPTY >>"
 				}
 			} else {
-				builder.WriteString("(NO INFO RESPONSE)")
-				if fields != nil {
-					fields["answer"] = "<< NONE >>"
-				}
+				fields["answer"] = "<< NONE >>"
+			}
+
+			if response == nil {
+				qlog.fileLogger.WithFields(fields).Warn("NIL RESPONSE")
+			} else {
+				qlog.fileLogger.WithFields(fields).Info(dns.RcodeToString[response.Rcode])
 			}
 		}
-	} else {
-		builder.WriteString(fmt.Sprintf("RESPONSE[%s]", dns.RcodeToString[response.Rcode]))
 	}
 
-	// output built string
-	if qlog.fileLogger != nil {
-		qlog.fileLogger.WithFields(fields).Info(dns.RcodeToString[response.Rcode])
-	}
 	if qlog.stdLogger != nil {
-		qlog.stdLogger.Info(builder.String())
+		// create builder
+		builder, ok := qlog.stringBuilderPool.Get().(strings.Builder)
+		if !ok {
+			log.Errorf("Could not get string builder from pool")
+			return
+		}
+		defer qlog.stringBuilderPool.Put(builder)
+
+		// start with a fresh builder
+		builder.Reset()
+
+		if response != nil && response.Rcode == dns.RcodeServerFailure {
+			qlog.stdLogger.Error(fmt.Sprintf("SERVFAIL:[%s]", result.Message))
+		} else {
+			// log result if found
+			builder.WriteString("[")
+			if info.ClientName != "" {
+				builder.WriteString(info.ClientName)
+				builder.WriteString("|")
+			}
+			builder.WriteString(info.Address)
+			builder.WriteString("/")
+			builder.WriteString(rCon.Protocol)
+			builder.WriteString("|")
+			builder.WriteString(info.Consumer)
+			builder.WriteString("] q:[")
+			builder.WriteString(info.RequestDomain)
+			builder.WriteString("|")
+			builder.WriteString(info.RequestType)
+			builder.WriteString("]->")
+
+			if result != nil && response != nil && response.Rcode != dns.RcodeNameError {
+				if result.Blocked {
+					builder.WriteString("BLOCKED")
+				} else if result.Match == rule.MatchBlock {
+					builder.WriteString("RULE BLOCKED")
+					if result.MatchList != nil {
+						builder.WriteString("[")
+						builder.WriteString(result.MatchList.CanonicalName())
+						if result.MatchRule != "" {
+							builder.WriteString("|")
+							builder.WriteString(result.MatchRule)
+						}
+						builder.WriteString("]")
+					}
+				} else {
+					if result.Cached {
+						builder.WriteString("c:[")
+						builder.WriteString(result.Resolver)
+						builder.WriteString("]")
+					} else {
+						builder.WriteString("r:[")
+						builder.WriteString(result.Resolver)
+						builder.WriteString("]")
+						builder.WriteString("->")
+						builder.WriteString("s:[")
+						builder.WriteString(result.Source)
+						builder.WriteString("]")
+					}
+
+					builder.WriteString("->")
+
+					if len(answerValues) > 0 {
+						if len(answerValues) > 0 {
+							builder.WriteString(answerValues[0])
+							if fields != nil {
+								fields["answer"] = answerValues[0]
+							}
+							if len(answerValues) > 1 {
+								builder.WriteString(fmt.Sprintf(" (+%d)", len(answerValues)-1))
+							}
+						} else {
+							builder.WriteString("(EMPTY RESPONSE)")
+							if fields != nil {
+								fields["answer"] = "<< EMPTY >>"
+							}
+						}
+					} else {
+						builder.WriteString("(NO INFO RESPONSE)")
+						if fields != nil {
+							fields["answer"] = "<< NONE >>"
+						}
+					}
+				}
+			} else if response != nil {
+				builder.WriteString(fmt.Sprintf("RESPONSE[%s]", dns.RcodeToString[response.Rcode]))
+			} else {
+				builder.WriteString("NIL RESPONSE")
+			}
+			qlog.stdLogger.Info(builder.String())
+			qlog.stringBuilderPool.Put(builder)
+		}
+	}
+
+
+	// on recovery, log warning and stop normal logging
+	if r := recover(); r!= nil {
+		log.Warnf("Recovered from logging error %s", r)
+		return
 	}
 }
 

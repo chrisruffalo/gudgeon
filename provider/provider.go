@@ -39,7 +39,7 @@ func NewProvider(engine engine.Engine) Provider {
 func defaultServer() *dns.Server {
 	return &dns.Server{
 		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 3 * time.Second,
 	}
 }
 
@@ -191,12 +191,13 @@ func (provider *provider) Host(config *config.GudgeonConfig, engine engine.Engin
 
 func (provider *provider) Shutdown() error {
 	// set with a 60 second timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// start a waitgroup
 	wg := &sync.WaitGroup{}
 
+	// shutdown sources
 	for _, server := range provider.servers {
 		// stop each server separately
 		if server != nil {

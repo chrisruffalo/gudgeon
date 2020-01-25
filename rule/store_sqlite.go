@@ -46,7 +46,7 @@ type sqlStore struct {
 	stmtCache *cache.Cache
 
 	// mutex and variable that stops allowing queries when the db is "closing"
-	closing bool
+	closing      bool
 	closingMutex sync.RWMutex
 }
 
@@ -253,7 +253,7 @@ func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.Gu
 	key := fmt.Sprintf("%d|%d", numLists, numDomains)
 	if i, found := store.stmtCache.Get(key); found {
 		if v, ok := i.(*sql.Stmt); ok {
-			// get itme
+			// get time
 			stmt = v
 			// overwrite duration (so timer restarts)
 			store.stmtCache.SetDefault(key, stmt)
