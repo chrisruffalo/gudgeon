@@ -6,6 +6,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
@@ -83,30 +84,54 @@ func (gudgeon *Gudgeon) Start() error {
 }
 
 func (gudgeon *Gudgeon) Shutdown() {
-	// stop the file watcher
-	events.StopFileWatch()
+	wg := sync.WaitGroup{}
 
-	// stop the event bus
-	events.Stop()
+	wg.Add(1)
+	go func() {
+		// stop the file watcher
+		events.StopFileWatch()
+
+		// stop the event bus
+		events.Stop()
+
+		wg.Done()
+	}()
 
 	// stop providers
 	if gudgeon.provider != nil {
-		log.Infof("Shutting down DNS endpoints...")
-		err := gudgeon.provider.Shutdown()
-		if err != nil {
-			log.Errorf("Could not shutdown endpoints: %s", err)
-		}
+		wg.Add(1)
+		go func() {
+			log.Infof("Shutting down DNS endpoints...")
+			err := gudgeon.provider.Shutdown()
+			if err != nil {
+				log.Errorf("Could not shutdown endpoints: %s", err)
+			}
+
+			wg.Done()
+		}()
 	}
 
 	// stop web
 	if gudgeon.web != nil {
-		log.Infof("Shutting down Web service...")
-		gudgeon.web.Stop()
+		wg.Add(1)
+		go func() {
+			log.Infof("Shutting down Web service...")
+			gudgeon.web.Stop()
+
+			wg.Done()
+		}()
 	}
 
 	// stop/shutdown engine
-	log.Infof("Shutting down Engine...")
-	gudgeon.engine.Shutdown()
+	wg.Add(1)
+	go func() {
+		log.Infof("Shutting down Engine...")
+		gudgeon.engine.Shutdown()
+
+		wg.Done()
+	}()
+
+	wg.Wait()
 }
 
 func main() {

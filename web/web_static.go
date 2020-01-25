@@ -19,7 +19,14 @@ const (
 	gzipFileExtension     = ".gz"
 )
 
+// cache the content types because we don't really serve that many files
+var contentTypeCache = make(map[string]string)
+
 func getContentType(filepath string, defaultType string) string {
+	if value, ok := contentTypeCache[filepath]; ok {
+		return value
+	}
+
 	var contentType string
 	if strings.Contains(filepath, ".") {
 		ext := filepath[strings.LastIndex(filepath, "."):]
@@ -33,6 +40,7 @@ func getContentType(filepath string, defaultType string) string {
 	// trace logging for mimetype verification, usually commented
 	// out unless troubleshooting this code path
 	// log.Tracef("%s (mimetype = %s)", filepath, contentType)
+	contentTypeCache[filepath] = contentType
 
 	return contentType
 }

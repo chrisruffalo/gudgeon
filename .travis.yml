@@ -10,12 +10,12 @@ addons:
   apt:
     update: true
 
-  # go is the primary language
+# go is the primary language
 language: go
 
 # go version to use
 go:
-- '1.12'
+- '1.13'
 
 # enable docker for xgo and building docker containers
 services:
@@ -57,7 +57,7 @@ before_script:
   # install newer version of npm
   - sudo npm install -g npm
   # pull xgo container and build local version
-  - travis_retry travis_wait docker pull karalabe/xgo-1.12
+  - travis_retry travis_wait docker pull karalabe/xgo-latest
   # prepare build environment
   - travis_retry travis_wait make prepare
   - travis_retry travis_wait make npm

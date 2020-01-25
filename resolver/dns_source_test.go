@@ -58,5 +58,8 @@ func TestDnsSourceResolution(t *testing.T) {
 			t.Errorf("No answers for question:\n%s\n-----\n%s", m, response)
 			continue
 		}
+
+		// close source when done
+		source.Close()
 	}
 }
