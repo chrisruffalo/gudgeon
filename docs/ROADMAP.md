@@ -8,12 +8,12 @@ In no particular order these are the future improvements that are coming to Gudg
   * **In Progress:** File watching and reloading minimal configuration changes without service restart or downtime (hot reload)
   * **In Progress:** Package refactoring to put `rule`, `resolver`, `qlog`, and `metrics` in engine package (at a minimum)
   * **Done:** Reverse lookup moved outside of query log and into part of engine
-  * Ability to track query latency/processing time
+  * **In Progress:** Ability to track query latency/processing time
   * **Done:** Unindexed single tables for SQL insert speed before batching into long-term storage
 * Metrics
   * **Done:** Local instance metrics storage
-  * Better CPU graph
-  * Memory graph with more memory classes (system or golang stats)
+  * **Done:** Better CPU graph
+  * **Done:** Memory graph with more memory classes (system or golang stats)
   * **Done:** Cache size as second graph with memory (??)
   * Exporting to Prometheus and InfluxDB (followed by others as desired)
   * Condensing data in the database based on time interval
