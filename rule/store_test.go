@@ -37,7 +37,7 @@ type ruleStoreCreator func() Store
 
 func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing.T) {
 	tmpDir := testutil.TempDir()
-	defer os.RemoveAll(tmpDir)
+	//defer os.RemoveAll(tmpDir)
 
 	for idx, data := range ruleData {
 		// create rule and rule list
@@ -68,7 +68,7 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 		for _, expectedBlock := range data.blocked {
 			result, _, _ := store.FindMatch(lists, expectedBlock)
 			if MatchBlock != result {
-				t.Errorf("Rules of type %d in list %s expected to block '%s' but did not", data.ruleType, lists[0].CanonicalName(), expectedBlock)
+				t.Errorf("Rules of type %d in list %s expected to block '%s' but did not", data.ruleType, lists[0].ShortName(), expectedBlock)
 			}
 		}
 
@@ -76,7 +76,7 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 		for _, expectedAllow := range data.allowed {
 			result, _, _ := store.FindMatch(lists, expectedAllow)
 			if MatchAllow != result {
-				t.Errorf("Rules of type %d in list %s expected to allow '%s' but did not", data.ruleType, lists[0].CanonicalName(), expectedAllow)
+				t.Errorf("Rules of type %d in list %s expected to allow '%s' but did not", data.ruleType, lists[0].ShortName(), expectedAllow)
 			}
 		}
 
@@ -84,7 +84,7 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 		for _, expectedNoMatch := range data.nomatch {
 			result, _, _ := store.FindMatch(lists, expectedNoMatch)
 			if MatchNone != result {
-				t.Errorf("Rules of type %d in list %s expected to not match '%s' but did", data.ruleType, lists[0].CanonicalName(), expectedNoMatch)
+				t.Errorf("Rules of type %d in list %s expected to not match '%s' but did", data.ruleType, lists[0].ShortName(), expectedNoMatch)
 			}
 		}
 

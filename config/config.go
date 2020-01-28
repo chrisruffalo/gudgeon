@@ -176,6 +176,10 @@ func (list *GudgeonList) ShortName() string {
 	return list.shortName
 }
 
+func (list *GudgeonList) String() string {
+	return list.ShortName()
+}
+
 func (list *GudgeonList) IsRemote() bool {
 	return list != nil && "" != list.Source && util.StartsWithAny(list.Source, remoteProtocols)
 }

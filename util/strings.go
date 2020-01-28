@@ -3,6 +3,7 @@ package util
 import (
 	"github.com/mina86/unsafeConvert"
 	"strings"
+	"unsafe"
 )
 
 // determines if the given string is in the array of strings
@@ -57,4 +58,9 @@ func SaferBytes(input string) []byte {
 		return emptyByte
 	}
 	return unsafeConvert.Bytes(input)
+}
+
+// from: https://github.com/golang/go/issues/25484
+func ByteSliceToString(bs []byte) string {
+	return *(*string)(unsafe.Pointer(&bs))
 }

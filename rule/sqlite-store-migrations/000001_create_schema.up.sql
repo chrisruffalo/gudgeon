@@ -4,7 +4,9 @@ PRAGMA automatic_index = false;
 -- list table exists so that we don't have to store the entire list name for each rule entry
 CREATE TABLE IF NOT EXISTS lists ( 
     Id INTEGER PRIMARY KEY, 
-    ShortName TEXT 
+    ShortName TEXT,
+    -- list type defaults to "BLOCk"
+    ListType INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_lists_ShortName on lists (ShortName);
 

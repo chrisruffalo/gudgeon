@@ -102,8 +102,8 @@ func DomainList(domain string) []string {
 		return []string{}
 	}
 
-	// start with a default size of 3
-	domains := make([]string, 0, 3)
+	// start with a default size based on the number of labels (derived from instances of label separators)
+	domains := make([]string, 0, strings.Count(domain, ".") + 1)
 
 	for len(domain) > 1 && "." != domain && (len(domains) < 1 || domain != domains[len(domains)-1]) {
 		if len(domains) > 0 && !strings.Contains(domain, ".") {

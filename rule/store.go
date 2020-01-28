@@ -45,7 +45,7 @@ type baseStore struct {
 	lists map[config.ListType]map[string]*config.GudgeonList
 }
 
-type eachListAction func(listType config.ListType, list *config.GudgeonList)
+type eachListAction func(index int, listType config.ListType, list *config.GudgeonList)
 type matchListAction func(listType config.ListType, list *config.GudgeonList) (Match, *config.GudgeonList, string)
 
 func (baseStore *baseStore) addList(list *config.GudgeonList) {
@@ -102,7 +102,24 @@ func (baseStore *baseStore) forEachOfTypeIn(listType config.ListType, lists []*c
 	actionedListCount := 0
 	for _, v := range lists {
 		if list, found := baseStore.lists[listType][v.ShortName()]; found {
-			listAction(listType, list)
+			listAction(actionedListCount, listType, list)
+			actionedListCount++
+		}
+	}
+	return actionedListCount
+}
+
+func (baseStore *baseStore) forEachIn(lists []*config.GudgeonList, listAction eachListAction) int {
+	// lists that have no elements or nil functions can't match anything
+	if len(lists) < 1 || listAction == nil {
+		return 0
+	}
+	actionedListCount := 0
+	var found *config.GudgeonList
+	for _, list := range lists {
+		found = baseStore.getList(list.ShortName())
+		if found != nil {
+			listAction(actionedListCount, found.ParsedType(), found)
 			actionedListCount++
 		}
 	}

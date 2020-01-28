@@ -36,9 +36,6 @@ type sqlStore struct {
 	stmt *sql.Stmt
 	tx   *sql.Tx
 
-	// insert var pooling
-	varPool sync.Pool
-
 	// statement caching
 	// map of number of lists -> number of domains -> query with appropriate number of variable slots
 	// seems like overkill but easily paid off by the sheer number of queries that are performed and
@@ -80,17 +77,10 @@ func (store *sqlStore) Init(sessionRoot string, config *config.GudgeonConfig, li
 		if list == nil {
 			continue
 		}
-		_, err = store.db.Exec("INSERT INTO lists (ShortName) VALUES (?)", list.ShortName())
+		_, err = store.db.Exec("INSERT INTO lists (ShortName, ListType) VALUES (?, ?)", list.ShortName(), list.ParsedType())
 		if err != nil {
 			log.Errorf("Inserting list: %s", err)
 		}
-	}
-
-	// create var pool
-	store.varPool = sync.Pool{
-		New: func() interface{} {
-			return make([]interface{}, 0, defaultVarSize)
-		},
 	}
 
 	// set up cache
@@ -217,43 +207,47 @@ func sliceAppend(slice *[]interface{}, value interface{}) {
 }
 
 const (
-	queryStartFragment = "SELECT l.ShortName, r.Rule FROM rules R LEFT JOIN lists L ON R.ListRowId = L.rowid WHERE l.ShortName in (?"
-	queryMidFragment   = ") AND r.Rule in (?"
+	queryStartFragment      = "SELECT l.ShortName, l.ListType, r.Rule FROM rules R LEFT JOIN lists L ON R.ListRowId = L.rowid WHERE"
+	queryListVarFragment    = " l.ShortName in (?"
+	queryListSingleFragment = " l.ShortName = ?"
+	queryRuleVarFragment    = " AND r.Rule in (?"
+	queryRuleSingleFragment = " and r.Rule = ?"
+	queryEndFragment        = " ORDER BY l.ListType DESC LIMIT 1"
 )
 
-func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.GudgeonList, domains []string) (bool, string, string) {
+func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []string) (bool, config.ListType, string, string) {
 	// this is a mess but maybe there is a better/faster way, the unlock could
 	// be deferred here but that is just as messy
 	store.closingMutex.RLock()
 	if store.closing {
 		store.closingMutex.RUnlock()
-		return false, "", ""
+		return false, 0, "", ""
 	}
 	store.closingMutex.RUnlock()
 
 	// with no lists and no domain we can't test found function
 	if len(lists) < 1 || len(domains) < 1 {
-		return false, "", ""
+		return false, 0, "", ""
 	}
 
 	numDomains := len(domains)
 
-	vars := store.varPool.Get().([]interface{})
-	defer store.varPool.Put(vars)
-	numLists := store.forEachOfTypeIn(listType, lists, func(listType config.ListType, list *config.GudgeonList) {
-		sliceAppend(&vars, list.ShortName())
+	vars := make([]interface{}, len(lists) + numDomains)
+
+	numLists := store.forEachIn(lists, func(index int, listType config.ListType, list *config.GudgeonList) {
+		vars[index] = list.ShortName()
 	})
 
 	// no lists selected
 	if numLists < 1 {
-		return false, "", ""
+		return false, 0, "", ""
 	}
 
 	var stmt *sql.Stmt
 	key := fmt.Sprintf("%d|%d", numLists, numDomains)
 	if i, found := store.stmtCache.Get(key); found {
 		if v, ok := i.(*sql.Stmt); ok {
-			// get time
+			// get statement
 			stmt = v
 			// overwrite duration (so timer restarts)
 			store.stmtCache.SetDefault(key, stmt)
@@ -264,9 +258,21 @@ func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.Gu
 		// build query statement
 		builder := strings.Builder{}
 		builder.WriteString(queryStartFragment)
-		builder.WriteString(strings.Repeat(", ?", numLists-1))
-		builder.WriteString(queryMidFragment)
-		builder.WriteString(strings.Repeat(", ?", numDomains-1) + ");")
+		if numLists > 1 {
+			builder.WriteString(queryListVarFragment)
+			builder.WriteString(strings.Repeat(", ?", numLists-1))
+			builder.WriteString(")")
+		} else {
+			builder.WriteString(queryListSingleFragment)
+		}
+		if numDomains > 1 {
+			builder.WriteString(queryRuleVarFragment)
+			builder.WriteString(strings.Repeat(", ?", numDomains-1))
+			builder.WriteString(")")
+		} else {
+			builder.WriteString(queryRuleSingleFragment)
+		}
+		builder.WriteString(queryEndFragment)
 
 		// prepare statement
 		var err error
@@ -274,7 +280,7 @@ func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.Gu
 		stmt, err = store.db.Prepare(builder.String())
 		if err != nil {
 			log.Errorf("Preparing cached query statement: %s", err)
-			return false, "", ""
+			return false, 0, "", ""
 		}
 
 		// set with default expiration
@@ -282,35 +288,25 @@ func (store *sqlStore) foundInLists(listType config.ListType, lists []*config.Gu
 	}
 
 	// build parameters
-	for _, dm := range domains {
-		vars = append(vars, dm)
+	for idx, dm := range domains {
+		vars[numLists + idx] = dm
 	}
 
-	rows, err := stmt.Query(vars[:numLists+numDomains]...)
+	var (
+		list string
+		ltype config.ListType
+		rule string
+	)
+	err := stmt.QueryRow(vars[:numLists+numDomains]...).Scan(&list, &ltype, &rule)
+
 	if err != nil {
-		log.Errorf("Executing rule check query: %s", err)
+		return false, 0, "", ""
 	}
-	// check for rows
-	if rows == nil || err != nil {
-		return false, "", ""
-	}
-	defer rows.Close()
-
-	// scan rows for rules
-	var list string
-	var rule string
-	for rows.Next() {
-		err = rows.Scan(&list, &rule)
-		if err != nil {
-			log.Errorf("Rule row scan: %s", err)
-			continue
-		}
-		if "" != rule {
-			return true, list, rule
-		}
+	if "" != list && "" != rule {
+		return true, ltype, list, rule
 	}
 
-	return false, "", ""
+	return false, 0, "", ""
 }
 
 func (store *sqlStore) FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string) {
@@ -322,11 +318,11 @@ func (store *sqlStore) FindMatch(lists []*config.GudgeonList, domain string) (Ma
 	// get domains
 	domains := util.DomainList(domain)
 
-	if found, listName, rule := store.foundInLists(config.ALLOW, lists, domains); found {
-		return MatchAllow, store.getList(listName), rule
-	}
-	if found, listName, rule := store.foundInLists(config.BLOCK, lists, domains); found {
-		return MatchBlock, store.getList(listName), rule
+	if found, foundListType, foundListName, foundRule := store.foundInLists(lists, domains); found {
+		if foundListType == config.BLOCK {
+			return MatchBlock, store.getList(foundListName), foundRule
+		}
+		return MatchAllow, store.getList(foundListName), foundRule
 	}
 
 	return MatchNone, nil, ""
