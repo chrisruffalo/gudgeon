@@ -1,8 +1,6 @@
 package rule
 
 import (
-	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/twmb/murmur3"
@@ -14,20 +12,16 @@ import (
 type hashStore32 struct {
 	baseStore
 
-	hashes map[string][]uint32
+	hashes map[string]map[uint32]struct{}
 
 	delegate Store
 }
 
 func (store *hashStore32) Init(sessionRoot string, config *config.GudgeonConfig, lists []*config.GudgeonList) {
-	store.hashes = make(map[string][]uint32)
+	store.hashes = make(map[string]map[uint32]struct{})
 	for _, list := range lists {
 		if _, found := store.hashes[list.CanonicalName()]; !found {
-			startingArrayLength := uint(0)
-			if config != nil {
-				startingArrayLength, _ = util.LineCount(config.PathToList(list))
-			}
-			store.hashes[list.CanonicalName()] = make([]uint32, 0, startingArrayLength)
+			store.hashes[list.CanonicalName()] = make(map[uint32]struct{})
 		}
 	}
 
@@ -37,11 +31,7 @@ func (store *hashStore32) Init(sessionRoot string, config *config.GudgeonConfig,
 }
 
 func (store *hashStore32) Clear(config *config.GudgeonConfig, list *config.GudgeonList) {
-	startingArrayLength := uint(0)
-	if config != nil {
-		startingArrayLength, _ = util.LineCount(config.PathToList(list))
-	}
-	store.hashes[list.CanonicalName()] = make([]uint32, 0, startingArrayLength)
+	store.hashes[list.CanonicalName()] = make(map[uint32]struct{})
 	store.removeList(list)
 
 	if store.delegate != nil {
@@ -50,7 +40,7 @@ func (store *hashStore32) Clear(config *config.GudgeonConfig, list *config.Gudge
 }
 
 func (store *hashStore32) Load(list *config.GudgeonList, rule string) {
-	store.hashes[list.CanonicalName()] = append(store.hashes[list.CanonicalName()], murmur3.StringSum32(strings.ToLower(rule)))
+	store.hashes[list.CanonicalName()][murmur3.StringSum32(strings.ToLower(rule))] = struct{}{}
 	store.addList(list)
 
 	if store.delegate != nil {
@@ -59,31 +49,18 @@ func (store *hashStore32) Load(list *config.GudgeonList, rule string) {
 }
 
 func (store *hashStore32) Finalize(sessionRoot string, lists []*config.GudgeonList) {
-	for k := range store.hashes {
-		// sort
-		sort.Slice(store.hashes[k], func(i, j int) bool {
-			return store.hashes[k][i] < store.hashes[k][j]
-		})
-	}
-
 	if store.delegate != nil {
 		store.delegate.Finalize(sessionRoot, lists)
 	}
 }
 
-func (store *hashStore32) foundInList(rules []uint32, domainHash uint32) (bool, uint32) {
-	// search for the domain
-	idx := sort.Search(len(rules), func(i int) bool {
-		return rules[i] >= domainHash
-	})
-
-	// check that search found what we expected and return true if found
-	if idx < len(rules) && rules[idx] == domainHash {
-		return true, rules[idx]
+func (store *hashStore32) foundInList(rules map[uint32]struct{}, domainHash uint32) bool {
+	if _, found := rules[domainHash]; found {
+		return true
 	}
 
 	// otherwise return false
-	return false, uint32(0)
+	return false
 }
 
 func (store *hashStore32) FindMatch(lists []*config.GudgeonList, domain string) (Match, *config.GudgeonList, string) {
@@ -100,12 +77,12 @@ func (store *hashStore32) FindMatch(lists []*config.GudgeonList, domain string) 
 		if !found {
 			return MatchNone, nil, ""
 		}
-		for _, d := range domainHashes {
-			if found, ruleHash := store.foundInList(rules, d); found && ruleHash > 0 {
+		for idx := 0; idx < len(domainHashes); idx++ {
+			if found := store.foundInList(rules, domainHashes[idx]); found  {
 				if store.delegate != nil {
 					return store.delegate.FindMatch([]*config.GudgeonList{list}, domain)
 				}
-				return MatchAllow, list, fmt.Sprintf("%d", ruleHash)
+				return MatchAllow, list, domains[idx]
 			}
 		}
 		return MatchNone, nil, ""
@@ -120,12 +97,12 @@ func (store *hashStore32) FindMatch(lists []*config.GudgeonList, domain string) 
 		if !found {
 			return MatchNone, nil, ""
 		}
-		for _, d := range domainHashes {
-			if found, ruleHash := store.foundInList(rules, d); found && ruleHash > 0 {
+		for idx := 0; idx < len(domainHashes); idx++ {
+			if found := store.foundInList(rules, domainHashes[idx]); found  {
 				if store.delegate != nil {
 					return store.delegate.FindMatch([]*config.GudgeonList{list}, domain)
 				}
-				return MatchBlock, list, fmt.Sprintf("%d", ruleHash)
+				return MatchBlock, list, domains[idx]
 			}
 		}
 		return MatchNone, nil, ""
@@ -136,7 +113,7 @@ func (store *hashStore32) FindMatch(lists []*config.GudgeonList, domain string) 
 
 func (store *hashStore32) Close() {
 	// overwrite map with empty map
-	store.hashes = make(map[string][]uint32)
+	store.hashes = make(map[string]map[uint32]struct{})
 
 	if store.delegate != nil {
 		store.delegate.Close()

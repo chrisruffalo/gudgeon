@@ -16,7 +16,7 @@ func TestBloomSqlRuleStore(t *testing.T) {
 	testStore(defaultRuleData, func() Store {
 		return &bloomStore{
 			backingStore:     &sqlStore{},
-			defaultRuleCount: 1000000,
+			defaultRuleCount: benchRules,
 		}
 	}, t)
 }
@@ -25,6 +25,15 @@ func BenchmarkBloomSqlRuleStore(b *testing.B) {
 	benchNonComplexStore(func() Store {
 		return &bloomStore{
 			backingStore:     &sqlStore{},
+			defaultRuleCount: benchRules,
+		}
+	}, b)
+}
+
+func BenchmarkBloomHashRuleStore(b *testing.B) {
+	benchNonComplexStore(func() Store {
+		return &bloomStore{
+			backingStore:     &hashStore{},
 			defaultRuleCount: benchRules,
 		}
 	}, b)
