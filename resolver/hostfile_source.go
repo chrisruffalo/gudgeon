@@ -15,6 +15,11 @@ const (
 	wildcard = "*"
 )
 
+var _hostfileMsgHeader = dns.MsgHdr{
+	Authoritative: true,
+	Opcode:        dns.OpcodeQuery,
+}
+
 type hostFileSource struct {
 	filePath      string
 	hostEntries   map[string][]*net.IP
@@ -276,10 +281,7 @@ func (hostFileSource *hostFileSource) Answer(rCon *RequestContext, context *Reso
 
 	// create new response message
 	response := &dns.Msg{
-		MsgHdr: dns.MsgHdr{
-			Authoritative: true,
-			Opcode:        dns.OpcodeQuery,
-		},
+		MsgHdr: _hostfileMsgHeader,
 	}
 	response.SetReply(request)
 

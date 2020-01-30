@@ -13,7 +13,7 @@ import (
 )
 
 func TestProviderStartStop(t *testing.T) {
-	config := testutil.Conf(t, "./testdata/provider-test.yml")
+	config := testutil.TestConf(t, "./testdata/provider-test.yml")
 
 	// prepare engine with config options
 	engine, err := engine.NewEngine(config)
@@ -54,7 +54,7 @@ func TestProviderLocalResolution(t *testing.T) {
 	}
 
 	// create from config
-	config := testutil.Conf(t, "./testdata/provider-test.yml")
+	config := testutil.TestConf(t, "./testdata/provider-test.yml")
 
 	// prepare engine with config options
 	engine, err := engine.NewEngine(config)

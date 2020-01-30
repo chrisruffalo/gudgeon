@@ -16,7 +16,7 @@ func parseIP(input string) *net.IP {
 }
 
 func TestBasicEngine(t *testing.T) {
-	config := testutil.Conf(t, "testdata/simple.yml")
+	config := testutil.TestConf(t, "testdata/simple.yml")
 	defer os.RemoveAll(config.Home)
 
 	// create engine from test config
@@ -38,7 +38,7 @@ func TestBasicEngine(t *testing.T) {
 }
 
 func TestConsumerMatching(t *testing.T) {
-	config := testutil.Conf(t, "testdata/consumer_match.yml")
+	config := testutil.TestConf(t, "testdata/consumer_match.yml")
 	defer os.RemoveAll(config.Home)
 
 	// create engine from test config
@@ -106,7 +106,7 @@ func TestConsumerMatching(t *testing.T) {
 
 func TestReverseLookup(t *testing.T) {
 	// create config and engine from config
-	config := testutil.Conf(t, "testdata/simple-reverse.yml")
+	config := testutil.TestConf(t, "testdata/simple-reverse.yml")
 	defer os.RemoveAll(config.Home)
 
 	engine, err := NewEngine(config)

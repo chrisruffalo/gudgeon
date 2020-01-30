@@ -62,6 +62,7 @@ type qlog struct {
 
 	stringBuilderPool *sync.Pool
 
+	fieldPool sync.Pool
 
 	fileLogger *log.Logger
 	stdLogger  *log.Logger
@@ -119,6 +120,11 @@ func NewQueryLog(conf *config.GudgeonConfig, db *sql.DB) (QueryLog, error) {
 			qlog.fileLogger.SetOutput(w)
 			qlog.fileLogger.SetLevel(log.InfoLevel)
 			qlog.fileLogger.SetFormatter(&log.JSONFormatter{})
+
+			// create pool
+			qlog.fieldPool = sync.Pool{New: func() interface{} {
+				return log.Fields{}
+			}}
 		}
 	}
 
@@ -176,7 +182,8 @@ func (qlog *qlog) log(info *InfoRecord) {
 
 	var fields log.Fields
 	if qlog.fileLogger != nil {
-		fields = log.Fields{}
+		fields, _ := qlog.fieldPool.Get().(log.Fields)
+
 		fields["clientName"] = info.ClientName
 		fields["address"] = info.Address
 		fields["protocol"] = rCon.Protocol
@@ -229,8 +236,19 @@ func (qlog *qlog) log(info *InfoRecord) {
 			if response == nil {
 				qlog.fileLogger.WithFields(fields).Warn("NIL RESPONSE")
 			} else {
-				qlog.fileLogger.WithFields(fields).Info(dns.RcodeToString[response.Rcode])
+				qlog.fileLogger.WithFields(fields).Info(info.Rcode)
 			}
+
+			// empty fields and return to pool
+			delete(fields, "match")
+			delete(fields, "matchType")
+			delete(fields, "matchList")
+			delete(fields, "matchRule")
+			delete(fields, "resolver")
+			delete(fields, "cached")
+			delete(fields, "source")
+			delete(fields, "answer")
+			qlog.fieldPool.Put(fields)
 		}
 	}
 

@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	log "github.com/sirupsen/logrus"
 	"testing"
 
 	"github.com/miekg/dns"
@@ -10,7 +11,7 @@ import (
 
 func TestDnsResolver(t *testing.T) {
 	// load configuration
-	conf := testutil.Conf(t, "testdata/resolvers.yml")
+	conf := testutil.TestConf(t, "testdata/resolvers.yml")
 	resolvers := NewResolverMap(conf, conf.Resolvers)
 
 	data := []struct {
@@ -70,11 +71,12 @@ func TestDnsResolver(t *testing.T) {
 		}
 	}
 
+	resolvers.Close()
 }
 
 func TestHostnameResolver(t *testing.T) {
 	// load configuration
-	conf := testutil.Conf(t, "testdata/hostresolvers.yml")
+	conf := testutil.TestConf(t, "testdata/hostresolvers.yml")
 	resolvers := NewResolverMap(conf, conf.Resolvers)
 
 	data := []struct {
@@ -133,4 +135,57 @@ func TestHostnameResolver(t *testing.T) {
 			continue
 		}
 	}
+
+	resolvers.Close()
+}
+
+func BenchmarkResolver(b *testing.B) {
+	// load configuration
+	conf := testutil.BenchConf(b, "testdata/resolvers.yml")
+
+	resolvers := NewResolverMap(conf, conf.Resolvers)
+
+	questions := []string{
+		"google.com.",
+		"reddit.com.",
+		"microsoft.com.",
+	}
+
+	// start timer
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	// benchmark query
+	b.RunParallel(func(pb *testing.PB) {
+		idx := 0
+		for pb.Next() {
+			// create dns message from scratch
+			m := &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Authoritative:     true,
+					AuthenticatedData: true,
+					CheckingDisabled:  true,
+					RecursionDesired:  true,
+					Opcode:            dns.OpcodeQuery,
+				},
+				Question: make([]dns.Question, 1),
+			}
+			m.Question[0] = dns.Question{Name: questions[idx % len(questions)], Qtype: dns.TypeA, Qclass: dns.ClassINET}
+			idx++
+
+
+			rCon := DefaultRequestContext()
+			// use source to resolve
+			_, result, err := resolvers.Answer(rCon, "default", m)
+			if err != nil {
+				log.Errorf("Could not resolve: %s", err)
+			}
+			// accurately reflect what is being done in real use
+			rCon.Put()
+			result.Put()
+			//log.Infof("idx: %d", idx)
+		}
+	})
+
+	resolvers.Close()
 }

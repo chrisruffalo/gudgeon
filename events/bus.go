@@ -30,13 +30,21 @@ type Handle struct {
 
 const _queueSize = 10
 
-var ebus = &bus{
-	topicMap:  make(map[string]map[uint32]Listener),
-	busChan:   make(chan *event, _queueSize),
-	closeChan: make(chan bool),
-}
+// global event bus
+var ebus *bus
 
 func Start() {
+	// do not start twice
+	if ebus != nil {
+		return
+	}
+	// initialize bus
+	ebus = &bus{
+		topicMap:  make(map[string]map[uint32]Listener),
+		busChan:   make(chan *event, _queueSize),
+		closeChan: make(chan bool),
+	}
+	// start service
 	go service()
 }
 
@@ -135,7 +143,7 @@ func unsubscribe(handle *Handle) {
 }
 
 func (handle *Handle) Close() {
-	if handle.topic == "" {
+	if ebus == nil || handle.topic == "" {
 		return
 	}
 	unsubscribe(handle)

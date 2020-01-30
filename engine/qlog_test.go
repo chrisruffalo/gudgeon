@@ -12,7 +12,7 @@ import (
 )
 
 func TestNewQueryLog(t *testing.T) {
-	conf := testutil.Conf(t, "testdata/dbtest.yml")
+	conf := testutil.TestConf(t, "testdata/dbtest.yml")
 
 	// create new query log
 	db, err := createEngineDB(conf)
@@ -37,7 +37,7 @@ func TestNewQueryLog(t *testing.T) {
 }
 
 func TestQueryLogQuery(t *testing.T) {
-	conf := testutil.Conf(t, "testdata/dbtest.yml")
+	conf := testutil.TestConf(t, "testdata/dbtest.yml")
 
 	// create new query log
 	db, err := createEngineDB(conf)

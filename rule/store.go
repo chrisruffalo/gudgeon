@@ -162,7 +162,7 @@ func CreateStore(storeRoot string, conf *config.GudgeonConfig) (Store, []uint64)
 
 	// create appropriate backing store
 	var delegate Store
-	if "bloomhash" == backingStoreType {
+	if "bloom+hash" == backingStoreType {
 		bloomStore := new(bloomStore)
 		bloomStore.backingStore = new(hashStore)
 		delegate = bloomStore

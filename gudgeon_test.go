@@ -18,7 +18,7 @@ func TestGudgeonLeaks(t *testing.T) {
 	defer leaktest.Check(t)()
 
 	// test with full configuration
-	config := testutil.Conf(t, "./gudgeon-full.yml")
+	config := testutil.TestConf(t, "./gudgeon-full.yml")
 	defer os.RemoveAll(config.Home)
 
 	// disable all reverse lookpu functions (mainly because we don't care but also because of mdns/avahi)

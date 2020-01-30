@@ -7,7 +7,7 @@ import (
 	"github.com/chrisruffalo/gudgeon/config"
 )
 
-func Conf(t *testing.T, path string) *config.GudgeonConfig {
+func TestConf(t *testing.T, path string) *config.GudgeonConfig {
 	// create/get tmp dir
 	dir := TempDir()
 
@@ -20,6 +20,22 @@ func Conf(t *testing.T, path string) *config.GudgeonConfig {
 	conf.Home = dir
 
 	return conf
+}
+
+func BenchConf(b *testing.B, path string) *config.GudgeonConfig {
+	// create/get tmp dir
+	dir := TempDir()
+
+	conf, _, err := config.Load(path)
+	if err != nil {
+		b.Errorf("Could not load test configuration: %s", err)
+	}
+
+	// update home
+	conf.Home = dir
+
+	return conf
+
 }
 
 func TempDir() string {

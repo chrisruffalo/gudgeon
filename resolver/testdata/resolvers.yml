@@ -11,13 +11,13 @@ gudgeon:
   - name: google
     sources:
     - 8.8.8.8
-    - 8.8.8.4
+    - 8.8.8.4/tcp 
   - name: local
     sources:
     - /etc/hosts
   - name: cloudflare
     sources:
-    - 1.1.1.1
+    - 1.1.1.1/tcp-tls
   - name: att 
     domains: 
     - "*.att.net"

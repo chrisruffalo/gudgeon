@@ -5,6 +5,7 @@ import (
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -46,6 +47,7 @@ type DnsPool interface {
 
 type dnsPool struct {
 	// if the pool is shutting down then don't hand out connections at all
+	shutdownMtx sync.Mutex
 	shutdown bool
 
 	// dialer
@@ -113,7 +115,9 @@ func NewDnsPool(protocol string, address string, config DnsPoolConfiguration) Dn
 func (pool dnsPool) Get() (*dns.Conn, error) {
 	// if the pool is shutdown behave has if it
 	// is simply handing out null connections
+	pool.shutdownMtx.Lock()
 	if pool.shutdown {
+		defer pool.shutdownMtx.Unlock()
 		return nil, nil
 	}
 
@@ -121,12 +125,18 @@ func (pool dnsPool) Get() (*dns.Conn, error) {
 
 	// get from pool
 	con := <- pool.cons
+	pool.shutdownMtx.Unlock()
+
 
 	// create new instance if none were available
 	if con == nil {
 		con, err = pool.dialer.Dial(pool.network, pool.address)
 		if err != nil {
-			pool.cons <- nil
+			pool.shutdownMtx.Lock()
+			if !pool.shutdown && cap(pool.cons) > len(pool.cons) {
+				pool.cons <- nil
+			}
+			pool.shutdownMtx.Unlock()
 			return nil, err
 		}
 
@@ -146,10 +156,13 @@ func (pool dnsPool) Get() (*dns.Conn, error) {
 
 func (pool dnsPool) Release(conn *dns.Conn) {
 	// if the pool is shutdown then close the connection
+	pool.shutdownMtx.Lock()
 	if pool.shutdown {
+		defer pool.shutdownMtx.Unlock()
 		conn.Close()
 		return
 	}
+	pool.shutdownMtx.Unlock()
 
 	// udp connections are not reused
 	if pool.network == "udp" {
@@ -158,18 +171,24 @@ func (pool dnsPool) Release(conn *dns.Conn) {
 	}
 
 	// probably shutdown, don't return to a full pool chan
-	if cap(pool.cons) == len(pool.cons) {
+	pool.shutdownMtx.Lock()
+	if pool.shutdown || cap(pool.cons) == len(pool.cons) {
+		defer pool.shutdownMtx.Unlock()
 		return
 	}
+	pool.shutdownMtx.Unlock()
+
 	pool.cons <- conn.Conn
 }
 
 func (pool dnsPool) Discard(conn *dns.Conn) {
 	// if the pool is not shutdown...
+	pool.shutdownMtx.Lock()
 	if !pool.shutdown && cap(pool.cons) != len(pool.cons) {
 		// provide a nil instance back to the channel
 		pool.cons <- nil
 	}
+	pool.shutdownMtx.Unlock()
 
 	if conn != nil {
 		// close the connection that will not be reused
@@ -181,8 +200,10 @@ func (pool dnsPool) Discard(conn *dns.Conn) {
 }
 
 func (pool dnsPool) Shutdown() {
+	pool.shutdownMtx.Lock()
 	// stop dialing / issuing connections at all
 	pool.shutdown = true
+	pool.shutdownMtx.Unlock()
 
 	// fill the pool to capacity with nil instances so
 	// that any waiting connections are unblocked
@@ -190,9 +211,9 @@ func (pool dnsPool) Shutdown() {
 		pool.cons <- nil
 	}
 
-	// todo: figure out who to close this safely
-	// wait for all the discards/releases
-	//close(pool.cons)
+	// close pool, mutex should cleanly handle it so that
+	// no further writes are made to the pool
+	close(pool.cons)
 
 	log.Debugf("DnsPool %s shutdown", pool.address)
 }

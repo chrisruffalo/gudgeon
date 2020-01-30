@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -12,8 +13,8 @@ import (
 )
 
 const (
-	// key delimeter
-	delimeter = "|"
+	// pattern to use for building each step of the key
+	_keyPattern = "%s|%s|%s"
 	// absolute max TTL
 	dnsMaxTTL = uint32(604800)
 	/// default time to scrape expired items
@@ -68,23 +69,27 @@ func minTTL(currentMin uint32, records []dns.RR) uint32 {
 
 // make string key from partition + message
 func (gocache *gocache) key(questions []dns.Question) string {
-	// get pooled string builder and prepare to return to pool after reset
-	builder := gocache.builderPool.Get().(*strings.Builder)
-	defer func() {
-		builder.Reset()
-		gocache.builderPool.Put(builder)
-	}()
 
 	if len(questions) > 0 {
-		for idx := 0; idx < len(questions); idx++ {
-			builder.WriteString(strings.ToLower(questions[idx].Name))
-			builder.WriteString(delimeter)
-			builder.WriteString(dns.Class(questions[idx].Qclass).String())
-			builder.WriteString(delimeter)
-			builder.WriteString(dns.Type(questions[idx].Qtype).String())
+		// micro optimization when only one question is asked
+		if len(questions) == 1 {
+			return strings.ToLower(fmt.Sprintf(_keyPattern, questions[0].Name, dns.Class(questions[0].Qclass).String(), dns.Type(questions[0].Qtype).String()))
 		}
+		// get pooled string builder and prepare to return to pool after reset
+		builder := gocache.builderPool.Get().(*strings.Builder)
+		defer func() {
+			builder.Reset()
+			gocache.builderPool.Put(builder)
+		}()
+		for idx := 0; idx < len(questions); idx++ {
+			if idx > 0 {
+				builder.WriteString("|")
+			}
+			builder.WriteString(fmt.Sprintf(_keyPattern, questions[idx].Name, dns.Class(questions[idx].Qclass).String(), dns.Type(questions[idx].Qtype).String()))
+		}
+		return strings.ToLower(builder.String())
 	}
-	return builder.String()
+	return ""
 }
 
 func (gocache *gocache) Store(partition string, request *dns.Msg, response *dns.Msg) bool {
@@ -149,9 +154,12 @@ func (gocache *gocache) Query(partition string, request *dns.Msg) (*dns.Msg, boo
 	}
 
 	// no matching partition
+	gocache.partitionMux.RLock()
 	if _, found := gocache.backers[partition]; !found {
+		gocache.partitionMux.RUnlock()
 		return nil, false
 	}
+	gocache.partitionMux.RUnlock()
 
 	value, found := gocache.backers[partition].Get(key)
 	if !found {

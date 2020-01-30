@@ -1,12 +1,12 @@
 package resolver
 
 import (
+	"github.com/ryanuber/go-glob"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/miekg/dns"
-	"github.com/ryanuber/go-glob"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -274,11 +274,11 @@ func domainMatches(questionDomain string, domainsToCheck []string) bool {
 			questionDomain = questionDomain[:len(questionDomain)-1]
 		}
 
-		for _, domain := range domainsToCheck {
-			domain = strings.ToLower(domain)
+		for idx := 0; idx < len(domainsToCheck); idx++ {
+			domain := strings.ToLower(domainsToCheck[idx])
 			// domains that contain a * are glob matches
-			if strings.Contains(domain, "*") && glob.Glob(domain, questionDomain) {
-				return true
+			if strings.Contains(domain, "*") {
+				return glob.Glob(domain, questionDomain)
 			} else if domain == questionDomain || strings.HasSuffix(questionDomain, "."+domain) {
 				return true
 			}
