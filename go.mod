@@ -23,7 +23,7 @@ require (
 	github.com/shirou/gopsutil v0.0.0-20190627142359-4c8b404ee5c5
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 // indirect
-	github.com/twmb/murmur3 v0.0.0-20190212075929-930dc7964b30
+	github.com/twmb/murmur3 v1.1.1
 	github.com/willf/bitset v1.1.10 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
 	gopkg.in/yaml.v2 v2.2.2
