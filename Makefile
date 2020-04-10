@@ -181,6 +181,9 @@ docker: announce ## Create container and mark as latest as well
 		$(DOCKER) build -f docker/$(DOCKERFILE) --build-arg BINARY_TARGET="$(BINARY_TARGET)" --rm -t $(CONTAINER_PATH) .
 		$(DOCKER) tag $(CONTAINER_PATH) $(DOCKER_PATH)/$(DOCKER_NAME):latest
 
+buildah: announce ## Create container with buildah
+		./buildah.sh $(BINARY_TARGET) $(DOCKER_NAME)
+
 dockerpush: ## Push image at path to remote
 		$(DOCKER) push $(CONTAINER_PATH)
 

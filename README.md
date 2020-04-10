@@ -88,10 +88,9 @@ With the prerequisites installed you can build Gudgeon by...
   * You can use hot reloading in dev mode with: `[]$ npm run build:dev` and using `go run --tags "json1" gudgeon.go` 
 * Building the binary for your target platform with `[]$ make build`
 
-The `npm` target is used to download new dependencies when needed. The `prepare` target is only needed if the required Go tools change. The output of the process is a statically compiled for a few different platforms. The binary is statically compiled to make it easily portable to platforms and other systems that do not have libc, recent Golang compilers, or other required libraries.
+The `npm` target is used to download new dependencies when needed. The `prepare` target is only needed if the required Go tools change. 
+The output of the process is a statically compiled for a few different platforms. The binary is statically compiled to make it easily 
+portable to platforms and other systems that do not have libc, recent Golang compilers, or other required libraries.
 
 ## Code of Conduct
 Gudgeon falls under the [Contributor Covenant](https://www.contributor-covenant.org/version/1/4/code-of-conduct).
-
-## License
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fchrisruffalo%2Fgudgeon?ref=badge_large)

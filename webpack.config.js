@@ -162,6 +162,9 @@ module.exports = (env, argv) => {
                     exclude: [
                         BabelEnvDeps.exclude()
                     ],
+                    resolve: {
+                        extensions: ['.js', '.json']
+                    },
                     use: [
                         {
                             loader: "babel-loader",
