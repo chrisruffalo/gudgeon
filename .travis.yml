@@ -15,7 +15,7 @@ language: go
 
 # go version to use
 go:
-- '1.13'
+- '1.14'
 
 # enable docker for xgo and building docker containers
 services:
@@ -29,9 +29,7 @@ env:
 - GO111MODULE=on
 
 before_install:
-  - export GO111MODULE=on
-  - export GO112MODULE=on
-  # export versions into a format compatible with make file  
+  # export versions into a format compatible with make file
   - export VERSION=${TRAVIS_TAG}
   - export LONGVERSION=$VERSION
   - export NUMBER=$(echo "$VERSION" | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/')
@@ -51,8 +49,15 @@ before_script:
   # install dependencies
   - sudo apt-get install -y --no-install-recommends ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib g++-multilib npm
   - gem install --no-ri --no-rdoc fpm
+  # install buildah - in progress
+  #- . /etc/os-release
+  #- sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/x${ID^}_${VERSION_ID}/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
+  #- wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/x${ID^}_${VERSION_ID}/Release.key -O Release.key
+  #- sudo apt-key add - < Release.key
+  #- sudo apt-get update -qq
+  #- sudo apt-get -qq -y install buildah
   # install node 10
-  - curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
+  - curl -sL https://deb.nodesource.com/setup_13.x | sudo -E bash -
   - sudo apt-get install -y nodejs
   # install newer version of npm
   - sudo npm install -g npm
