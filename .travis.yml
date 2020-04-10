@@ -64,7 +64,7 @@ before_script:
   # install newer version of npm
   - sudo npm install -g npm
   # pull xgo container and build local version
-  - travis_retry travis_wait docker pull karalabe/xgo-latest
+  #- travis_retry travis_wait docker pull karalabe/xgo-latest
   # prepare build environment
   - travis_retry travis_wait make prepare
   - travis_retry travis_wait make npm
@@ -79,7 +79,8 @@ script:
   - make webpack
   # build binaries
   - make GOOS_LIST="linux" GOARCH_LIST="386 amd64" build
-  - travis_retry travis_wait make buildxgo
+  # cross-compile for arm (disable until xgo support/cc support is available)
+  #- travis_retry travis_wait make buildxgo
 
 before_deploy:
   # package targets
@@ -87,10 +88,11 @@ before_deploy:
   - OS_BIN_ARCH=386 OS_ARCH=i686 make rpm
   - OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make deb
   - OS_BIN_ARCH=386 OS_ARCH=i386 make deb
-  - BINARY_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make rpm
-  - BINARY_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
-  - BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
-  - BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
+  # remove arm targets until xgo support is available for 1.14 (no go.sum error)
+  #- BINARY_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make rpm
+  #- BINARY_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
+  #- BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
+  #- BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
   # removed mips targets until they become viable
   #- BINARY_TARGET=gudgeon-linux-mips OS_ARCH=mips make tar
   #- BINARY_TARGET=gudgeon-linux-mipsle OS_ARCH=mipsle make tar

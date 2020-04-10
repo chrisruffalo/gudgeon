@@ -78,7 +78,7 @@ func (store *hashStore) FindMatch(lists []*config.GudgeonList, domain string) (M
 			return MatchNone, nil, ""
 		}
 		for idx := 0; idx < len(domainHashes); idx++ {
-			if found := store.foundInList(rules, domainHashes[idx]); found  {
+			if found := store.foundInList(rules, domainHashes[idx]); found {
 				if store.delegate != nil {
 					return store.delegate.FindMatch([]*config.GudgeonList{list}, domain)
 				}
@@ -98,7 +98,7 @@ func (store *hashStore) FindMatch(lists []*config.GudgeonList, domain string) (M
 			return MatchNone, nil, ""
 		}
 		for idx := 0; idx < len(domainHashes); idx++ {
-			if found := store.foundInList(rules, domainHashes[idx]); found  {
+			if found := store.foundInList(rules, domainHashes[idx]); found {
 				if store.delegate != nil {
 					return store.delegate.FindMatch([]*config.GudgeonList{list}, domain)
 				}

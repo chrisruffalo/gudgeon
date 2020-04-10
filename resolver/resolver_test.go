@@ -170,9 +170,8 @@ func BenchmarkResolver(b *testing.B) {
 				},
 				Question: make([]dns.Question, 1),
 			}
-			m.Question[0] = dns.Question{Name: questions[idx % len(questions)], Qtype: dns.TypeA, Qclass: dns.ClassINET}
+			m.Question[0] = dns.Question{Name: questions[idx%len(questions)], Qtype: dns.TypeA, Qclass: dns.ClassINET}
 			idx++
-
 
 			rCon := DefaultRequestContext()
 			// use source to resolve

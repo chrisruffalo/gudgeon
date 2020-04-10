@@ -347,9 +347,8 @@ func (qlog *qlog) log(info *InfoRecord) {
 		}
 	}
 
-
 	// on recovery, log warning and stop normal logging
-	if r := recover(); r!= nil {
+	if r := recover(); r != nil {
 		log.Warnf("Recovered from logging error %s", r)
 		return
 	}

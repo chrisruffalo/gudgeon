@@ -34,7 +34,7 @@ GOGET=$(GOCMD) get
 CURLCMD=curl
 
 # SQLite binaries
-SQLITE_DEP?=https://sqlite.org/2019/sqlite-autoconf-3280000.tar.gz
+SQLITE_DEP?=https://www.sqlite.org/2020/sqlite-autoconf-3310100.tar.gz
 
 # rice command
 RICECMD=$(abspath $(GOBIN)/rice)
@@ -112,14 +112,18 @@ webpack: ## prepare assets and build distribution
 
 build: announce  ## Build Binary
 		$(GODOWN)
+		# create build output dir
 		mkdir -p $(BUILD_DIR)
+		# create embeded resources
 		$(RICECMD) embed-go $(RICEPATHS)
 		$(GOBUILD) -verbose -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "$(GO_LD_FLAGS)" -output "$(BUILD_DIR)/$(BINARY_NAME)-{{.OS}}-{{.Arch}}"
 		# remove rice artifacts
 		$(RICECMD) clean $(RICEPATHS)		
 
 buildxgo: announce ## Use xgo to build arm targets with sqlite installed, this only works **from inside the go path** (until xgo gets module support, anyway)
+		# create build output dir
 		mkdir -p $(BUILD_DIR)
+		# create embeded resources
 		$(RICECMD) embed-go $(RICEPATHS)
 		$(XGOCMD) --dest $(BUILD_DIR) --image "$(XGO_IMAGE)" --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
 		# remove rice artifacts

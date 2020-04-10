@@ -232,7 +232,7 @@ func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []strin
 
 	numDomains := len(domains)
 
-	vars := make([]interface{}, len(lists) + numDomains)
+	vars := make([]interface{}, len(lists)+numDomains)
 
 	numLists := store.forEachIn(lists, func(index int, listType config.ListType, list *config.GudgeonList) {
 		vars[index] = list.ShortName()
@@ -289,13 +289,13 @@ func (store *sqlStore) foundInLists(lists []*config.GudgeonList, domains []strin
 
 	// build parameters
 	for idx, dm := range domains {
-		vars[numLists + idx] = dm
+		vars[numLists+idx] = dm
 	}
 
 	var (
-		list string
+		list  string
 		ltype config.ListType
-		rule string
+		rule  string
 	)
 	err := stmt.QueryRow(vars[:numLists+numDomains]...).Scan(&list, &ltype, &rule)
 

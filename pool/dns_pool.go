@@ -17,7 +17,7 @@ import (
 
 const (
 	DefaultMaxConnections int = 2
-	DefaultDeadline = 200 * time.Millisecond
+	DefaultDeadline           = 200 * time.Millisecond
 )
 
 type DnsPoolConfiguration struct {
@@ -48,7 +48,7 @@ type DnsPool interface {
 type dnsPool struct {
 	// if the pool is shutting down then don't hand out connections at all
 	shutdownMtx sync.Mutex
-	shutdown bool
+	shutdown    bool
 
 	// dialer
 	dialer net.Dialer
@@ -58,13 +58,13 @@ type dnsPool struct {
 
 	// where the pool dials to
 	protocol string
-	network string
-	host string
-	port int
-	address string
+	network  string
+	host     string
+	port     int
+	address  string
 
 	// the initial pool configuration
-	config			DnsPoolConfiguration
+	config DnsPoolConfiguration
 
 	// channel for connection cycling
 	cons chan net.Conn
@@ -79,8 +79,8 @@ func NewDnsPool(protocol string, address string, config DnsPoolConfiguration) Dn
 	conPool := &dnsPool{
 		shutdown: false,
 		protocol: protocol,
-		address: address,
-		config: config,
+		address:  address,
+		config:   config,
 	}
 
 	if protocol == "tcp-tls" {
@@ -105,7 +105,7 @@ func NewDnsPool(protocol string, address string, config DnsPoolConfiguration) Dn
 	conPool.cons = make(chan net.Conn, config.MaxConnections)
 
 	// fill with empty connections
-	for c := 0; c < config.MaxConnections ; c++  {
+	for c := 0; c < config.MaxConnections; c++ {
 		conPool.cons <- nil
 	}
 
@@ -124,9 +124,8 @@ func (pool dnsPool) Get() (*dns.Conn, error) {
 	var err error
 
 	// get from pool
-	con := <- pool.cons
+	con := <-pool.cons
 	pool.shutdownMtx.Unlock()
-
 
 	// create new instance if none were available
 	if con == nil {
@@ -207,7 +206,7 @@ func (pool dnsPool) Shutdown() {
 
 	// fill the pool to capacity with nil instances so
 	// that any waiting connections are unblocked
-	for c := 0; c < cap(pool.cons) - len(pool.cons) ; c++  {
+	for c := 0; c < cap(pool.cons)-len(pool.cons); c++ {
 		pool.cons <- nil
 	}
 
@@ -217,7 +216,3 @@ func (pool dnsPool) Shutdown() {
 
 	log.Debugf("DnsPool %s shutdown", pool.address)
 }
-
-
-
-

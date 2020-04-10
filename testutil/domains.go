@@ -24,18 +24,19 @@ func init() {
  */
 const (
 	randPartDomainLen = 10
-	maxDomainLen = 19
+	maxDomainLen      = 19
 )
+
 func RandomDomain() string {
 	domainLen := rand.Intn(randPartDomainLen) + (maxDomainLen - randPartDomainLen)
 	domain := make([]byte, maxDomainLen)
 	var idx int
-	for idx = 0; idx < domainLen - 4;idx++ {
+	for idx = 0; idx < domainLen-4; idx++ {
 		domain[idx] = characters[rand.Intn(len(characters))]
 	}
 	tldi := rand.Intn(len(tlds))
-	for idx = 0; idx < len(tlds[tldi]);idx ++ {
-		domain[domainLen - 4 + idx] = tlds[tldi][idx]
+	for idx = 0; idx < len(tlds[tldi]); idx++ {
+		domain[domainLen-4+idx] = tlds[tldi][idx]
 	}
 	return util.ByteSliceToString(domain[:domainLen])
 }

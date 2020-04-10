@@ -40,13 +40,14 @@ For all of these reasons Gudgeon has been created to allow more flexibility in h
 * Reloading source resolver files when they change
 
 ## How Do I Install Gudgeon?
-There are a few different ways to install Gudgeon that *don't* require you to build it yourself. Gudgeon aims to support recent of releases Debian, Ubuntu, RHEL/CentOS, and Fedora as well as Docker and ARM builds.
+There are a few different ways to install Gudgeon that *don't* require you to build it yourself. Gudgeon aims to support recent of releases Debian, Ubuntu, RHEL/CentOS, and Fedora. 
+ARM and MIPS platform builds have been disabled until a cross-compile solution can be created for those architectures.
 
 ### GitHub Releases
 New tagged releases are automatically built by Travis-CI and uploaded to GitHub for download. Functionally these releases are identical to releases available in other channels. You can find these releases [here](https://github.com/chrisruffalo/gudgeon/releases).
 
 ### Fedora Releases
-Gudgeon has a [COPR repository](https://copr.fedorainfracloud.org/coprs/cruffalo/gudgeon/) for Fedora 28, 29, and CentOS 7. 
+Gudgeon has a [COPR repository](https://copr.fedorainfracloud.org/coprs/cruffalo/gudgeon/) for versions of CentOS and RHEL. 
 ```bash
 #optional, may be required for CentOS/EL linux
 [user@host] yum install yum-plugin-copr

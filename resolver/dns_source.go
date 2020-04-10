@@ -32,7 +32,6 @@ var defaultDeadline = 350 * time.Millisecond
 
 var validProtocols = []string{"udp", "tcp", "tcp-tls"}
 
-
 type dnsSource struct {
 	dnsServer     string
 	port          uint
@@ -40,7 +39,7 @@ type dnsSource struct {
 	protocol      string
 	network       string
 
-	pool		  pool.DnsPool
+	pool pool.DnsPool
 }
 
 func (dnsSource *dnsSource) Name() string {
