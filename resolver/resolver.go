@@ -1,12 +1,12 @@
 package resolver
 
 import (
-	"github.com/ryanuber/go-glob"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/miekg/dns"
+	"github.com/ryanuber/go-glob"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/chrisruffalo/gudgeon/config"
@@ -153,7 +153,7 @@ func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, configu
 		// first check if there is a configured source given for the spec,
 		// if so, we should use it instead of looking for it
 		if cS, found := configuredSources[configuredSource]; found {
-			log.Infof("Loaded configured source: %s", cS.Name())
+			log.Debugf("Loaded configured source: %s", cS.Name())
 			resolver.sources = append(resolver.sources, cS)
 		}
 
@@ -173,7 +173,7 @@ func newSharedSourceResolver(configuredResolver *config.GudgeonResolver, configu
 			if source == nil {
 				source := NewSource(configuredSource)
 				if source != nil && "" != source.Name() {
-					log.Infof("Loaded source: %s", source.Name())
+					log.Debugf("Loaded source: %s", source.Name())
 					resolver.sources = append(resolver.sources, source)
 					sharedSources[configuredSource] = source
 				}

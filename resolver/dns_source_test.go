@@ -71,7 +71,7 @@ func BenchmarkDnsSourceResolution(b *testing.B) {
 	// create source
 	source := &dnsSource{}
 	source.Load("8.8.8.8/tcp-tls")
-	log.Infof("Loaded source: %s", source.Name())
+	log.Debugf("Loaded source: %s", source.Name())
 
 	// start timer
 	b.ResetTimer()

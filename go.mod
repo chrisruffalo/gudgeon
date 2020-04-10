@@ -7,7 +7,6 @@ require (
 	github.com/cavaliercoder/grab v2.0.0+incompatible
 	github.com/coreos/go-systemd v0.0.0-20181031085051-9002847aa142
 	github.com/couchbase/go-slab v0.0.0-20150629231827-1f5f7f282713
-	github.com/dropbox/godropbox v0.0.0-20190501155911-5749d3b71cbe
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/gin-gonic/gin v1.4.0
@@ -18,7 +17,6 @@ require (
 	github.com/miekg/dns v1.1.27
 	github.com/mina86/unsafeConvert v0.0.0-20170228191759-4dde7f529f51
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/pkg/errors v0.8.1
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
 	github.com/shirou/gopsutil v0.0.0-20190627142359-4c8b404ee5c5
 	github.com/sirupsen/logrus v1.4.2

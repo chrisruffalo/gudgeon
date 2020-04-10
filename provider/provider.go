@@ -48,7 +48,7 @@ func (provider *provider) serve(netType string, addr string) *dns.Server {
 	server.Addr = addr
 	server.Net = netType
 
-	log.Infof("Listen to %s on address: %s", strings.ToUpper(netType), addr)
+	log.Infof("DNS on %s at address: %s", strings.ToUpper(netType), addr)
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
 			log.Errorf("Failed starting %s server: %s", netType, err.Error())

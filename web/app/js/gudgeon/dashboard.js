@@ -164,10 +164,10 @@ export class Dashboard extends React.Component {
                 <Card className={"maxHeight"}>
                   <CardHeader>
                     <Split gutter="sm">
-                      <SplitItem isFilled={true} style={{ width: "100%" }}>
+                      <SplitItem isFilled={true} style={{ width: "90%", maxWidth: "100%" }}>
                         { value.title }
                       </SplitItem>
-                      <SplitItem isFilled={true} style={{ textAlign: "right" }}>
+                      <SplitItem isFilled={true} style={{ textAlign: "right", minWidth: "10%" }}>
                         <Link to={ "/top/" + value.key } >more&gt;</Link>
                       </SplitItem>
                     </Split>

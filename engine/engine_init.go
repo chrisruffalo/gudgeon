@@ -300,7 +300,7 @@ func (engine *engine) bootstrap() error {
 	if engine.metrics != nil {
 		metrics := engine.metrics
 		for idx, list := range conf.Lists {
-			log.Infof("List '%s' loaded %d rules", list.CanonicalName(), listCounts[idx])
+			log.Debugf("List '%s' loaded %d rules", list.CanonicalName(), listCounts[idx])
 			rulesCounter := metrics.Get("rules-list-" + list.ShortName())
 			rulesCounter.Clear()
 			rulesCounter.Inc(int64(listCounts[idx]))
@@ -309,6 +309,7 @@ func (engine *engine) bootstrap() error {
 		totalRulesCounter := metrics.Get(TotalRules)
 		totalRulesCounter.Inc(int64(totalCount))
 	}
+	log.Infof("Loaded %d total rules", totalCount)
 
 	// subscribe to rule list changes to update metrics/counts
 	listChangeHandle := events.Listen("store:list:changed", func(message *events.Message) {

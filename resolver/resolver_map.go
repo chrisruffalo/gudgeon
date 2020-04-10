@@ -87,7 +87,7 @@ func NewResolverMap(config *config.GudgeonConfig, configuredResolvers []*config.
 	for _, source := range config.Sources {
 		newSource := NewConfigurationSource(source, sharedSources)
 		if newSource != nil {
-			log.Infof("Configured source: %s", newSource.Name())
+			log.Debugf("Configured source: %s", newSource.Name())
 			configuredSources[source.Name] = newSource
 		}
 	}
