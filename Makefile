@@ -16,7 +16,7 @@ GOARCH_LIST?=$(LOCALARCH)
 #XGO_TARGETS?=linux/arm-5,linux/arm-6,linux/mips,linux/mipsle
 XGO_TARGETS?=linux/arm-5,linux/arm-6
 
-XGO_IMAGE?=karalabe/xgo-1.12
+XGO_IMAGE?=karalabe/xgo-latest
 
 # go commands and paths
 GOPATH?=$(HOME)/go

@@ -44,6 +44,8 @@ before_install:
 
 # make full use of cache.
 before_script:
+  # ensure go modules are forced on
+  - export GO111MODULE=on
   # announce versions (so that we can debug from here if something is wrong, really)
   - make announce
   # install dependencies
