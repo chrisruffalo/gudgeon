@@ -51,17 +51,26 @@ jobs:
         run: make webpack
 
       - name: Build
+        env:
+          GOARCH_LIST: "arm, amd64, 386"
         run: make build
 
-# release only on tag
-  release:
-    name: Release
-    needs: [build]
-    runs-on: ubuntu-latest
-    if: contains(github.ref, 'v*')
-    steps:
-      - name: "I don't know how to release yet"
-        run: echo lol
+      - name: Package RPMs
+        if: contains(github.ref, 'v*')
+        run: |
+          OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make rpm
+          OS_BIN_ARCH=386 OS_ARCH=i686 make rpm
 
+      - name: Package debs
+        if: contains(github.ref, 'v*')
+        run: |
+          OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make deb
+          OS_BIN_ARCH=386 OS_ARCH=i386 make deb
 
+      - name: Hash Build/Package Outputs
+        if: contains(github.ref, 'v*')
+        run: make hash
 
+      - name: Release Build Results
+        if: contains(github.ref, 'v*')
+        run: find ./build/
