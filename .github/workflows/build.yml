@@ -11,7 +11,6 @@ env:
   GO_VERSION: 1.14.x
   NODE_VERSION: 13.x
 
-
 jobs:
   test:
     name: Test
@@ -20,7 +19,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v1
         with:
-          go-version: "$GO_VERSION"
+          go-version: {{ $GO_VERSION }}
 
       - name: Checkout
         uses: actions/checkout@v1
@@ -36,7 +35,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v1
         with:
-          go-version: "$GO_VERSION"
+          go-version: {{ $GO_VERSION }}
 
       - name: Checkout
         uses: actions/checkout@v1
@@ -44,7 +43,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v1
         with:
-          node-version: "$NODE_VERSION"
+          node-version:  {{ $NODE_VERSION }}
 
       - name: Prepare Go
         run: make prepare
