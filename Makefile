@@ -12,11 +12,6 @@ LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed -r 's/i?686/386/' | sed
 # use GOX to build certain architectures
 GOOS_LIST?=linux
 GOARCH_LIST?=$(LOCALARCH)
-# removed mips targets until they become viable
-#XGO_TARGETS?=linux/arm-5,linux/arm-6,linux/mips,linux/mipsle
-XGO_TARGETS?=linux/arm-5,linux/arm-6
-
-XGO_IMAGE?=karalabe/xgo-latest
 
 # go commands and paths
 GOPATH?=$(HOME)/go
@@ -24,7 +19,6 @@ GOBIN?=$(GOPATH)/bin/
 GOCMD?=go
 GODOWN=$(GOCMD) mod download
 GOXCMD=$(abspath $(GOBIN)/gox)
-XGOCMD=$(abspath $(GOBIN)/xgo)
 GOBUILD=$(GOXCMD) -os "$(GOOS_LIST)" -arch "$(GOARCH_LIST)"
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
@@ -99,7 +93,6 @@ announce: ## Debugging versions mainly for build and travis-ci
 		@echo "=============================="
 
 prepare: ## Get all go tools and required libraries
-		$(GOCMD) get -u github.com/karalabe/xgo
 		$(GOCMD) get -u github.com/mitchellh/gox
 		$(GOCMD) get -u github.com/GeertJohan/go.rice/rice
 		$(GODOWN)
@@ -117,15 +110,6 @@ build: announce  ## Build Binary
 		# create embeded resources
 		$(RICECMD) embed-go $(RICEPATHS)
 		$(GOBUILD) -verbose -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "$(GO_LD_FLAGS)" -output "$(BUILD_DIR)/$(BINARY_NAME)-{{.OS}}-{{.Arch}}"
-		# remove rice artifacts
-		$(RICECMD) clean $(RICEPATHS)		
-
-buildxgo: announce ## Use xgo to build arm targets with sqlite installed, this only works **from inside the go path** (until xgo gets module support, anyway)
-		# create build output dir
-		mkdir -p $(BUILD_DIR)
-		# create embeded resources
-		$(RICECMD) embed-go $(RICEPATHS)
-		$(XGOCMD) --dest $(BUILD_DIR) --image "$(XGO_IMAGE)" --tags "$(GO_BUILD_TAGS)" --ldflags="$(GO_LD_FLAGS)" --targets="$(XGO_TARGETS)" --deps "$(SQLITE_DEP)" .
 		# remove rice artifacts
 		$(RICECMD) clean $(RICEPATHS)		
 

@@ -46,6 +46,9 @@ jobs:
         with:
           node-version: "$NODE_VERSION"
 
+      - name: Prepare Go
+        run: make prepare
+
       - name: Install NPM Dependencies
         run: make npm
 
