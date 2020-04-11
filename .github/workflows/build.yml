@@ -6,6 +6,12 @@ on:
     tags:
       - 'v*'
   pull_request:
+
+env:
+  GO_VERSION: 1.14.x
+  NODE_VERSION: 13.x
+
+
 jobs:
   test:
     name: Test
@@ -14,7 +20,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.14.x
+          go-version: "$GO_VERSION"
 
       - name: Checkout
         uses: actions/checkout@v1
@@ -27,10 +33,18 @@ jobs:
     needs: [test]
     runs-on: ubuntu-latest
     steps:
+      - name: Setup Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: "$GO_VERSION"
+
+      - name: Checkout
+        uses: actions/checkout@v1
+
       - name: Setup Node
         uses: actions/setup-node@v1
         with:
-          node-version: '13.x'
+          node-version: "$NODE_VERSION"
 
       - name: Install NPM Dependencies
         run: make npm
