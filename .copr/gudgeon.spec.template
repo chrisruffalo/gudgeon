@@ -36,7 +36,7 @@ fi
 
 # install newer version of node locally if not over v8
 NPMVSORT=$(echo -e "$(nodejs --version || node --version || echo 'v0.0.0')\nv12.0.0" | sort -V | tail -n1)
-if [[ "v8.0.0" == "${NPMVSORT}" ]]; then
+if [[ "v12.0.0" == "${NPMVSORT}" ]]; then
     # architecture
     NODEARCH=$(echo "$LOCALARCH" | sed 's/amd64/x64/')
 
