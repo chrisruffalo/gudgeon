@@ -107,9 +107,9 @@ class GudgeonChart extends React.Component {
     { value: (60 * 60), label: '1h', disabled: false, stepSize: 1},
     { value: (60 * 60 * 2), label: '2h', disabled: false, stepSize: 2 },
     { value: (60 * 60 * 6), label: '6h', disabled: false, stepSize: 4 },
-    { value: (60 * 60 * 12), label: '12h', disabled: false, stepSize: 4 },
-    { value: (60 * 60 * 24), label: '24h', disabled: false, stepSize: 8 },
-    { value: -1, label: 'All Time', disabled: false, stepSize: 8 },
+    { value: (60 * 60 * 12), label: '12h', disabled: false, stepSize: 8 },
+    { value: (60 * 60 * 24), label: '24h', disabled: false, stepSize: 16 },
+    { value: -1, label: 'All Time', disabled: false, stepSize: 40 },
   ];
 
   // lookup other options values
