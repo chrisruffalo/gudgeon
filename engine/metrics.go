@@ -542,4 +542,3 @@ func (metrics *metrics) Stop() {
 	// evict all from cache
 	metrics.queryCache.Flush()
 }
-

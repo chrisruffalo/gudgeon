@@ -74,7 +74,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 	if start := c.Query("start"); len(start) > 0 {
 		iStart, err := strconv.ParseInt(start, 10, 64)
 		if err != nil {
-			iStart =  time.Now().Unix() - int64(web.engine.Metrics().Duration().Seconds())
+			iStart = time.Now().Unix() - int64(web.engine.Metrics().Duration().Seconds())
 		}
 		startTime := time.Unix(iStart, 0)
 		queryStart = &startTime
