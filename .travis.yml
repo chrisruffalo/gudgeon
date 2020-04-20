@@ -57,14 +57,7 @@ before_script:
   # install dependencies
   - sudo apt-get install -y --no-install-recommends ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib g++-multilib npm
   - gem install --no-ri --no-rdoc fpm
-  # install buildah - in progress
-  #- . /etc/os-release
-  #- sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/x${ID^}_${VERSION_ID}/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
-  #- wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/x${ID^}_${VERSION_ID}/Release.key -O Release.key
-  #- sudo apt-key add - < Release.key
-  #- sudo apt-get update -qq
-  #- sudo apt-get -qq -y install buildah
-  # install node 10
+  # install node 13
   - curl -sL https://deb.nodesource.com/setup_13.x | sudo -E bash -
   - sudo apt-get install -y nodejs
   # install newer version of npm
@@ -84,24 +77,37 @@ script:
   # get third-party resources for build
   - make webpack
   # build binaries
-  - make GOOS_LIST="linux" GOARCH_LIST="386 amd64" build
+  - make GOARCH="386" build
+  - make GOARCH="amd64" build
+  - make GOARCH="arm" GOARM=5 build
+  - make GOARCH="arm" GOARM=6 build
+  - make GOARCH="arm" GOARM=7 build
+  - make GOARCH="arm64" build
+  - make GOARCH=mips GOMIPS=softfloat build
+  - make GOARCH=mipsle GOMIPS=softfloat build
   # cross-compile for arm (disable until xgo support/cc support is available)
   #- travis_retry travis_wait make buildxgo
 
 before_deploy:
-  # package targets
+  # x86 packages
   - OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make rpm
   - OS_BIN_ARCH=386 OS_ARCH=i686 make rpm
   - OS_BIN_ARCH=amd64 OS_ARCH=x86_64 make deb
   - OS_BIN_ARCH=386 OS_ARCH=i386 make deb
-  # remove arm targets until xgo support is available for 1.14 (no go.sum error)
-  #- BINARY_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make rpm
-  #- BINARY_TARGET=gudgeon-linux-arm-5 OS_ARCH=arm5 make deb
-  #- BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make rpm
-  #- BINARY_TARGET=gudgeon-linux-arm-6 OS_ARCH=arm6 make deb
-  # removed mips targets until they become viable
-  #- BINARY_TARGET=gudgeon-linux-mips OS_ARCH=mips make tar
-  #- BINARY_TARGET=gudgeon-linux-mipsle OS_ARCH=mipsle make tar
+  # arm packages
+  - BINARY_TARGET=gudgeon-linux-arm5 OS_ARCH=arm5 make rpm
+  - BINARY_TARGET=gudgeon-linux-arm5 OS_ARCH=arm5 make deb
+  - BINARY_TARGET=gudgeon-linux-arm6 OS_ARCH=arm6 make rpm
+  - BINARY_TARGET=gudgeon-linux-arm6 OS_ARCH=arm6 make deb
+  - BINARY_TARGET=gudgeon-linux-arm7 OS_ARCH=arm7 make rpm
+  - BINARY_TARGET=gudgeon-linux-arm7 OS_ARCH=arm7 make deb
+  - BINARY_TARGET=gudgeon-linux-arm7 OS_ARCH=arm7 make rpm
+  - BINARY_TARGET=gudgeon-linux-arm7 OS_ARCH=arm7 make deb
+  - BINARY_TARGET=gudgeon-linux-arm64 OS_ARCH=arm64 make rpm
+  - BINARY_TARGET=gudgeon-linux-arm64 OS_ARCH=arm64 make deb
+  # mips packages
+  - BINARY_TARGET=gudgeon-linux-mips OS_ARCH=mips make tar
+  - BINARY_TARGET=gudgeon-linux-mipsle OS_ARCH=mipsle make tar
   # make docker build(s)
   - BINARY_TARGET=gudgeon-linux-amd64 make docker
   # push build(s) to docker cloud

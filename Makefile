@@ -3,32 +3,33 @@ MAINTAINER=Chris Ruffalo
 WEBSITE=https://github.com/gudgeon
 DESCRIPTION=Gudgeon is a flexible blocking DNS proxy/cache
 
+# enable CGO
+CGO_ENABLED=1
+
 # set relative paths
 MKFILE_DIR:=$(abspath $(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 
-# local arch (changed to standard names for build for gox/debian/travis)
+# local arch (changed to standard names for build for debian/travis)
 LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed -r 's/i?686/386/' | sed 's/i386/386/' )
 
-# use GOX to build certain architectures
-GOOS_LIST?=linux
-GOARCH_LIST?=$(LOCALARCH)
+# enable passthrough of architecture flags to go
+GOOS?=linux
+GOARCH?=$(LOCALARCH)
+GOARM?=
+GOMIPS?=softfloat
 
 # go commands and paths
 GOPATH?=$(HOME)/go
 GOBIN?=$(GOPATH)/bin/
 GOCMD?=go
 GODOWN=$(GOCMD) mod download
-GOXCMD=$(abspath $(GOBIN)/gox)
-GOBUILD=$(GOXCMD) -os "$(GOOS_LIST)" -arch "$(GOARCH_LIST)"
+GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 
 # downloading things
 CURLCMD=curl
-
-# SQLite binaries
-SQLITE_DEP?=https://www.sqlite.org/2020/sqlite-autoconf-3310100.tar.gz
 
 # rice command
 RICECMD=$(abspath $(GOBIN)/rice)
@@ -93,7 +94,6 @@ announce: ## Debugging versions mainly for build and travis-ci
 		@echo "=============================="
 
 prepare: ## Get all go tools and required libraries
-		$(GOCMD) get -u github.com/mitchellh/gox
 		$(GOCMD) get -u github.com/GeertJohan/go.rice/rice
 		$(GODOWN)
 
@@ -109,7 +109,7 @@ build: announce  ## Build Binary
 		mkdir -p $(BUILD_DIR)
 		# create embeded resources
 		$(RICECMD) embed-go $(RICEPATHS)
-		$(GOBUILD) -verbose -cgo --tags "$(GO_BUILD_TAGS)" -ldflags "$(GO_LD_FLAGS)" -output "$(BUILD_DIR)/$(BINARY_NAME)-{{.OS}}-{{.Arch}}"
+		$(GOBUILD) --tags "$(GO_BUILD_TAGS)" -ldflags "$(GO_LD_FLAGS)" -o "$(BUILD_DIR)/$(BINARY_NAME)-$(GOOS)-$(GOARCH)$(GOARM)" cmd/gudgeon.go
 		# remove rice artifacts
 		$(RICECMD) clean $(RICEPATHS)		
 
