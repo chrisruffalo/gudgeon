@@ -123,8 +123,8 @@ func (web *web) QueryMetrics(c *gin.Context) {
 
 	// create query options
 	options := engine.QueryOptions{
-		chosenMetrics,
-		stepSize,
+		ChosenMetrics: chosenMetrics,
+		StepSize:      stepSize,
 	}
 
 	// when on the first entry the output is slightly different
