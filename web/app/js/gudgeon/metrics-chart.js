@@ -67,6 +67,11 @@ class GudgeonChart extends React.Component {
     // state doesn't need to change every time the chart is rendered
     this.columns = [];
 
+    // populate interval options map to lookup other values
+    this.intervalOptions.forEach((v, i) => {
+      this.intervalOptionsMap[v.value] = v
+    });
+
     // create a new chart ref
     if (props.chartName !== null && props.chartName) {
       this.chartId = "gudgeon-chart-id-" + props.chartName;
@@ -80,7 +85,8 @@ class GudgeonChart extends React.Component {
     lastAtTime: null,
     interval: (60 * 30), // start at 30min
     domainMaxY: 0, // calculate max Y
-    selected: Object.keys(this.props.metrics)[0]
+    selected: Object.keys(this.props.metrics)[0],
+    stepSize: 1
   };
 
   // these colors are from the patternfly pallete
@@ -92,16 +98,22 @@ class GudgeonChart extends React.Component {
     '#7dc3e8'
   ];
 
-  options = [
-    { value: (60 * 10), label: '10m', disabled: false},
-    { value: (60 * 30), label: '30m', disabled: false},
-    { value: (60 * 60), label: '1h', disabled: false },
-    { value: (60 * 60 * 2), label: '2h', disabled: false },
-    { value: (60 * 60 * 6), label: '6h', disabled: false },
-    { value: (60 * 60 * 12), label: '12h', disabled: false },
-    { value: (60 * 60 * 24), label: '24h', disabled: false },
-    { value: -1, label: 'All Time', disabled: false },
+  // list of options used to build drop down list for interval options
+  // stepSize is a ratio, basically, where it causes the query
+  // to actually skip rows
+  intervalOptions = [
+    { value: (60 * 10), label: '10m', disabled: false, stepSize: 1},
+    { value: (60 * 30), label: '30m', disabled: false, stepSize: 1},
+    { value: (60 * 60), label: '1h', disabled: false, stepSize: 1},
+    { value: (60 * 60 * 2), label: '2h', disabled: false, stepSize: 2 },
+    { value: (60 * 60 * 6), label: '6h', disabled: false, stepSize: 4 },
+    { value: (60 * 60 * 12), label: '12h', disabled: false, stepSize: 4 },
+    { value: (60 * 60 * 24), label: '24h', disabled: false, stepSize: 8 },
+    { value: -1, label: 'All Time', disabled: false, stepSize: 8 },
   ];
+
+  // lookup other options values
+  intervalOptionsMap = {}
 
   onMetricKeyChange = (value, event) => {
     // clear old timer
@@ -137,11 +149,11 @@ class GudgeonChart extends React.Component {
     this.columns = [];
 
     // update table
-    this.setState({ lastAtTime: null, interval: value }, this.updateData );
+    this.setState({ lastAtTime: null, interval: value, intervalStep: this.intervalOptionsMap[value].stepSize }, this.updateData );
   };
 
   updateData() {
-    let { lastAtTime, interval, selected } = this.state;
+    let { lastAtTime, interval, selected, intervalStep } = this.state;
 
     // get from state but allow state to be reset to null without additional logic
     // and also make sure that the last at time is after the currently selected interval
@@ -150,7 +162,7 @@ class GudgeonChart extends React.Component {
           lastAtTime = (new Date(0) / 1000).toString();
         } else {
           lastAtTime = (Math.floor(Date.now()/1000) - interval).toString()
-        }      
+        }
     }
 
     // clear any existing timers
@@ -161,7 +173,7 @@ class GudgeonChart extends React.Component {
     // basic queries start at the given time as long as the interval is positive
     let params = {
       start: lastAtTime,
-      condense: interval > (2 * 60 * 60) // only condense with a large enough interval
+      step: intervalStep
     };
 
     // use this to filter query down to what is requested for the chart
@@ -521,7 +533,7 @@ class GudgeonChart extends React.Component {
           <Form isHorizontal>
             { metricOptions.length > 1 ? metricSelect : null }
             <FormSelect style={{ "gridColumnStart": metricOptions.length > 1 ? 2 : 1 }} value={this.state.interval} onChange={this.onTimeIntervalChange} aria-label="Select Time Interval">
-              {this.options.map((option, index) => (
+              {this.intervalOptions.map((option, index) => (
                 <FormSelectOption isDisabled={option.disabled} key={index} value={option.value} label={option.label} />
               ))}
             </FormSelect>

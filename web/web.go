@@ -74,7 +74,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 	if start := c.Query("start"); len(start) > 0 {
 		iStart, err := strconv.ParseInt(start, 10, 64)
 		if err != nil {
-			iStart = 0
+			iStart =  time.Now().Unix() - int64(web.engine.Metrics().Duration().Seconds())
 		}
 		startTime := time.Unix(iStart, 0)
 		queryStart = &startTime
@@ -98,12 +98,37 @@ func (web *web) QueryMetrics(c *gin.Context) {
 		queryEnd = &endTime
 	}
 
-	// when on the first entry the output is slightly different
-	firstEntry := true
-
 	// status is ok
 	c.String(http.StatusOK, "[")
 
+	// get metrics filter string
+	chosenMetrics := c.Query("metrics")
+
+	// parse step size (which is really a ratio to reduce/average metrics)
+	stepSize := 1
+	stepSizeString := c.Query("step")
+	if len(stepSizeString) > 0 {
+		parsedStepSize, err := strconv.ParseInt(stepSizeString, 10, 64)
+		if err == nil {
+			stepSize = int(parsedStepSize)
+		}
+	}
+	// keep narrow range of sizes
+	if stepSize < 1 {
+		stepSize = 1
+	}
+	if stepSize > 20 {
+		stepSize = 20
+	}
+
+	// create query options
+	options := engine.QueryOptions{
+		chosenMetrics,
+		stepSize,
+	}
+
+	// when on the first entry the output is slightly different
+	firstEntry := true
 	// call and accumulate responses directly to stream
 	err := web.engine.Metrics().QueryFunc(func(entry *engine.MetricsEntry) {
 		if !firstEntry {
@@ -122,7 +147,7 @@ func (web *web) QueryMetrics(c *gin.Context) {
 		c.String(http.StatusOK, ", \"Values\": ")
 		_, _ = c.Writer.Write(entry.JsonBytes)
 		c.String(http.StatusOK, "}")
-	}, c.GetString("filter"), false, *queryStart, *queryEnd)
+	}, options, false, *queryStart, *queryEnd)
 
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Could not fetch metrics")

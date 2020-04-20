@@ -3,6 +3,7 @@ package engine
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"math"
 	"os"
 	"runtime"
@@ -124,16 +125,34 @@ type CacheSizeFunction = func() int64
 // allows the same query and row scan logic to share code
 type MetricsAccumulator = func(entry *MetricsEntry)
 
+// query options
+type QueryOptions struct {
+	// a list of metrics names to "choose"
+	// to return
+	ChosenMetrics string
+	// will be used as a modulus to skip rows
+	// which reduces the resolution of a given
+	// metrics stream and makes the graph
+	// less cluttered
+	StepSize int
+}
+
 type Metrics interface {
 	GetAll() *map[string]*Metric
 	Get(name string) *Metric
+
+	// duration of metrics retention
+	Duration() *time.Duration
+
+	// duration between metrics collection
+	Interval() *time.Duration
 
 	// use cache function
 	UseCacheSizeFunction(function CacheSizeFunction)
 
 	// Query metrics from db
 	Query(start time.Time, end time.Time) ([]*MetricsEntry, error)
-	QueryFunc(accumulatorFunction MetricsAccumulator, filter string, unmarshall bool, start time.Time, end time.Time) error
+	QueryFunc(accumulatorFunction MetricsAccumulator, options QueryOptions, unmarshall bool, start time.Time, end time.Time) error
 
 	// top information
 	TopClients(limit int) []*TopInfo
@@ -227,6 +246,14 @@ func (metrics *metrics) Get(name string) *Metric {
 	metric := &Metric{Count: 0}
 	metrics.metricsMap[MetricsPrefix+name] = metric
 	return metric
+}
+
+func (metrics *metrics) Duration() *time.Duration {
+	return metrics.duration
+}
+
+func (metrics *metrics) Interval() *time.Duration {
+	return metrics.interval
 }
 
 func (metrics *metrics) update() {
@@ -329,7 +356,7 @@ func (metrics *metrics) prune(tx *sql.Tx) {
 }
 
 // allows custom accumulation for either streaming or custom marshalling
-func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter string, unmarshall bool, start time.Time, end time.Time) error {
+func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, options QueryOptions, unmarshall bool, start time.Time, end time.Time) error {
 	// don't do anything with nil accumulator
 	if accumulatorFunction == nil {
 		return nil
@@ -338,24 +365,27 @@ func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter
 	var err error
 	var query *sql.Stmt
 
+	optionsQueryKey := fmt.Sprint("%s:step=%d", options.ChosenMetrics, options.StepSize)
+
 	// try and get query from prepared cache
-	if value, found := metrics.queryCache.Get(filter); found {
+	if value, found := metrics.queryCache.Get(optionsQueryKey); found {
 		if q, ok := value.(*sql.Stmt); ok {
 			query = q
 			// re-set expiration
-			metrics.queryCache.Set(filter, query, cache.DefaultExpiration)
+			metrics.queryCache.Set(optionsQueryKey, query, cache.DefaultExpiration)
 		}
 	}
 
 	// if no query found then make one from scratch
 	if nil == query {
+		chosenMetrics := options.ChosenMetrics
 		var builder strings.Builder
 		builder.WriteString("SELECT FromTime, AtTime, ")
-		if len(filter) > 0 {
+		if len(chosenMetrics) > 0 {
 			first := true
 			filtered := false
 
-			keepMetrics := strings.Split(filter, ",")
+			keepMetrics := strings.Split(chosenMetrics, ",")
 			builder.WriteString("json_set('{}', ")
 
 			for _, value := range keepMetrics {
@@ -385,15 +415,26 @@ func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, filter
 		} else {
 			builder.WriteString("MetricsJson")
 		}
-		builder.WriteString(", IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ? ORDER BY AtTime ASC")
+		builder.WriteString(", IntervalSeconds FROM metrics WHERE FromTime >= ? AND AtTime <= ?")
+		if options.StepSize > 1 {
+			builder.WriteString(" AND ROWID % ? = 0")
+		}
+		builder.WriteString(" ORDER BY AtTime ASC")
 		query, err = metrics.db.Prepare(builder.String())
 		if err != nil {
 			return err
 		}
-		metrics.queryCache.Set(filter, query, cache.DefaultExpiration)
+		metrics.queryCache.Set(optionsQueryKey, query, cache.DefaultExpiration)
 	}
 
-	rows, err := query.Query(start, end)
+	// add step size as parameter for prepared query when
+	// the step size is provided
+	params := []interface{}{start, end}
+	if options.StepSize > 1 {
+		params = append(params, options.StepSize)
+	}
+
+	rows, err := query.Query(params...)
 	if err != nil {
 		return err
 	}
@@ -440,7 +481,7 @@ func (metrics *metrics) Query(start time.Time, end time.Time) ([]*MetricsEntry, 
 			Values:          me.Values,
 		})
 	}
-	err := metrics.QueryFunc(acc, "", true, start, end)
+	err := metrics.QueryFunc(acc, QueryOptions{}, true, start, end)
 	return entries, err
 }
 
@@ -500,3 +541,4 @@ func (metrics *metrics) Stop() {
 	// evict all from cache
 	metrics.queryCache.Flush()
 }
+
