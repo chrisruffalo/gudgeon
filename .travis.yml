@@ -101,8 +101,6 @@ before_deploy:
   - BINARY_TARGET=gudgeon-linux-arm6 OS_ARCH=arm6 make deb
   - BINARY_TARGET=gudgeon-linux-arm7 OS_ARCH=arm7 make rpm
   - BINARY_TARGET=gudgeon-linux-arm7 OS_ARCH=arm7 make deb
-  - BINARY_TARGET=gudgeon-linux-arm7 OS_ARCH=arm7 make rpm
-  - BINARY_TARGET=gudgeon-linux-arm7 OS_ARCH=arm7 make deb
   - BINARY_TARGET=gudgeon-linux-arm64 OS_ARCH=arm64 make rpm
   - BINARY_TARGET=gudgeon-linux-arm64 OS_ARCH=arm64 make deb
   # mips packages
