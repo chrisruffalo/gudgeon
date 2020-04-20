@@ -365,7 +365,8 @@ func (metrics *metrics) QueryFunc(accumulatorFunction MetricsAccumulator, option
 	var err error
 	var query *sql.Stmt
 
-	optionsQueryKey := fmt.Sprint("%s:step=%d", options.ChosenMetrics, options.StepSize)
+	// create an options query key for a given metric pattern with a corresponding step size
+	optionsQueryKey := fmt.Sprintf("%s:step=%d", options.ChosenMetrics, options.StepSize)
 
 	// try and get query from prepared cache
 	if value, found := metrics.queryCache.Get(optionsQueryKey); found {
