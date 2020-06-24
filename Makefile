@@ -3,6 +3,9 @@ MAINTAINER=Chris Ruffalo
 WEBSITE=https://github.com/gudgeon
 DESCRIPTION=Gudgeon is a flexible blocking DNS proxy/cache
 
+# get $(SED) command
+SED=$(shell which gsed || which sed)
+
 # enable CGO
 CGO_ENABLED=1
 
@@ -10,10 +13,10 @@ CGO_ENABLED=1
 MKFILE_DIR:=$(abspath $(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 
 # local arch (changed to standard names for build for debian/travis)
-LOCALARCH=$(shell uname -m | sed 's/x86_64/amd64/' | sed -r 's/i?686/386/' | sed 's/i386/386/' )
+LOCALARCH=$(shell uname -m | $(SED) 's/x86_64/amd64/' | $(SED) -r 's/i?686/386/' | $(SED) 's/i386/386/' )
 
 # enable passthrough of architecture flags to go
-GOOS?=linux
+GOOS?=$(shell echo $(shell uname) | tr A-Z a-z)
 GOARCH?=$(LOCALARCH)
 GOARM?=
 GOMIPS?=softfloat
@@ -42,13 +45,13 @@ FPMCMD=fpm
 BUILD_DIR=$(MKFILE_DIR)/build
 BINARY_NAME=gudgeon
 
-# get version and hash from git if not passed in
-VERSION?=$(shell git describe --tags $$(git rev-list --tags --max-count=1) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/v\2/')
-LONGVERSION?=$(shell git describe --tags | sed 's/^$$/$(VERSION)/')
+# get version and hash from git if not pas$(SED) in
+VERSION?=$(shell git describe --tags $$(git rev-list --tags --max-count=1) | $(SED) -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/v\2/')
+LONGVERSION?=$(shell git describe --tags | $(SED) 's/^$$/$(VERSION)/')
 GITHASH?=$(shell git rev-parse HEAD | head -c7)
-NUMBER?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/' )
-RELEASE?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\3/' | sed 's/^$$/1/' )
-DESCRIPTOR?=$(shell echo $(LONGVERSION) | sed -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\1/' | sed 's/^v$$//' | sed 's/^\s$$//' )
+NUMBER?=$(shell echo $(LONGVERSION) | $(SED) -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\2/' )
+RELEASE?=$(shell echo $(LONGVERSION) | $(SED) -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\3/' | $(SED) 's/^$$/1/' )
+DESCRIPTOR?=$(shell echo $(LONGVERSION) | $(SED) -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/\1/' | $(SED) 's/^v$$//' | $(SED) 's/^\s$$//' )
 
 # npm webpack
 NPM?=$(shell which npm)
@@ -64,18 +67,24 @@ CONTAINER_PATH=$(DOCKER_PATH)/$(DOCKER_NAME):$(DOCKER_TAG)
 DOCKERFILE?=Dockerfile
 
 # build targets for dockerized commands (build deb, build rpm)
-OS_TYPE?=linux
+OS_TYPE?=$(GOOS)
 OS_VERSION?=7
 OS_BIN_ARCH?=amd64
-OS_ARCH?=x86_64
+OS_ARCH?=x86_64s
 BINARY_TARGET?=$(BINARY_NAME)-$(OS_TYPE)-$(OS_BIN_ARCH)
 
+# set static flag
+STATIC_FLAG?=-extldflags "-static"
+ifeq ("$(GOOS)", "darwin")
+  STATIC_FLAG=""
+endif
+
 # build tags can change by target platform, only linux builds for now though
-GO_BUILD_TAGS?=netgo linux sqlite3 jsoniter json1
-GO_LD_FLAGS?=-s -w -extldflags "-static" -X "github.com/chrisruffalo/gudgeon/version.Version=$(VERSION)" -X "github.com/chrisruffalo/gudgeon/version.GitHash=$(GITHASH)" -X "github.com/chrisruffalo/gudgeon/version.Release=$(RELEASE)" -X "github.com/chrisruffalo/gudgeon/version.Descriptor=$(DESCRIPTOR)"
+GO_BUILD_TAGS?=netgo $(GOOS) sqlite3 jsoniter json1
+GO_LD_FLAGS?=-s -w $(STATIC_FLAG) -X "github.com/chrisruffalo/gudgeon/version.Version=$(VERSION)" -X "github.com/chrisruffalo/gudgeon/version.GitHash=$(GITHASH)" -X "github.com/chrisruffalo/gudgeon/version.Release=$(RELEASE)" -X "github.com/chrisruffalo/gudgeon/version.Descriptor=$(DESCRIPTOR)"
 
 # common FPM commands
-FMPARCH?=$(shell echo "$(OS_ARCH)" | sed -r 's/arm-?5/armhf/g' | sed -r 's/arm-?6/armhf/g' | sed -r 's/arm-?7/armhf/g')
+FMPARCH?=$(shell echo "$(OS_ARCH)" | $(SED) -r 's/arm-?5/armhf/g' | $(SED) -r 's/arm-?6/armhf/g' | $(SED) -r 's/arm-?7/armhf/g')
 FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration "$(RELEASE)" --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/log/gudgeon" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --prefix / -C $(BUILD_DIR)/pkgtmp
 FPMSCRIPTS=$(FPMCOMMON) --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh
 

@@ -2,11 +2,13 @@ module github.com/chrisruffalo/gudgeon
 
 require (
 	github.com/GeertJohan/go.rice v1.0.1-0.20191102153406-d954009f7238
+	github.com/akavel/rsrc v0.9.0 // indirect
 	github.com/akutz/sortfold v0.2.1
 	github.com/atrox/go-migrate-rice v1.0.1
 	github.com/cavaliercoder/grab v2.0.0+incompatible
 	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f
 	github.com/couchbase/go-slab v0.0.0-20150629231827-1f5f7f282713
+	github.com/daaku/go.zipexe v1.0.1 // indirect
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.6.2
@@ -22,6 +24,7 @@ require (
 	github.com/sirupsen/logrus v1.5.0
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 // indirect
 	github.com/twmb/murmur3 v1.1.3
+	github.com/valyala/fasttemplate v1.1.1 // indirect
 	github.com/willf/bitset v1.1.10 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
 	gopkg.in/yaml.v2 v2.2.8
