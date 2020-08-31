@@ -79,7 +79,12 @@ Prerequisites
 * System specific static artifacts for Ruby, NPM, GLIBC, and Sqlite3
   * Fedora: make automake gcc gcc-c++ curl sqlite sqlite-devel glibc glibc-static glibc-headers glibc-devel npm
   * Ubuntu: ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib and g++-multilib npm
-* `fpm` (for building deb/rpm)  
+  * OSX:
+    * Install [brew](https://brew.sh/)
+    * Install golang: `brew install golang`
+    * Install gnu-sed: `brew install gnu-sed`
+    * Install [NodeJS](https://nodejs.org/en/download/) OSX package
+* `fpm` (for building deb/rpm) with `gem install fpm`
 
 With the prerequisites installed you can build Gudgeon by...
 * Preparing your environment with needed Go tools with `[]$ make prepare`
