@@ -21,12 +21,6 @@ const (
 	protoDelimeter = "/"
 )
 
-// how many workers to spawn
-const workers = 1
-
-// how many requests to buffer
-const requestBuffer = 1
-
 // how long to wait before timing out the connection
 var defaultDeadline = 350 * time.Millisecond
 
@@ -140,7 +134,7 @@ func (dnsSource *dnsSource) query(request *dns.Msg) (*dns.Msg, error) {
 	// need to discard nil con to avoid jamming up the way it works
 	if conn == nil {
 		dnsSource.pool.Discard(conn)
-		return nil, fmt.Errorf("No connection provided by pool")
+		return nil, fmt.Errorf("no connection provided by pool")
 	}
 
 	response, err := dnsSource.handle(conn, request)

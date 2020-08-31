@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"database/sql"
 	"net"
 	"strings"
@@ -43,10 +44,13 @@ type recorder struct {
 	engine Engine
 	conf   *config.GudgeonConfig
 
+	// how often to wait before performing a flush action
+	// on the datatabse to move from buffer to log table
+	flushInterval time.Duration
+
 	// db access
 	db   *sql.DB
-	tx   *sql.Tx
-	stmt *sql.Stmt
+	con  *sql.Conn
 
 	// pool for creating records
 	recordPool sync.Pool
@@ -141,7 +145,7 @@ func NewRecorder(conf *config.GudgeonConfig, engine Engine, db *sql.DB, metrics 
 		qlog:      qlog,
 		metrics:   metrics,
 		infoQueue: make(chan *InfoRecord, recordQueueSize),
-		doneChan:  make(chan bool),
+		doneChan:  make(chan bool, 1),
 		recordPool: sync.Pool{
 			New: func() interface{} {
 				return &InfoRecord{}
@@ -162,6 +166,13 @@ func NewRecorder(conf *config.GudgeonConfig, engine Engine, db *sql.DB, metrics 
 			go CacheMulticastMessages(recorder.mdnsCache, msgChan)
 		}
 	}
+
+	// create ticker from conf
+	duration, err := util.ParseDuration(recorder.conf.Database.Flush)
+	if err != nil {
+		duration = 1 * time.Second
+	}
+	recorder.flushInterval = duration
 
 	// if db is not nil
 	if recorder.db != nil {
@@ -338,14 +349,10 @@ func (recorder *recorder) worker() {
 		metricsTicker.Stop()
 	}
 
-	// create ticker from conf
-	duration, err := util.ParseDuration(recorder.conf.Database.Flush)
-	if err != nil {
-		duration = 1 * time.Second
-	}
 	// flush every duration
-	flushTimer := time.NewTimer(duration)
+	flushTimer := time.NewTimer(recorder.flushInterval)
 	defer flushTimer.Stop()
+
 	// prune every hour (also prunes on startup)
 	pruneTimer := time.NewTimer(1 * time.Hour)
 	defer pruneTimer.Stop()
@@ -407,7 +414,7 @@ func (recorder *recorder) worker() {
 		case <-flushTimer.C:
 			log.Tracef("Flush timer triggered")
 			recorder.flush()
-			flushTimer.Reset(duration)
+			flushTimer.Reset(recorder.flushInterval)
 		case <-pruneTimer.C:
 			log.Tracef("Prune timer triggered")
 			recorder.prune()
@@ -427,21 +434,21 @@ func (recorder *recorder) worker() {
 
 // generic method to flush transaction and then perform transaction-related function
 func (recorder *recorder) doWithIsolatedTransaction(next func(tx *sql.Tx)) {
-	if recorder.tx != nil {
-		err := recorder.tx.Commit()
-		recorder.tx = nil
-		if err != nil {
-			log.Errorf("Could not start transaction: %s", err)
-			err = recorder.tx.Rollback()
-			if err != nil {
-				log.Errorf("Could not rollback transaction: %s", err)
-			}
-			return
-		}
+	ctx := context.Background()
+
+	con, err := recorder.db.Conn(ctx)
+	if err != nil {
+		log.Errorf("Error creating db connection: %s", err)
+		return
 	}
+	// close connection after return function
+	defer con.Close()
 
 	// start a new transaction for the scope of this operations
-	tx, err := recorder.db.Begin()
+	tx, err := con.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelDefault,
+		ReadOnly: false,
+	})
 	if err != nil {
 		log.Errorf("Creating buffer flush transaction: %s", err)
 		return
@@ -469,22 +476,35 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 
 	var err error
 
-	if recorder.tx == nil {
-		recorder.tx, err = recorder.db.Begin()
+	ctx := context.Background()
+
+	if recorder.con == nil {
+		con, err := recorder.db.Conn(ctx)
 		if err != nil {
-			log.Errorf("Starting transaction: %s", err)
+			log.Errorf("Error creating db connection: %s", err)
+			return
 		}
+		recorder.con = con
 	}
 
-	if recorder.stmt == nil {
-		recorder.stmt, err = recorder.tx.Prepare(bufferInsertStatement)
-		if err != nil {
-			log.Errorf("Creating buffer insert prepared statement: %s", err)
-		}
+	// start a new transaction for the scope of this operations
+	tx, err := recorder.con.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelDefault,
+		ReadOnly: false,
+	})
+	if err != nil {
+		log.Errorf("Creating buffer flush transaction: %s", err)
+		return
 	}
+
+	stmt, err := tx.Prepare(bufferInsertStatement)
+	if err != nil {
+		log.Errorf("Creating buffer insert prepared statement: %s", err)
+	}
+	defer stmt.Close()
 
 	// insert into buffer table
-	_, err = recorder.tx.Stmt(recorder.stmt).Exec(
+	_, err = tx.Stmt(stmt).Exec(
 		info.Address,
 		info.ClientName,
 		info.Consumer,
@@ -503,9 +523,18 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 		info.Finished,
 	)
 
-	// show error
+	// show error but do not return, allow transaction to try and close
 	if err != nil {
 		log.Errorf("Insert into buffer: %s", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Errorf("Flushing buffered entries: %s", err)
+		err = tx.Rollback()
+		if err != nil {
+			log.Errorf("Could not rollback transaction after flush: %s", err)
+		}
 	}
 }
 
@@ -518,6 +547,11 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 func (recorder *recorder) flush() {
 	if recorder.db == nil {
 		return
+	}
+
+	if recorder.con != nil {
+		recorder.con.Close()
+		recorder.con = nil
 	}
 
 	recorder.doWithIsolatedTransaction(func(tx *sql.Tx) {
@@ -571,9 +605,6 @@ func (recorder *recorder) prune() {
 }
 
 func (recorder *recorder) shutdown() {
-	// error
-	var err error
-
 	// stop accepting new entries
 	infoQueue := recorder.infoQueue
 	recorder.infoQueue = nil
@@ -592,14 +623,6 @@ func (recorder *recorder) shutdown() {
 	// close channels
 	close(infoQueue)
 	close(recorder.doneChan)
-
-	// close stmt
-	if recorder.stmt != nil {
-		err = recorder.stmt.Close()
-		if err != nil {
-			log.Errorf("Closing database/statement: %s", err)
-		}
-	}
 
 	// prune and flush records
 	if recorder.db != nil {
