@@ -49,8 +49,8 @@ type recorder struct {
 	flushInterval time.Duration
 
 	// db access
-	db   *sql.DB
-	con  *sql.Conn
+	db  *sql.DB
+	con *sql.Conn
 
 	// pool for creating records
 	recordPool sync.Pool
@@ -447,7 +447,7 @@ func (recorder *recorder) doWithIsolatedTransaction(next func(tx *sql.Tx)) {
 	// start a new transaction for the scope of this operations
 	tx, err := con.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelDefault,
-		ReadOnly: false,
+		ReadOnly:  false,
 	})
 	if err != nil {
 		log.Errorf("Creating buffer flush transaction: %s", err)
@@ -490,7 +490,7 @@ func (recorder *recorder) buffer(info *InfoRecord) {
 	// start a new transaction for the scope of this operations
 	tx, err := recorder.con.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelDefault,
-		ReadOnly: false,
+		ReadOnly:  false,
 	})
 	if err != nil {
 		log.Errorf("Creating buffer flush transaction: %s", err)

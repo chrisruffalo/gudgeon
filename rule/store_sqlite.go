@@ -175,6 +175,7 @@ func (store *sqlStore) Finalize(sessionRoot string, lists []*config.GudgeonList)
 
 	if store.stmt != nil {
 		_ = store.stmt.Close()
+		store.stmt = nil
 	}
 
 	// commit any outstanding transactions
