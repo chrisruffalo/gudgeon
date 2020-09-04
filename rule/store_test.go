@@ -22,6 +22,7 @@ type ruleList struct {
 	blocked  []string
 	allowed  []string
 	nomatch  []string
+	list     *config.GudgeonList
 }
 
 // quick/dirty rule tests that all stores should pass
@@ -37,30 +38,48 @@ type ruleStoreCreator func() Store
 
 func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing.T) {
 	tmpDir := testutil.TempDir()
-	//defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir)
 
+	store := createRuleStore()
+
+	lists := make([]*config.GudgeonList, 0, len(ruleData))
 	for idx, data := range ruleData {
 		// create rule and rule list
 		ruleType := config.BLOCKSTRING
 		if data.ruleType == config.ALLOW {
 			ruleType = config.ALLOWSTRING
 		}
+		list := &config.GudgeonList{
+			Name: fmt.Sprintf("Test List %d", idx),
+			Type: string(ruleType),
+		}
+		list.VerifyAndInit()
+		data.list = list
+		ruleData[idx] = data
+		lists = append(lists, list)
+	}
 
-		// create single store for test
-		store := createRuleStore()
+	// load rules into target store
+	store.Init(tmpDir, nil, lists)
 
+	// run 10 times back-to-back to ensure that finalize -> clear -> reload -> finalize works
+	for idx := 0; idx < 10; idx++ {
+		singleRunTest(tmpDir, ruleData, store, t)
+	}
+
+	// close store
+	store.Close()
+}
+
+func singleRunTest(tmpDir string, ruleData []ruleList, store Store, t *testing.T) {
+	for _, data := range ruleData {
 		// create and verify/update lists
 		lists := []*config.GudgeonList{
-			{Name: fmt.Sprintf("Test List %d", idx), Type: string(ruleType)},
-		}
-		for _, list := range lists {
-			list.VerifyAndInit()
+			data.list,
 		}
 
-		// load rules into target store
-		store.Init(tmpDir, nil, lists)
 		for _, rule := range data.rules {
-			store.Load(lists[0], rule)
+			store.Load(data.list, rule)
 		}
 		store.Finalize(tmpDir, lists)
 
@@ -80,7 +99,7 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 			}
 		}
 
-		// check no match ata ll
+		// check no match
 		for _, expectedNoMatch := range data.nomatch {
 			result, _, _ := store.FindMatch(lists, expectedNoMatch)
 			if MatchNone != result {
@@ -88,7 +107,7 @@ func testStore(ruleData []ruleList, createRuleStore ruleStoreCreator, t *testing
 			}
 		}
 
-		store.Close()
+		store.Clear(nil, lists[0])
 	}
 }
 
