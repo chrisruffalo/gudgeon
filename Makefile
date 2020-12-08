@@ -70,7 +70,7 @@ DOCKERFILE?=Dockerfile
 OS_TYPE?=$(GOOS)
 OS_VERSION?=7
 OS_BIN_ARCH?=amd64
-OS_ARCH?=x86_64s
+OS_ARCH?=x86_64
 BINARY_TARGET?=$(BINARY_NAME)-$(OS_TYPE)-$(OS_BIN_ARCH)
 
 # set static flag
@@ -84,7 +84,7 @@ GO_BUILD_TAGS?=netgo $(GOOS) sqlite3 jsoniter json1
 GO_LD_FLAGS?=-s -w $(STATIC_FLAG) -X "github.com/chrisruffalo/gudgeon/version.Version=$(VERSION)" -X "github.com/chrisruffalo/gudgeon/version.GitHash=$(GITHASH)" -X "github.com/chrisruffalo/gudgeon/version.Release=$(RELEASE)" -X "github.com/chrisruffalo/gudgeon/version.Descriptor=$(DESCRIPTOR)"
 
 # common FPM commands
-FMPARCH?=$(shell echo "$(OS_ARCH)" | $(SED) -r 's/arm-?5/armhf/g' | $(SED) -r 's/arm-?6/armhf/g' | $(SED) -r 's/arm-?7/armhf/g')
+FMPARCH?=$(shell echo "$(OS_ARCH)" | $(SED) -r 's/arm-?5/armhf/g' | $(SED) -r 's/arm64/armhf/g' | $(SED) -r 's/arm-?6/armhf/g' | $(SED) -r 's/arm-?7/armhf/g')
 FPMCOMMON=-a $(FMPARCH) -n $(BINARY_NAME) -v $(NUMBER) --iteration "$(RELEASE)" --url "$(WEBSITE)" -m "$(MAINTAINER)" --config-files="/etc/gudgeon" --config-files="/etc/gudgeon/gudgeon.yml" --directories="/var/log/gudgeon" --directories="/var/lib/$(BINARY_NAME)" --description "$(DESCRIPTION)" --prefix / -C $(BUILD_DIR)/pkgtmp
 FPMSCRIPTS=$(FPMCOMMON) --before-install $(MKFILE_DIR)/resources/before_install.sh --after-install $(MKFILE_DIR)/resources/after_install.sh
 
@@ -92,7 +92,7 @@ all: test build
 .PHONY: all announce prepare test build clean minimize package rpm deb docker tar npm webpack bench hash
 
 announce: ## Debugging versions mainly for build and travis-ci
-		@echo "$(BINARY_NAME)"
+		@echo "$(BINARY_NAME)" on "$(OS_ARCH)"
 		@echo "=============================="
 		@echo "longversion = $(LONGVERSION)"
 		@echo "version = $(VERSION)"

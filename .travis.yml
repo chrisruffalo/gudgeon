@@ -32,6 +32,7 @@ go_import_path: github.com/chrisruffalo/gudgeon
 
 # establish that go modules are in use
 env:
+  - CGO_ENABLED=1
   - GO111MODULE=on
 
 before_install:
@@ -73,6 +74,7 @@ before_script:
 
   # the script needs to build the binaries to be successful
 script:
+  - export CGO_ENABLED=1
   - travis_retry make test
   # get third-party resources for build
   - make webpack
