@@ -30,11 +30,6 @@ cache:
 # explicit import path
 go_import_path: github.com/chrisruffalo/gudgeon
 
-# establish that go modules are in use
-env:
-  - CGO_ENABLED=1
-  - GO111MODULE=on
-
 before_install:
   # export versions into a format compatible with make file
   - export VERSION=${TRAVIS_TAG}
