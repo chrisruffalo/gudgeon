@@ -122,7 +122,7 @@ deploy:
   api_key: "$GITHUB_OAUTH_TOKEN"
   file_glob: true
   file: build/gudgeon*
-  skip_cleanup: true
+  cleanup: false
   overwrite: true
   on:
     tags: true
