@@ -52,9 +52,9 @@ before_script:
   - go version
   - make announce
   # install dependencies
-  - dpkg --add-architecture arm64
-  - dpkg --add-architecture armhf
-  - dpkg --add-architecture mips
+  - sudo dpkg --add-architecture arm64
+  - sudo dpkg --add-architecture armhf
+  - sudo dpkg --add-architecture mips
   - sudo apt-get install -y ruby ruby-dev build-essential rpm libsqlite3-dev libsqlite3-dev:arm64 libsqlite3-dev:armhf libsqlite3-dev:mips gcc-multilib g++-multilib npm gcc-arm-linux-gnueabihf libc6-dev-armhf-cross gcc-aarch64-linux-gnu libc6-dev-arm64-cross libc6-dev-i386 linux-libc-dev:i386
   - gem install --no-document fpm
   # install node 13
