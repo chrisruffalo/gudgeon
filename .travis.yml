@@ -51,7 +51,7 @@ before_script:
   # announce versions (so that we can debug from here if something is wrong, really)
   - make announce
   # install dependencies
-  - sudo apt-get install -y ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib g++-multilib npm gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi gcc-mips-linux-gnu gcc-mipsel-linux-gnu gcc-5-arm-linux-gnueabi gcc-5-mips-linux-gnu gcc-5-mipsel-linux-gnu
+  - sudo apt-get install -y ruby ruby-dev build-essential rpm libsqlite3-dev gcc-multilib g++-multilib npm
   - gem install --no-document fpm
   # install node 13
   - curl -sL https://deb.nodesource.com/setup_13.x | sudo -E bash -
