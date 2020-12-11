@@ -43,7 +43,7 @@ if [[ "v12.0.0" == "${NPMVSORT}" ]]; then
     # download node for given/provided architecture
     mkdir -p /tmp/nodejs
     cd /tmp/nodejs
-    curl https://nodejs.org/dist/v13.13.0/node-v13.13.0-linux-${NODEARCH}.tar.gz | tar xz --strip-components=1
+    curl https://nodejs.org/dist/v15.4.0/node-v15.4.0-linux-${NODEARCH}.tar.gz | tar xz --strip-components=1
     PATH="/tmp/nodejs/bin:$PATH"
     node --version
     cd -
