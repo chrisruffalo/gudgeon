@@ -11,9 +11,8 @@ require (
 	github.com/daaku/go.zipexe v1.0.1 // indirect
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/fsnotify/fsnotify v1.4.9
-	github.com/gin-gonic/gin v1.6.3
+	github.com/gin-gonic/gin v1.7.7
 	github.com/go-ole/go-ole v1.2.4 // indirect
-	github.com/go-playground/validator/v10 v10.3.0 // indirect
 	github.com/golang-migrate/migrate/v4 v4.12.2
 	github.com/google/uuid v1.1.2
 	github.com/jessevdk/go-flags v1.4.0
